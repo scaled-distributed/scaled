@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scaled"
+description = "Lite distribution for python"
+requires-python = ">=3.10"
+license = { text = "GPL Version 3" }
+dependencies = [
+    "cloudpickle",
+    "zmq",
+    "attrs",
+    "psutil"
+]
+authors = [{ name = "Zhuo Yin", email = "zhuoyin@gmail.com" }]
+dynamic = ["version"]
+
+[project.urls]
+Home = "https://github.com/yzard/scaled"
+
+[project.scripts]
+# scaled_client = "scaled.client:main"
+
+[tool.setuptools.packages.find]
+where = ["scaled"]
+exclude = ["tests"]
+
+[tool.setuptools.dynamic]
+version = {attr = "scaled.__version__"}
