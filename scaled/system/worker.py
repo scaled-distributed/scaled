@@ -2,13 +2,14 @@ import logging
 import multiprocessing
 import pickle
 import threading
+from collections import deque
 from typing import List, Optional
 
 from scaled.system.io.heartbeat import start_heartbeat
 from scaled.system.config import ZMQConfig
 from scaled.system.io.connector import Connector
 from scaled.system.objects import MessageType
-from scaled.system.objects import UnitResult
+from scaled.system.protocol import BACKEND_PROTOCOL, TaskClass
 
 
 class Worker(multiprocessing.get_context("spawn").Process):
@@ -29,8 +30,9 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
         self._heartbeat = None
         self._heartbeat_stop_event = None
-        self._callback = None
+
         self._functions = {}
+        self._task_queue = deque()
 
     def run(self) -> None:
         self._initialize()
@@ -53,23 +55,31 @@ class Worker(multiprocessing.get_context("spawn").Process):
         )
 
     def _on_receive(self, frames: List[bytes]):
-        source, message_type, *data = frames
-        if message_type == MessageType.AddFunction.value:
-            self._functions[pickle.loads(data[0])] = pickle.loads(data[1])
-        elif message_type == MessageType.DelFunction.value:
-            self._functions.pop(pickle.loads(data[0]))
-        elif message_type == MessageType.Task:
-            self._process_task(data)
+        source, message_type, *payload = frames
+        obj = BACKEND_PROTOCOL[message_type](*payload)
 
-    def _process_task(self, data: List[bytes]):
-        function_name_raw, task_list_raw = data
-        function_name = pickle.loads(function_name_raw)
-        if function_name not in self._functions:
-            logging.error(f"cannot find function `{function_name}` in worker")
+        if message_type == MessageType.FunctionAddInstruction.value:
+            self._functions[obj.function_name] = pickle.loads(obj.function)
+        elif message_type == MessageType.FunctionDeleteInstruction.value:
+            self._functions.pop(pickle.loads(obj.function_name))
+        elif message_type == MessageType.Task:
+            self._process_task(obj)
+
+    def _request_function(self, function_name: bytes):
+        self._connector.send([MessageType.FunctionRequest.value, function_name])
+
+    def _process_task(self, task: TaskClass):
+        self._task_queue.append(task)
+
+        if task.function_name not in self._functions:
+            self._request_function(task.function_name)
             return
 
-        task_list = pickle.loads(task_list_raw)
-        result_payload = pickle.dumps(
-            [UnitResult(id=task.id, result=self._functions[task.function_name](*task.args)) for task in task_list]
-        )
-        self._socket.send_multipart([MessageType.Result.value, result_payload])
+        while self._task_queue:
+            # noinspection PyBroadException
+            try:
+                task = self._task_queue.popleft()
+                result = pickle.dumps(self._functions[task.function_name](*pickle.loads(task.args)))
+                self._connector.send([MessageType.TaskResult.value, task.task_id, result])
+            except Exception:
+                logging.exception(f"error when processing {task=}:")

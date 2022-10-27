@@ -21,5 +21,3 @@ class TaskManager:
 
     def remove_task(self, task_id: int):
         self.task_map.pop(task_id)
-
-

@@ -32,7 +32,7 @@ class WorkerHeartbeat(threading.Thread):
             while not self._stop_event.is_set():
                 time.sleep(self._interval)
                 self._socket.send_multipart(
-                    [MessageType.Info.value, self._worker_identity, HeartbeatInfo(psutil.cpu_percent()/100).to_bytes()]
+                    [MessageType.HeartbeatInfo.value, self._worker_identity, HeartbeatInfo(psutil.cpu_percent() / 100).to_bytes()]
                 )
         finally:
             self._socket.close()

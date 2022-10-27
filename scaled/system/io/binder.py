@@ -32,9 +32,9 @@ class Binder:
 
         self._stop_event = stop_event
 
-        self._callback: Optional[Callable[[List[bytes]], Awaitable[None]]] = None
+        self._callback: Optional[Callable[[bytes, bytes, List[bytes]], Awaitable[None]]] = None
 
-    def register(self, callback: Callable[[List[bytes]], Awaitable[None]]):
+    def register(self, callback: Callable[[bytes, bytes, List[bytes]], Awaitable[None]]):
         self._callback = callback
 
     async def start(self):
@@ -44,7 +44,7 @@ class Binder:
         while not self._stop_event.is_set():
             for sock, msg in await self._poller.poll(self._polling_time):
                 frames = await sock.recv_multipart()
-                await self._callback(frames)
+                await self._callback(frames[0], frames[1], frames[2:])
 
     async def send(self, messages: List[bytes]):
         await self._socket.send_multipart(messages)

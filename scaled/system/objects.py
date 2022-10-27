@@ -15,16 +15,18 @@ class JobType(enum.Enum):
 class Task:
     task_id: int
     source: bytes
-    function: bytes
-    list_of_args: List[bytes]
+    function_name: bytes
+    args: bytes
 
 
 class MessageType(enum.Enum):
-    Info = b"IF"
-    AddFunction = b"AF"
-    DelFunction = b"DF"
+    HeartbeatInfo = b"IF"
+    SubmitTask = b"ST"
+    FunctionRequest = b"FR"
+    FunctionAddInstruction = b"AF"
+    FunctionDeleteInstruction = b"DF"
     Task = b"TK"
-    Result = b"RT"
+    TaskResult = b"RT"
 
 
 @attrs.define
@@ -37,7 +39,3 @@ class HeartbeatInfo:
     @staticmethod
     def from_bytes(data: bytes) -> "HeartbeatInfo":
         return HeartbeatInfo(*struct.unpack("f", data))
-
-
-UnitTask = namedtuple("UnitTask", ["id", "function_name", "args"])
-UnitResult = namedtuple("UnitResult", ["id", "result"])
