@@ -1,14 +1,14 @@
 from typing import Dict, Generator, Optional, Set
 
-from scaled.system.objects import Task
+from scaled.protocol.python import WorkerTask
 
 
 class WorkerCollection:
     def __init__(self):
-        self._used_workers: Dict[bytes, Task] = {}
+        self._used_workers: Dict[bytes, WorkerTask] = {}
         self._unused_workers: Set[bytes] = set()
 
-    def __setitem__(self, worker: bytes, task: Optional[Task]):
+    def __setitem__(self, worker: bytes, task: Optional[WorkerTask]):
         if task is not None:
             if worker in self._used_workers:
                 raise ValueError(f"assign {task=} to {worker=} while it still processing {self._used_workers[worker]}")
@@ -21,14 +21,14 @@ class WorkerCollection:
 
             self._unused_workers.add(worker)
 
-    def __getitem__(self, worker: bytes) -> Optional[Task]:
+    def __getitem__(self, worker: bytes) -> Optional[WorkerTask]:
         return self._used_workers.get(worker, None)
 
     def keys(self) -> Generator[bytes, None, None]:
         yield from self._unused_workers
         yield from self._used_workers.keys()
 
-    def pop(self, worker: bytes) -> Optional[Task]:
+    def pop(self, worker: bytes) -> Optional[WorkerTask]:
         if worker not in self._used_workers and worker not in self._unused_workers:
             raise KeyError(f"worker not exists: {worker}")
 

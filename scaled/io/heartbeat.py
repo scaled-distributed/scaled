@@ -5,8 +5,9 @@ import typing
 import psutil
 import zmq
 
-from scaled.system.config import ZMQConfig
-from scaled.system.objects import MessageType, HeartbeatInfo
+from scaled.io.config import ZMQConfig
+from scaled.io.objects import MessageType
+from scaled.protocol.python import Heartbeat
 
 
 class WorkerHeartbeat(threading.Thread):
@@ -32,7 +33,11 @@ class WorkerHeartbeat(threading.Thread):
             while not self._stop_event.is_set():
                 time.sleep(self._interval)
                 self._socket.send_multipart(
-                    [MessageType.HeartbeatInfo.value, self._worker_identity, HeartbeatInfo(psutil.cpu_percent() / 100).to_bytes()]
+                    [
+                        MessageType.WorkerHeartbeat.value,
+                        self._worker_identity,
+                        *Heartbeat(psutil.cpu_percent() / 100).serialize(),
+                    ]
                 )
         finally:
             self._socket.close()

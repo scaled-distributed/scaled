@@ -29,3 +29,9 @@ class ZMQConfig:
             return f"inproc://{self.host}"
 
         raise TypeError(f"Unsupported ZMQ type: {self.type}")
+
+    @staticmethod
+    def from_string(string: str) -> "ZMQConfig":
+        socket_type, host_port = string.split("://", 1)
+        host, port = host_port.split(":")
+        return ZMQConfig(ZMQType(socket_type), host, int(port))

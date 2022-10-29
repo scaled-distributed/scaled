@@ -5,7 +5,10 @@ from typing import List, Optional
 
 import zmq
 
-from scaled.system.config import ZMQConfig
+from scaled.io.config import ZMQConfig
+from scaled.io.objects import MessageType
+
+from scaled.protocol.python import Serializer
 
 
 class Connector:
@@ -14,7 +17,7 @@ class Connector:
         prefix: str,
         address: ZMQConfig,
         stop_event: Optional[multiprocessing.Event] = None,
-        polling_time: int = 1000
+        polling_time: int = 1000,
     ):
         self._address = address
         self._context = zmq.Context.instance()
@@ -30,6 +33,9 @@ class Connector:
 
         self._stop_event = stop_event
 
+    def __del__(self):
+        self._socket.close()
+
     @property
     def identity(self) -> bytes:
         return self._identity
@@ -42,5 +48,5 @@ class Connector:
 
         return self._socket.recv_multipart()
 
-    def send(self, messages: List[bytes]):
-        self._socket.send_multipart(messages)
+    def send(self, message_type: MessageType, data: Serializer):
+        self._socket.send_multipart([message_type.value, *data.serialize()])

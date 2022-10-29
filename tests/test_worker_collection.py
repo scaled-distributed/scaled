@@ -1,7 +1,7 @@
 import unittest
 
-from scaled.system.objects import JobType, Task
-from scaled.system.scheduler.tools.worker_collection import WorkerCollection
+from scaled.system.objects import ClientJobType, Task
+from scaled.system.worker_manager.tools.worker_collection import WorkerCollection
 
 
 class TestWorkerCollection(unittest.TestCase):
@@ -22,11 +22,11 @@ class TestWorkerCollection(unittest.TestCase):
         self.assertEqual(collection.size(), 3)
         self.assertEqual(collection.capacity(), 3)
 
-        collection[b"a"] = Task(1, JobType.Map.value, b"", [b""])
+        collection[b"a"] = Task(1, ClientJobType.Map.value, b"", [b""])
         self.assertEqual(collection.size(), 3)
         self.assertEqual(collection.capacity(), 2)
 
-        collection[b"b"] = Task(2, JobType.Map.value, b"", [b""])
+        collection[b"b"] = Task(2, ClientJobType.Map.value, b"", [b""])
         self.assertEqual(collection.size(), 3)
         self.assertEqual(collection.capacity(), 1)
 

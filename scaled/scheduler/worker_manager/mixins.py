@@ -1,11 +1,11 @@
 import abc
 
-from scaled.system.objects import HeartbeatInfo, Task
+from scaled.protocol.python import WorkerTask, Heartbeat
 
 
-class Scheduler(metaclass=abc.ABCMeta):
+class WorkerManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_task(self, task: Task):
+    async def on_task_new(self, task: WorkerTask) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -13,9 +13,9 @@ class Scheduler(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_heartbeat(self, worker: bytes, info: HeartbeatInfo):
+    async def on_heartbeat(self, worker: bytes, info: Heartbeat):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_check(self):
+    async def loop(self):
         raise NotImplementedError()

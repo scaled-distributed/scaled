@@ -1,23 +1,17 @@
 import os
 import socket
-from typing import List, Callable, Awaitable, Optional
-
+from typing import List, Callable, Awaitable, Optional, Tuple
 import asyncio
 
 import zmq
 import zmq.asyncio
 
-from scaled.system.config import ZMQConfig
+from scaled.io.config import ZMQConfig
+from scaled.io.objects import MessageType
 
 
 class Binder:
-    def __init__(
-        self,
-        prefix: str,
-        address: ZMQConfig,
-        stop_event: asyncio.Event,
-        polling_time: int = 1000
-    ):
+    def __init__(self, prefix: str, address: ZMQConfig, stop_event: asyncio.Event, polling_time: int = 1000):
         self._address = address
         self._context = zmq.asyncio.Context.instance()
         self._socket = self._context.socket(zmq.ROUTER)
@@ -46,5 +40,5 @@ class Binder:
                 frames = await sock.recv_multipart()
                 await self._callback(frames[0], frames[1], frames[2:])
 
-    async def send(self, messages: List[bytes]):
-        await self._socket.send_multipart(messages)
+    async def send(self, to: bytes, message_type: MessageType, data: Tuple[bytes]):
+        await self._socket.send_multipart([to, message_type.value, *data])
