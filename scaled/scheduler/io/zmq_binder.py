@@ -1,16 +1,18 @@
 import os
 import socket
-from typing import List, Callable, Awaitable, Optional, Tuple
+from typing import List, Callable, Awaitable, Optional
 import asyncio
 
 import zmq
 import zmq.asyncio
 
 from scaled.io.config import ZMQConfig
-from scaled.io.objects import MessageType
+from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.serializer import Serializer
+from scaled.scheduler.mixins import Binder
 
 
-class Binder:
+class ZMQBinder(Binder):
     def __init__(self, prefix: str, address: ZMQConfig, stop_event: asyncio.Event, polling_time: int = 1000):
         self._address = address
         self._context = zmq.asyncio.Context.instance()
@@ -31,7 +33,7 @@ class Binder:
     def register(self, callback: Callable[[bytes, bytes, List[bytes]], Awaitable[None]]):
         self._callback = callback
 
-    async def start(self):
+    async def loop(self):
         if self._callback is None:
             raise ValueError(f"please use Driver.register() to register callback before start")
 
@@ -40,5 +42,5 @@ class Binder:
                 frames = await sock.recv_multipart()
                 await self._callback(frames[0], frames[1], frames[2:])
 
-    async def send(self, to: bytes, message_type: MessageType, data: Tuple[bytes]):
-        await self._socket.send_multipart([to, message_type.value, *data])
+    async def on_send(self, to: bytes, message_type: MessageType, data: Serializer):
+        await self._socket.send_multipart([to, message_type.value, *data.serialize()])

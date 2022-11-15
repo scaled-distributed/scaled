@@ -6,8 +6,8 @@ import psutil
 import zmq
 
 from scaled.io.config import ZMQConfig
-from scaled.io.objects import MessageType
-from scaled.protocol.python import Heartbeat
+from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import Heartbeat
 
 
 class WorkerHeartbeat(threading.Thread):
@@ -34,9 +34,8 @@ class WorkerHeartbeat(threading.Thread):
                 time.sleep(self._interval)
                 self._socket.send_multipart(
                     [
-                        MessageType.WorkerHeartbeat.value,
-                        self._worker_identity,
-                        *Heartbeat(psutil.cpu_percent() / 100).serialize(),
+                        MessageType.Heartbeat.value,
+                        *Heartbeat(self._worker_identity, psutil.cpu_percent() / 100).serialize(),
                     ]
                 )
         finally:

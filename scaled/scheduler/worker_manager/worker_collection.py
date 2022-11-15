@@ -1,34 +1,34 @@
 from typing import Dict, Generator, Optional, Set
 
-from scaled.protocol.python import WorkerTask
+from scaled.protocol.python.message import Job
 
 
 class WorkerCollection:
     def __init__(self):
-        self._used_workers: Dict[bytes, WorkerTask] = {}
+        self._used_workers: Dict[bytes, Job] = {}
         self._unused_workers: Set[bytes] = set()
 
-    def __setitem__(self, worker: bytes, task: Optional[WorkerTask]):
-        if task is not None:
+    def __setitem__(self, worker: bytes, job: Optional[Job]):
+        if job is not None:
             if worker in self._used_workers:
-                raise ValueError(f"assign {task=} to {worker=} while it still processing {self._used_workers[worker]}")
+                raise ValueError(f"assign {job=} to {worker=} while it still processing {self._used_workers[worker]}")
 
             self._unused_workers.remove(worker)
-            self._used_workers[worker] = task
+            self._used_workers[worker] = job
         else:
             if worker in self._used_workers:
                 self._used_workers.pop(worker)
 
             self._unused_workers.add(worker)
 
-    def __getitem__(self, worker: bytes) -> Optional[WorkerTask]:
+    def __getitem__(self, worker: bytes) -> Optional[Job]:
         return self._used_workers.get(worker, None)
 
     def keys(self) -> Generator[bytes, None, None]:
         yield from self._unused_workers
         yield from self._used_workers.keys()
 
-    def pop(self, worker: bytes) -> Optional[WorkerTask]:
+    def pop(self, worker: bytes) -> Optional[Job]:
         if worker not in self._used_workers and worker not in self._unused_workers:
             raise KeyError(f"worker not exists: {worker}")
 

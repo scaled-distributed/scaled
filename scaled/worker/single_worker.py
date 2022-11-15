@@ -3,13 +3,15 @@ import multiprocessing
 import pickle
 import threading
 from collections import deque
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from scaled.io.heartbeat import start_heartbeat
 from scaled.io.config import ZMQConfig
 from scaled.io.connector import Connector
-from scaled.io.objects import MessageType, TaskStatus
-from scaled.protocol.python import PROTOCOL, WorkerTask, FunctionRequest, WorkerTaskResult
+from scaled.protocol.python.objects import MessageType, JobStatus
+from scaled.protocol.python.message import (
+    JobResult, Job, PROTOCOL, FunctionRequest,
+)
 
 
 class SingleWorker(multiprocessing.get_context("spawn").Process):
@@ -31,8 +33,8 @@ class SingleWorker(multiprocessing.get_context("spawn").Process):
         self._heartbeat = None
         self._heartbeat_stop_event = None
 
-        self._functions = {}
-        self._task_queue = deque()
+        self._cached_functions: Dict[int, Dict[bytes, Any]] = {}
+        self._map_job_queue = deque()
 
     def run(self) -> None:
         self._initialize()
@@ -58,37 +60,44 @@ class SingleWorker(multiprocessing.get_context("spawn").Process):
             obj = PROTOCOL[message_type].deserialize(*payload)
 
             match message_type:
-                case MessageType.WorkerFunctionAdd.value:
-                    self._functions[obj.function_name] = pickle.loads(obj.function)
-                case MessageType.WorkerFunctionDelete.value:
-                    self._functions.pop(pickle.loads(obj.function_name))
-                case MessageType.WorkerTask:
-                    self._process_task(obj)
+                case MessageType.FunctionResult.value:
+                    self._cached_functions[obj.job_id][obj.function_name] = pickle.loads(obj.function)
+                case MessageType.DeleteFunction.value:
+                    self._cached_functions[obj.job_id].pop(obj.function_name)
+                    if len(self._cached_functions[obj.job_id]) == 0:
+                        self._cached_functions.pop(obj.job_id)
+                case MessageType.Job:
+                    self._process_map_job(obj)
+                case _:
+                    raise TypeError(f"Worker received unsupported message type: {message_type}")
         except Exception as e:
             logging.exception(f"{self._connector.identity}: critical exception\n{e}")
         finally:
             self._heartbeat_stop_event.join()
 
-    def _request_function(self, function_name: bytes):
-        self._connector.send(MessageType.WorkerFunctionRequest, FunctionRequest(function_name))
+    def _process_map_job(self, job: Job):
+        self._map_job_queue.append(job)
 
-    def _process_task(self, task: WorkerTask):
-        self._task_queue.append(task)
-
-        if task.function_name not in self._functions:
-            self._request_function(task.function_name)
+        if job.function_name not in self._cached_functions:
+            self._request_function(job.job_id, job.function_name)
             return
 
-        while self._task_queue:
+        while self._map_job_queue:
             # noinspection PyBroadException
             try:
-                task = self._task_queue.popleft()
-                result = pickle.dumps(self._functions[task.function_name](*pickle.loads(task.args)))
+                job = self._map_job_queue.popleft()
+                result = tuple(
+                    pickle.dumps(self._cached_functions[job.job_id][job.function_name](*pickle.loads(args)))
+                    for args in job.list_of_args
+                )
                 self._connector.send(
-                    MessageType.WorkerTaskResult, WorkerTaskResult(task.task_id, TaskStatus.Success, result)
+                    MessageType.JobResult, JobResult(job.task_id, JobStatus.Success, result)
                 )
             except Exception as e:
-                logging.exception(f"error when processing {task=}:")
+                logging.exception(f"error when processing {job=}:")
                 self._connector.send(
-                    MessageType.WorkerTaskResult, WorkerTaskResult(task.task_id, TaskStatus.Failed, str(e).encode())
+                    MessageType.JobResult, JobResult(job.task_id, JobStatus.Failed, (str(e).encode(),))
                 )
+
+    def _request_function(self, job_id: int, function_name: bytes):
+        self._connector.send(MessageType.RequestFunction, FunctionRequest(job_id, function_name))

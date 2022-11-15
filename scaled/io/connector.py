@@ -6,9 +6,9 @@ from typing import List, Optional
 import zmq
 
 from scaled.io.config import ZMQConfig
-from scaled.io.objects import MessageType
+from scaled.protocol.python.objects import MessageType
 
-from scaled.protocol.python import Serializer
+from scaled.protocol.python.serializer import Serializer
 
 
 class Connector:
