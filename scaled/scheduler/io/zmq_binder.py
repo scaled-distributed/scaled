@@ -13,7 +13,7 @@ from scaled.scheduler.mixins import Binder
 
 
 class ZMQBinder(Binder):
-    def __init__(self, prefix: str, address: ZMQConfig, stop_event: asyncio.Event, polling_time: int = 1000):
+    def __init__(self, stop_event: asyncio.Event, prefix: str, address: ZMQConfig, polling_time: int = 1000):
         self._address = address
         self._context = zmq.asyncio.Context.instance()
         self._socket = self._context.socket(zmq.ROUTER)

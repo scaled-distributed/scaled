@@ -4,9 +4,8 @@ from typing import Awaitable, Callable, List, Tuple
 from scaled.protocol.python.objects import MessageType
 from scaled.protocol.python.job_handler import AsyncJobHandler
 from scaled.protocol.python.message import (
-    Job,
-    GraphJob,
-    JobResult,
+    Task,
+    TaskResult,
     Heartbeat,
 )
 from scaled.protocol.python.serializer import Serializer
@@ -14,11 +13,11 @@ from scaled.protocol.python.serializer import Serializer
 
 class JobDispatcher(AsyncJobHandler):
     @abc.abstractmethod
-    async def on_job(self, client: bytes, job: Job):
+    async def on_job(self, client: bytes, job: Task):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_job_done(self, job_result: JobResult):
+    async def on_job_done(self, job_result: TaskResult):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -28,11 +27,15 @@ class JobDispatcher(AsyncJobHandler):
 
 class WorkerManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_task_new(self, job: Job) -> bytes:
+    async def on_task_new(self, task: Task):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_done(self, job_id: int):
+    async def on_task_cancel(self, task_id: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_task_done(self, task_result: TaskResult):
         raise NotImplementedError()
 
     @abc.abstractmethod

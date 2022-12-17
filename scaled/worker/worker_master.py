@@ -4,7 +4,7 @@ import signal
 from typing import List
 
 from scaled.io.config import ZMQConfig
-from scaled.worker.single_worker import SingleWorker
+from scaled.worker.worker import Worker
 
 
 class WorkerMaster:
@@ -16,7 +16,7 @@ class WorkerMaster:
         self._heartbeat_interval = heartbeat_interval
 
         self._stop_event = multiprocessing.get_context("spawn").Event()
-        self._workers: List[SingleWorker] = []
+        self._workers: List[Worker] = []
 
     def run(self):
         self._register_signal()
@@ -40,7 +40,7 @@ class WorkerMaster:
     def _start_workers(self):
         for i in range(self._n_workers):
             self._workers.append(
-                SingleWorker(
+                Worker(
                     address=self._address,
                     stop_event=self._stop_event,
                     polling_time=self._polling_time,

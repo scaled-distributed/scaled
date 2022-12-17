@@ -1,6 +1,6 @@
 import unittest
 
-from scaled.protocol.python.message import Job
+from scaled.protocol.python.message import Task
 from scaled.scheduler.worker_manager.worker_collection import WorkerCollection
 
 
@@ -22,11 +22,11 @@ class TestWorkerCollection(unittest.TestCase):
         self.assertEqual(collection.size(), 3)
         self.assertEqual(collection.capacity(), 3)
 
-        collection[b"a"] = Job(1, b"", [b""])
+        collection[b"a"] = Task(b"1", b"", (b"",))
         self.assertEqual(collection.size(), 3)
         self.assertEqual(collection.capacity(), 2)
 
-        collection[b"b"] = Job(2, b"", [b""])
+        collection[b"b"] = Task(b"2", b"", (b"",))
         self.assertEqual(collection.size(), 3)
         self.assertEqual(collection.capacity(), 1)
 

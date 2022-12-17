@@ -1,53 +1,62 @@
-import pickle
 import struct
 from typing import Tuple, List, Dict
 
 import attrs
 
-from scaled.protocol.python.objects import MessageType, JobStatus
+from scaled.protocol.python.objects import MessageType, TaskStatus
 from scaled.protocol.python.serializer import Serializer
 
 
 @attrs.define
-class Job(Serializer):
-    job_id: bytes
-    tree: Dict[bytes, "Job"]
+class Task(Serializer):
+    task_id: bytes
     function_name: bytes
-    list_of_args: Tuple[bytes]
+    function_args: Tuple[bytes, ...]
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.job_id, self.function_name, *self.list_of_args
+        return self.task_id, self.function_name, *self.function_args
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Job(data[0], data[1], tuple(data[2:]))
+        return Task(data[0], data[1], tuple(data[2:]))
 
 
 @attrs.define
-class JobResult(Serializer):
-    job_id: bytes
-    function_name: bytes
-    status: JobStatus
-    results: Tuple[bytes, ...]
+class TaskCancel(Serializer):
+    task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.job_id, self.status.value, *self.results
+        return self.task_id,
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return JobResult(data[0], JobStatus(data[1]), tuple(data[2:]))
+        return TaskCancel(data[0])
 
 
 @attrs.define
-class JobEcho(Serializer):
-    job_id: bytes
+class TaskResult(Serializer):
+    task_id: bytes
+    status: TaskStatus
+    result: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.job_id,
+        return self.task_id, self.status.value, *self.result
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return JobEcho(struct.unpack("l", data[0])[0])
+        return TaskResult(data[0], TaskStatus(data[1]), data[2])
+
+
+@attrs.define
+class TaskEcho(Serializer):
+    task_id: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.task_id,
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return TaskEcho(struct.unpack("l", data[0])[0])
 
 
 @attrs.define
@@ -65,7 +74,7 @@ class Heartbeat(Serializer):
 
 PROTOCOL = {
     MessageType.Heartbeat.value: Heartbeat,
-    MessageType.Job.value: Job,
-    MessageType.JobEcho.value: JobEcho,
-    MessageType.JobResult.value: JobResult,
+    MessageType.Task.value: Task,
+    MessageType.TaskEcho.value: TaskEcho,
+    MessageType.TaskResult.value: TaskResult,
 }

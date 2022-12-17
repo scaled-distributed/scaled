@@ -11,12 +11,12 @@ will be sent to main scheduler and then be split into sub jobs to sub-schedulers
 import abc
 from typing import List, Tuple
 
-from scaled.protocol.python.message import JobResult, Job
+from scaled.protocol.python.message import TaskResult, Task
 
 
 class JobHandler(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def on_job(self, client: bytes, job: Job) -> List[Job]:
+    def on_job(self, client: bytes, job: Task) -> List[Task]:
         """when received new map job instruction"""
         raise NotImplementedError()
 
@@ -26,14 +26,14 @@ class JobHandler(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def on_job_done(self, job_result: JobResult) -> None:
+    def on_job_done(self, job_result: TaskResult) -> None:
         """job done can be success or failed"""
         raise NotImplementedError()
 
 
 class AsyncJobHandler(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_job(self, client: bytes, job: Job) -> List[Job]:
+    async def on_job(self, client: bytes, job: Task) -> List[Task]:
         """when received new map job instruction"""
         raise NotImplementedError()
 
@@ -43,6 +43,6 @@ class AsyncJobHandler(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_job_done(self, job_result: JobResult) -> None:
+    async def on_job_done(self, job_result: TaskResult) -> None:
         """job done can be success or failed"""
         raise NotImplementedError()

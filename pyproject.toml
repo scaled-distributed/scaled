@@ -7,14 +7,8 @@ name = "scaled"
 description = "Lite distribution for python"
 requires-python = ">=3.10"
 license = { text = "GPL Version 3" }
-dependencies = [
-    "cloudpickle",
-    "zmq",
-    "attrs",
-    "psutil"
-]
 authors = [{ name = "Zhuo Yin", email = "zhuoyin@gmail.com" }]
-dynamic = ["version"]
+dynamic = ["dependencies", "version"]
 
 [project.urls]
 Home = "https://github.com/yzard/scaled"
@@ -27,4 +21,5 @@ where = ["scaled"]
 exclude = ["tests"]
 
 [tool.setuptools.dynamic]
+dependencies = {file = "requirements.txt"}
 version = {attr = "scaled.__version__"}
