@@ -26,7 +26,7 @@ class TaskCancel(Serializer):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id,
+        return (self.task_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -52,7 +52,7 @@ class TaskEcho(Serializer):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id,
+        return (self.task_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -65,7 +65,10 @@ class Heartbeat(Serializer):
     cpu_usage: float
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.identity, struct.pack("f", self.cpu_usage),
+        return (
+            self.identity,
+            struct.pack("f", self.cpu_usage),
+        )
 
     @staticmethod
     def deserialize(data: List[bytes]):

@@ -1,3 +1,4 @@
+import logging
 import os
 import socket
 from typing import List, Callable, Awaitable, Optional
@@ -40,6 +41,10 @@ class ZMQBinder(Binder):
         while not self._stop_event.is_set():
             for sock, msg in await self._poller.poll(self._polling_time):
                 frames = await sock.recv_multipart()
+                if len(frames) < 3:
+                    logging.error(f"{self._identity}: received unexpected frames {frames}")
+                    continue
+
                 await self._callback(frames[0], frames[1], frames[2:])
 
     async def on_send(self, to: bytes, message_type: MessageType, data: Serializer):

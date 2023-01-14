@@ -2,25 +2,20 @@ import logging
 import multiprocessing
 import pickle
 import threading
-from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional, Callable
 
 from scaled.io.heartbeat import start_heartbeat
 from scaled.io.config import ZMQConfig
 from scaled.io.connector import Connector
 from scaled.protocol.python.objects import MessageType, TaskStatus
-from scaled.protocol.python.message import (
-    TaskResult, Task,
-)
+from scaled.protocol.python.message import TaskResult, Task, TaskCancel
+from scaled.protocol.python.serializer import Serializer
+from scaled.worker.utility import load_function
 
 
 class Worker(multiprocessing.get_context("spawn").Process):
     def __init__(
-            self,
-            address: ZMQConfig,
-            stop_event: multiprocessing.Event,
-            polling_time: int,
-            heartbeat_interval: int,
+        self, address: ZMQConfig, stop_event: multiprocessing.Event, polling_time: int, heartbeat_interval: int
     ):
         multiprocessing.Process.__init__(self, name="worker")
 
@@ -34,7 +29,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._heartbeat_stop_event = None
 
         self._cached_functions: Dict[bytes, Any] = {}
-        self._task_queue = deque()
 
     def run(self) -> None:
         self._initialize()
@@ -42,7 +36,10 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def _run_forever(self):
         while not self._stop_event.is_set():
-            self._on_receive(self._connector.receive())
+            self._on_receive(*self._connector.receive())
+
+        self._heartbeat_stop_event.join()
+        print(f"{self._connector.identity}: quiting")
 
     def _initialize(self):
         self._connector = Connector("W", self._address, self._stop_event, self._polling_time)
@@ -53,39 +50,35 @@ class Worker(multiprocessing.get_context("spawn").Process):
             interval=self._heartbeat_interval,
             stop_event=self._heartbeat_stop_event,
         )
+        print(f"{self._connector.identity}: started")
 
-    def _on_receive(self, frames: List[bytes]):
+    def _on_receive(self, source: bytes, message_type: MessageType, data: Serializer):
+        match data:
+            case Task():
+                self._process_task(data)
+            case TaskCancel():
+                self._process_task_cancel(data)
+            case _:
+                logging.exception(f"{self._connector.identity}: unknown {message_type=} {data=} from {source}")
+
+    def _get_function(self, function_name: bytes) -> Callable:
+        if function_name in self._cached_functions:
+            return self._cached_functions[function_name]
+
+        app = load_function(function_name)
+        self._cached_functions[function_name] = app
+        return app
+
+    def _process_task(self, task: Task):
+        # noinspection PyBroadException
         try:
-            source, message_type, *payload = frames
-            assert message_type == MessageType.Task
-            self._process_tasks(Task.deserialize(*payload))
+            function = self._get_function(task.function_name)
+            result = pickle.dumps(function(*(pickle.loads(args) for args in task.function_args)))
+            self._connector.send(MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Success, result))
         except Exception as e:
-            logging.exception(f"{self._connector.identity}: critical exception\n{e}")
-        finally:
-            self._heartbeat_stop_event.join()
+            logging.exception(f"error when processing {task=}:")
+            self._connector.send(MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Failed, str(e).encode()))
 
-    def _process_tasks(self, task: Task):
-        self._task_queue.append(task)
-
-        if task.function_name not in self._cached_functions:
-            self._add_function_cache(task.function_name)
-            return
-
-        while self._task_queue:
-            # noinspection PyBroadException
-            try:
-                task = self._task_queue.popleft()
-                result = pickle.dumps(
-                    self._cached_functions[task.function_name](*(pickle.loads(args) for args in task.function_args))
-                )
-                self._connector.send(
-                    MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Success, result)
-                )
-            except Exception as e:
-                logging.exception(f"error when processing {task=}:")
-                self._connector.send(
-                    MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Failed, str(e).encode())
-                )
-
-    def _add_function_cache(self, function_name: bytes):
-        function_name
+    def _process_task_cancel(self, task: Task):
+        # TODO: implement this
+        pass

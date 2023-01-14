@@ -43,10 +43,7 @@ class SimpleJobDispatcher(JobDispatcher):
             (job_id, function_name), results = self._job_id_func_to_job_result.popitem()
             client = self._job_id_to_client.pop(job_id)
             await self._binder.on_send(
-                client, MessageType.JobResult, TaskResult(
-                    job_id, function_name, TaskStatus.Success,
-                    results
-                )
+                client, MessageType.JobResult, TaskResult(job_id, function_name, TaskStatus.Success, results)
             )
 
     async def on_job(self, client: bytes, job: Task) -> List[Task]:

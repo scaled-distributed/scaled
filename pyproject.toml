@@ -17,7 +17,7 @@ Home = "https://github.com/yzard/scaled"
 # scaled_client = "scaled.client:main"
 
 [tool.setuptools.packages.find]
-where = ["scaled"]
+where = ["."]
 exclude = ["tests"]
 
 [tool.setuptools.dynamic]

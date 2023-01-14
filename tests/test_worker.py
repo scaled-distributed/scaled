@@ -9,6 +9,7 @@ from scaled.io.config import ZMQConfig, ZMQType
 from scaled.protocol.python.message import Heartbeat
 
 
+
 class TestWorker(unittest.TestCase):
     def test_worker_heartbeat(self):
         async def callback(to: bytes, message_type: bytes, data: List[bytes]):
@@ -24,3 +25,4 @@ class TestWorker(unittest.TestCase):
         driver = ZMQBinder(stop_event=async_stop_event, prefix="Backend", address=config)
         driver.register(callback)
         asyncio.run(driver.loop())
+
