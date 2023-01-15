@@ -33,16 +33,16 @@ class JobHandler(metaclass=abc.ABCMeta):
 
 class AsyncJobHandler(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_job(self, client: bytes, job: Task) -> List[Task]:
+    async def on_task(self, client: bytes, job: Task) -> List[Task]:
         """when received new map job instruction"""
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_cancel_job(self, job_id: int, message: Tuple[bytes, ...]):
+    async def on_task_cancel(self, job_id: int, message: Tuple[bytes, ...]):
         """when job received cancel instruction"""
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_job_done(self, job_result: TaskResult) -> None:
+    async def on_task_done(self, job_result: TaskResult) -> None:
         """job done can be success or failed"""
         raise NotImplementedError()

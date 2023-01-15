@@ -3,7 +3,8 @@ import unittest
 import multiprocessing
 
 from scaled.io.config import ZMQConfig, ZMQType
-from scaled.worker.worker_master import WorkerMaster
+from scaled.scheduler.router import Router
+from scaled.cluster.local.local_cluster import LocalCluster
 
 
 def sleep_print(sec: int):
@@ -17,8 +18,8 @@ class TestWorkerMaster(unittest.TestCase):
 
         event = multiprocessing.get_context("spawn").Event()
 
-        master = WorkerMaster(address=config, n_workers=4, stop_event=event, polling_time=1, heartbeat_interval=5)
-        master.start()
+        cluster = LocalCluster(config=config, n_workers=4, stop_event=event, polling_time=1, heartbeat_interval=5)
+        cluster.start()
 
         time.sleep(10)
         event.set()

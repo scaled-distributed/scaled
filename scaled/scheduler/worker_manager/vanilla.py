@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 from scaled.protocol.python.objects import MessageType
-from scaled.scheduler.mixins import Binder, JobDispatcher, WorkerManager
+from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
 from scaled.scheduler.worker_manager.worker_collection import WorkerCollection
 from scaled.protocol.python.message import Heartbeat, Task, TaskResult, TaskCancel
 
@@ -15,13 +15,13 @@ class VanillaWorkerManager(WorkerManager):
         self._timeout_seconds = timeout_seconds
 
         self._binder: Optional[Binder] = None
-        self._job_dispatcher: Optional[JobDispatcher] = None
+        self._job_dispatcher: Optional[TaskManager] = None
 
         self._alive_since = {}
         self._task_to_worker = {}
         self._worker_to_task: WorkerCollection = WorkerCollection()
 
-    def hook(self, binder: Binder, job_dispatcher: JobDispatcher):
+    def hook(self, binder: Binder, job_dispatcher: TaskManager):
         self._binder = binder
         self._job_dispatcher = job_dispatcher
 

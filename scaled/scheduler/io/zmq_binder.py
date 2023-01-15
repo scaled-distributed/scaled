@@ -36,7 +36,7 @@ class ZMQBinder(Binder):
 
     async def loop(self):
         if self._callback is None:
-            raise ValueError(f"please use Driver.register() to register callback before start")
+            raise ValueError(f"please use ZMQBinder.register() to register callback before start")
 
         while not self._stop_event.is_set():
             for sock, msg in await self._poller.poll(self._polling_time):

@@ -3,25 +3,21 @@ from typing import Awaitable, Callable, List, Tuple
 
 from scaled.protocol.python.objects import MessageType
 from scaled.protocol.python.job_handler import AsyncJobHandler
-from scaled.protocol.python.message import (
-    Task,
-    TaskResult,
-    Heartbeat,
-)
+from scaled.protocol.python.message import Task, TaskResult, Heartbeat
 from scaled.protocol.python.serializer import Serializer
 
 
-class JobDispatcher(AsyncJobHandler):
+class TaskManager(AsyncJobHandler):
     @abc.abstractmethod
-    async def on_job(self, client: bytes, job: Task):
+    async def on_task(self, client: bytes, task: Task):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_job_done(self, job_result: TaskResult):
+    async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_cancel_job(self, job_id: int, message: Tuple[bytes, ...]):
+    async def on_task_cancel(self, job_id: int, message: Tuple[bytes, ...]):
         raise NotImplementedError()
 
 
