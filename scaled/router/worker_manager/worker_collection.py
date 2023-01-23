@@ -9,6 +9,7 @@ class WorkerCollection:
         self._unused_workers: Set[bytes] = set()
 
     def __setitem__(self, worker: bytes, task: Optional[Task]):
+        assert isinstance(worker, bytes)
         if task is not None:
             if worker in self._used_workers:
                 raise ValueError(f"assign {task=} to {worker=} while it still processing {self._used_workers[worker]}")
@@ -22,6 +23,7 @@ class WorkerCollection:
             self._unused_workers.add(worker)
 
     def __getitem__(self, worker: bytes) -> Optional[Task]:
+        assert isinstance(worker, bytes)
         return self._used_workers.get(worker, None)
 
     def keys(self) -> Generator[bytes, None, None]:

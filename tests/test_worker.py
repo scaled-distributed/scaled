@@ -3,11 +3,10 @@ import multiprocessing
 import unittest
 from typing import List
 
-from scaled.worker.worker import Worker
-from scaled.scheduler.io.zmq_binder import ZMQBinder
 from scaled.io.config import ZMQConfig, ZMQType
+from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import Heartbeat
-
+from scaled.worker.worker import Worker
 
 
 class TestWorker(unittest.TestCase):
@@ -22,7 +21,6 @@ class TestWorker(unittest.TestCase):
         worker.start()
 
         async_stop_event = asyncio.Event()
-        driver = ZMQBinder(stop_event=async_stop_event, prefix="Backend", address=config)
+        driver = AsyncBinder(stop_event=async_stop_event, prefix="Backend", address=config)
         driver.register(callback)
         asyncio.run(driver.loop())
-

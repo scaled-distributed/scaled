@@ -2,8 +2,7 @@ import enum
 from typing import Optional
 
 import attrs
-from attrs.validators import optional
-from attrs.validators import instance_of
+from attrs.validators import instance_of, optional
 
 
 class ZMQType(enum.Enum):

@@ -1,41 +1,46 @@
 import asyncio
+import threading
 import logging
 import time
 from typing import Optional
 
 from scaled.protocol.python.objects import MessageType
-from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
-from scaled.scheduler.worker_manager.worker_collection import WorkerCollection
+from scaled.router.mixins import Binder, TaskManager, WorkerManager
+from scaled.router.worker_manager.worker_collection import WorkerCollection
 from scaled.protocol.python.message import Heartbeat, Task, TaskResult, TaskCancel
 
 
-class VanillaWorkerManager(WorkerManager):
-    def __init__(self, stop_event: asyncio.Event, timeout_seconds: int):
+class SimpleWorkerManager(WorkerManager):
+    def __init__(self, stop_event: threading.Event, timeout_seconds: int):
         self._stop_event = stop_event
         self._timeout_seconds = timeout_seconds
 
         self._binder: Optional[Binder] = None
-        self._job_dispatcher: Optional[TaskManager] = None
+        self._task_manager: Optional[TaskManager] = None
 
         self._alive_since = {}
         self._task_to_worker = {}
         self._worker_to_task: WorkerCollection = WorkerCollection()
 
-    def hook(self, binder: Binder, job_dispatcher: TaskManager):
+    def hook(self, binder: Binder, task_manager: TaskManager):
         self._binder = binder
-        self._job_dispatcher = job_dispatcher
+        self._task_manager = task_manager
 
     async def on_task_new(self, task: Task):
-        while not self._worker_to_task.full():
+        while not self._stop_event.is_set() and self._worker_to_task.full():
             await asyncio.sleep(0)
+
+        if self._stop_event.is_set():
+            return
 
         # get available worker
         worker = self._worker_to_task.get_worker()
+
         self._worker_to_task[worker] = task
         self._task_to_worker[task.task_id] = worker
 
         # send to worker
-        await self._binder.on_send(worker, MessageType.Task, task)
+        await self._binder.send(worker, MessageType.Task, task)
 
     async def on_task_cancel(self, task_id: bytes):
         if task_id not in self._task_to_worker:
@@ -43,11 +48,12 @@ class VanillaWorkerManager(WorkerManager):
             return
 
         worker = self._task_to_worker[task_id]
-        await self._binder.on_send(worker, MessageType.TaskCancel, TaskCancel(task_id))
+        await self._binder.send(worker, MessageType.TaskCancel, TaskCancel(task_id))
 
     async def on_task_done(self, task_result: TaskResult):
         worker = self._task_to_worker.pop(task_result.task_id)
         self._worker_to_task[worker] = None
+        await self._task_manager.on_task_done(task_result)
 
     async def on_heartbeat(self, worker: bytes, info: Heartbeat):
         if worker not in self._worker_to_task:

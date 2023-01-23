@@ -1,7 +1,9 @@
+import logging
 import multiprocessing
 from typing import List
 
 from scaled.io.config import ZMQConfig
+from scaled.utility.logging import setup_logger
 from scaled.worker.worker import Worker
 
 
@@ -14,7 +16,7 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         polling_time: int,
         heartbeat_interval: int,
     ):
-        multiprocessing.Process.__init__(self, name="worker_master")
+        multiprocessing.Process.__init__(self, name="WorkerMaster")
 
         self._address = address
         self._n_workers = n_workers
@@ -26,6 +28,7 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         self._workers: List[Worker] = []
 
     def run(self):
+        setup_logger()
         self._start_workers()
         self.join()
 
@@ -33,10 +36,10 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         for worker in self._workers:
             worker.join()
 
-        print("WorkerMaster: quiting")
+        logging.info("WorkerMaster: exited")
 
     def _start_workers(self):
-        print("WorkerMaster: starting")
+        logging.info("WorkerMaster: started")
         for i in range(self._n_workers):
             self._workers.append(
                 Worker(
@@ -53,4 +56,3 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
 
         for worker in self._workers:
             worker.start()
-

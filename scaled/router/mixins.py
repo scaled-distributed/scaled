@@ -1,27 +1,51 @@
 import abc
 from typing import Awaitable, Callable, List, Tuple
 
+from scaled.protocol.python.message import Heartbeat, Message, Task, TaskResult
 from scaled.protocol.python.objects import MessageType
-from scaled.protocol.python.job_handler import AsyncJobHandler
-from scaled.protocol.python.message import Task, TaskResult, Heartbeat
-from scaled.protocol.python.serializer import Serializer
 
 
-class TaskManager(AsyncJobHandler):
+class Looper(metaclass=abc.ABCMeta):
+    async def loop(self):
+        raise NotImplementedError()
+
+
+class ClientManager(Looper):
+
     @abc.abstractmethod
-    async def on_task(self, client: bytes, task: Task):
+    async def on_task_new(self, client: bytes, task: Task):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_task_cancel(self, client: bytes, task_id: bytes):
         raise NotImplementedError()
 
     @abc.abstractmethod
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
+    async def loop(self):
+        raise NotImplementedError()
+
+class TaskManager(Looper):
     @abc.abstractmethod
-    async def on_task_cancel(self, job_id: int, message: Tuple[bytes, ...]):
+    async def on_task_new(self, client: bytes, task: Task):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_task_cancel(self, client: bytes, task_id: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_task_done(self, result: TaskResult):
+        raise NotImplementedError()
+
+    async def loop(self):
         raise NotImplementedError()
 
 
-class WorkerManager(metaclass=abc.ABCMeta):
+
+class WorkerManager(Looper):
     @abc.abstractmethod
     async def on_task_new(self, task: Task):
         raise NotImplementedError()
@@ -43,15 +67,15 @@ class WorkerManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-class Binder(metaclass=abc.ABCMeta):
+class Binder(Looper):
     @abc.abstractmethod
     def register(self, callback: Callable[[bytes, bytes, List[bytes]], Awaitable[None]]):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def loop(self):
+    async def send(self, to: bytes, message_type: MessageType, data: Message):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_send(self, to: bytes, message_type: MessageType, data: Serializer):
+    async def loop(self):
         raise NotImplementedError()

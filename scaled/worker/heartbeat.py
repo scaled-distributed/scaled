@@ -6,8 +6,8 @@ import psutil
 import zmq
 
 from scaled.io.config import ZMQConfig
-from scaled.protocol.python.objects import MessageType
 from scaled.protocol.python.message import Heartbeat
+from scaled.protocol.python.objects import MessageType
 
 
 class WorkerHeartbeat(threading.Thread):
@@ -21,6 +21,8 @@ class WorkerHeartbeat(threading.Thread):
 
         self._context: typing.Optional[zmq.Context] = None
         self._socket: typing.Optional[zmq.Socket] = None
+
+        self.start()
 
     def run(self) -> None:
         self._context = zmq.Context()
@@ -40,9 +42,3 @@ class WorkerHeartbeat(threading.Thread):
                 )
         finally:
             self._socket.close()
-
-
-def start_heartbeat(address: ZMQConfig, worker_identity: bytes, interval: int, stop_event: threading.Event):
-    thread = WorkerHeartbeat(address, worker_identity, interval, stop_event)
-    thread.start()
-    return thread

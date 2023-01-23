@@ -1,9 +1,29 @@
 import ast
 import importlib
 import os
+import pickle
+from typing import Any, Callable, Tuple
 
 
-def load_function(function_name):
+class FunctionSerializer:
+    @staticmethod
+    def serialize_function(fn: Callable, args: Tuple[Any]) -> Tuple[bytes, bytes]:
+        return f"{fn.__module__}:{fn.__name__}".encode(), pickle.dumps(args)
+
+    @staticmethod
+    def deserialize_function(function: bytes, args: bytes) -> Tuple[Callable, Tuple[Any]]:
+        return load_function(function), pickle.loads(args)
+
+    @staticmethod
+    def serialize_result(result: Any) -> bytes:
+        return pickle.dumps(result)
+
+    @staticmethod
+    def deserialize_result(result: bytes) -> Any:
+        return pickle.loads(result)
+
+
+def load_function(function_name: bytes) -> Callable:
     module, obj = function_name.decode().split(":", 1)
     try:
         mod = importlib.import_module(module)
@@ -28,8 +48,8 @@ def load_function(function_name):
         raise ImportError(f"Failed to parse {obj} as attribute name or function call")
 
     try:
-        app = getattr(mod, name)
+        func = getattr(mod, name)
     except AttributeError:
         raise ImportError(f"Failed to find attribute {name} in {module}")
 
-    return app
+    return func
