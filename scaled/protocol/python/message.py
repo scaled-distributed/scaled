@@ -1,6 +1,6 @@
 import abc
 import struct
-from typing import List, Tuple
+from typing import List, Tuple, TypeVar
 
 import attrs
 
@@ -16,6 +16,9 @@ class Message(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def deserialize(data: List[bytes]):
         raise NotImplementedError()
+
+
+MessageVariant = TypeVar("MessageVariant", bound=Message)
 
 
 @attrs.define
@@ -50,7 +53,7 @@ class TaskCancel(Message):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id,
+        return (self.task_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):

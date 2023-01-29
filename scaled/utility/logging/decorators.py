@@ -2,8 +2,8 @@ import functools
 import logging
 import typing
 
-from home_library_common.logging.scoped_logger import ScopedLogger
-from home_library_common.logging.utility import get_caller_location
+from scaled.utility.logging.scoped_logger import ScopedLogger
+from scaled.utility.logging.utility import get_caller_location
 
 
 def log_function(level_number: int = 2, logging_level: int = logging.INFO) -> typing.Callable:

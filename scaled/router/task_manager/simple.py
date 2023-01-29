@@ -16,7 +16,7 @@ class SimpleTaskManager(TaskManager):
         self._worker_manager: Optional[WorkerManager] = None
 
         self._task_id_to_client: Dict[bytes, bytes] = dict()
-        self._task_id_to_task: Dict[bytes,] = dict()
+        self._task_id_to_task: Dict[bytes, Task] = dict()
         self._running: Set[bytes] = set()
         self._canceling: Set[bytes] = set()
 
@@ -64,9 +64,9 @@ class SimpleTaskManager(TaskManager):
             case TaskStatus.Success:
                 await self.__on_task_success(result)
             case TaskStatus.Failed:
-                await self.__on_task_failed(result)
+                await self.__on_task_done(self._running, self._failed, result)
             case TaskStatus.Canceled:
-                await self.__on_task_canceled(result)
+                await self.__on_task_done(self._canceling, self._canceled, result)
             case _:
                 raise ValueError(f"unknown TaskResult status: {result.status}")
 
@@ -93,22 +93,12 @@ class SimpleTaskManager(TaskManager):
 
         await self._binder.send(client, MessageType.TaskResult, result)
 
-    async def __on_task_failed(self, result: TaskResult):
-        assert result.task_id in self._running
+    async def __on_task_done(self, processing_set: Set[bytes], processed_set: Set[bytes], result: TaskResult):
+        assert result.task_id in processing_set
 
-        self._running.remove(result.task_id)
+        processing_set.remove(result.task_id)
         self._task_id_to_task.pop(result.task_id)
         client = self._task_id_to_client.pop(result.task_id)
 
-        self._failed.add(result.task_id)
-        await self._binder.send(client, MessageType.TaskResult, result)
-
-    async def __on_task_canceled(self, result: TaskResult):
-        assert result.task_id in self._canceling
-
-        self._canceling.remove(result.task_id)
-        self._task_id_to_task.pop(result.task_id)
-        client = self._task_id_to_client.pop(result.task_id)
-
-        self._canceled.add(result.task_id)
+        processed_set.add(result.task_id)
         await self._binder.send(client, MessageType.TaskResult, result)

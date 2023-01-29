@@ -1,13 +1,12 @@
 import logging
 import multiprocessing
-import pickle
 import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
 from scaled.io.config import ZMQConfig
 from scaled.io.connector import Connector
-from scaled.protocol.python.message import Message, Task, TaskCancel, TaskResult
+from scaled.protocol.python.message import MessageVariant, Task, TaskCancel, TaskResult
 from scaled.protocol.python.objects import MessageType, TaskStatus
 from scaled.utility.logging.utility import setup_logger
 from scaled.worker.heartbeat import WorkerHeartbeat
@@ -64,7 +63,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._heartbeat.join()
         logging.info(f"{self._get_prefix()} exited")
 
-    def _on_receive(self, message_type: MessageType, data: Message):
+    def _on_receive(self, message_type: MessageType, data: MessageVariant):
         match data:
             case Task():
                 self._process_task(data)

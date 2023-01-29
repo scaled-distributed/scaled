@@ -2,8 +2,7 @@ import logging
 import asyncio
 import os
 import socket
-from typing import AsyncGenerator, Tuple
-
+from typing import AsyncGenerator
 import zmq.asyncio
 
 from scaled.io.config import ZMQConfig

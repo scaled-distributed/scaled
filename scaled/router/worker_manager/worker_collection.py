@@ -2,8 +2,6 @@ from typing import Dict, Generator, Optional, Set
 
 from scaled.protocol.python.message import Task
 
-from collections import OrderedDict
-
 
 class WorkerCollection:
     def __init__(self):

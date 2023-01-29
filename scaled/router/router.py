@@ -4,13 +4,14 @@ import logging
 
 from scaled.io.config import ZMQConfig
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import Message
+from scaled.protocol.python.message import MessageVariant
 from scaled.protocol.python.objects import MessageType
 from scaled.router.task_manager.simple import SimpleTaskManager
 from scaled.router.worker_manager.simple import SimpleWorkerManager
 
 WORKER_TIMEOUT_SECONDS = 10
 PREFIX = "Router:"
+
 
 class Router:
     def __init__(self, address: ZMQConfig, stop_event: threading.Event):
@@ -26,7 +27,7 @@ class Router:
         self._task_manager.hook(self._binder, self._worker_manager)
         self._worker_manager.hook(self._binder, self._task_manager)
 
-    async def on_receive_message(self, source: bytes, message_type: MessageType, message: Message):
+    async def on_receive_message(self, source: bytes, message_type: MessageType, message: MessageVariant):
         match message_type:
             case MessageType.Heartbeat:
                 await self._worker_manager.on_heartbeat(source, message)
@@ -42,9 +43,5 @@ class Router:
     async def loop(self):
         logging.info("LocalRouter started")
         while not self._stop_event.is_set():
-            await asyncio.gather(
-                self._binder.routine(),
-                self._task_manager.routine(),
-                self._worker_manager.routine()
-            )
+            await asyncio.gather(self._binder.routine(), self._task_manager.routine(), self._worker_manager.routine())
         logging.info("LocalRouter quited")

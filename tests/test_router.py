@@ -32,4 +32,3 @@ class TestRouter(unittest.TestCase):
         assert results == list(range(10000))
 
         cluster.shutdown()
-

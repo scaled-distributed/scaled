@@ -7,14 +7,9 @@ from scaled.worker.worker_master import WorkerMaster
 
 PREFIX = "LocalCluster:"
 
+
 class LocalCluster:
-    def __init__(
-        self,
-        address: ZMQConfig,
-        n_workers: int,
-        polling_time: int = 1,
-        heartbeat_interval: int = 1,
-    ):
+    def __init__(self, address: ZMQConfig, n_workers: int, polling_time: int = 1, heartbeat_interval: int = 1):
         self._stop_event = multiprocessing.get_context("spawn").Event()
         self._worker_master = WorkerMaster(
             address=address,
@@ -35,5 +30,3 @@ class LocalCluster:
     def shutdown(self):
         logging.info(f"{PREFIX} shutdown")
         self._stop_event.set()
-
-

@@ -1,5 +1,5 @@
 import abc
-from typing import Awaitable, Callable, List, Tuple
+from typing import Awaitable, Callable, List
 
 from scaled.protocol.python.message import Heartbeat, Message, Task, TaskResult
 from scaled.protocol.python.objects import MessageType

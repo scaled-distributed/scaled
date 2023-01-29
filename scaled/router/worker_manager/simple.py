@@ -1,9 +1,7 @@
-import asyncio
 import threading
 import logging
 import time
-from asyncio import Queue
-from typing import Optional, Tuple
+from typing import Optional
 
 from scaled.protocol.python.objects import MessageType
 from scaled.router.mixins import Binder, TaskManager, WorkerManager

@@ -2,7 +2,7 @@ import logging
 import os
 import socket
 import threading
-from typing import Callable, List, Optional
+from typing import Callable, List
 
 import zmq
 
