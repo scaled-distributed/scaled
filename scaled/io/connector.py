@@ -2,7 +2,7 @@ import logging
 import os
 import socket
 import threading
-from typing import Callable
+from typing import Callable, Optional
 
 import zmq
 
@@ -25,12 +25,9 @@ class Connector(threading.Thread):
         self._prefix = prefix
         self._address = address
 
-        self._context = zmq.Context.instance()
-        self._socket = self._context.socket(zmq.DEALER)
-        self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
-
-        self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.connect(self._address.to_address())
+        self._context: Optional[zmq.Context] = None
+        self._socket: Optional[zmq.Socket] = None
+        self._identity: Optional[bytes] = None
 
         self._polling_time = polling_time
 
@@ -47,12 +44,21 @@ class Connector(threading.Thread):
         return self._identity
 
     def run(self) -> None:
+        self._context = zmq.Context.instance()
+        self._socket = self._context.socket(zmq.DEALER)
+        self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
+        self.__set_socket_options()
+        self._socket.connect(self._address.to_address())
+
         while not self._stop_event.is_set():
             self.__on_receive()
-        print(f"{self._identity}: finished")
 
     def send(self, message_type: MessageType, data: Message):
         self._socket.send_multipart([message_type.value, *data.serialize()])
+
+    def __set_socket_options(self):
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.LINGER, 0)
 
     def __on_receive(self):
         count = self._socket.poll(self._polling_time * 1000)

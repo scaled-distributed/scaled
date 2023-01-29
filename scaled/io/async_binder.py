@@ -21,7 +21,7 @@ class AsyncBinder(Binder):
 
         self._context = zmq.asyncio.Context.instance()
         self._socket = self._context.socket(zmq.ROUTER)
-        self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self.__set_socket_options()
         self._socket.bind(self._address.to_address())
 
         self._stop_event = stop_event
@@ -50,3 +50,7 @@ class AsyncBinder(Binder):
 
     async def send(self, to: bytes, message_type: MessageType, data: Message):
         await self._socket.send_multipart([to, message_type.value, *data.serialize()])
+
+    def __set_socket_options(self):
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.LINGER, 0)

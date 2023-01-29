@@ -69,10 +69,13 @@ class SimpleWorkerManager(WorkerManager):
 
     async def __clean_workers(self):
         now = time.time()
-        for dead_worker, task in filter(lambda item: now - item[1] > self._timeout_seconds, self._worker_alive_since.items()):
+        for dead_worker, task in filter(
+            lambda item: now - item[1] > self._timeout_seconds, self._worker_alive_since.items()
+        ):
+            logging.info(f"worker {dead_worker} disconnected")
             task = self._worker_to_task.pop(dead_worker)
-            logging.info(f"disconnecting worker {dead_worker} with {task=}")
             if task is None:
                 continue
 
+            logging.info(f"rerouting {task=}")
             await self._task_manager.on_task(task)
