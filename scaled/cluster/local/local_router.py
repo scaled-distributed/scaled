@@ -3,7 +3,7 @@ import multiprocessing
 import threading
 from typing import Optional
 
-# import uvloop
+import uvloop
 
 from scaled.io.config import ZMQConfig
 from scaled.router.router import Router
@@ -22,5 +22,5 @@ class LocalRouter(multiprocessing.get_context("spawn").Process):
         setup_logger()
         self._router = Router(address=self._address, stop_event=self._stop_event)
 
-        # uvloop.install()
+        uvloop.install()
         asyncio.run(self._router.loop())

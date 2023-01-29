@@ -2,7 +2,7 @@ import logging
 import os
 import socket
 import threading
-from typing import Callable, List
+from typing import Callable
 
 import zmq
 
@@ -48,18 +48,22 @@ class Connector(threading.Thread):
 
     def run(self) -> None:
         while not self._stop_event.is_set():
-            while count := self._socket.poll(self._polling_time * 1000):
-                for i in range(count):
-                    frames = self._socket.recv_multipart()
-                    self._on_receive(frames)
+            self.__on_receive()
+        print(f"{self._identity}: finished")
 
     def send(self, message_type: MessageType, data: Message):
         self._socket.send_multipart([message_type.value, *data.serialize()])
 
-    def _on_receive(self, frames: List[bytes]):
-        if len(frames) < 3:
-            logging.error(f"{self._identity}: received unexpected frames {frames}")
+    def __on_receive(self):
+        count = self._socket.poll(self._polling_time * 1000)
+        if not count:
             return
 
-        message_type, *payload = frames
-        self._callback(MessageType(message_type), PROTOCOL[message_type].deserialize(payload))
+        for _ in range(count):
+            frames = self._socket.recv_multipart()
+            if len(frames) < 3:
+                logging.error(f"{self._identity}: received unexpected frames {frames}")
+                return
+
+            message_type, *payload = frames
+            self._callback(MessageType(message_type), PROTOCOL[message_type].deserialize(payload))

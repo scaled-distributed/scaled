@@ -1,3 +1,4 @@
+import random
 import time
 import unittest
 
@@ -23,12 +24,14 @@ class TestRouter(unittest.TestCase):
         cluster = LocalCluster(address=config, n_workers=4)
         time.sleep(2)
 
+        tasks = [random.randint(0, 100) for i in range(10000)]
         client = Client(config=config)
-        futures = [client.submit(sleep_print, i) for i in range(10000)]
+        futures = [client.submit(sleep_print, i) for i in tasks]
 
         with ScopedLogger(f"get {len(futures)} results"):
             results = client.gather(futures)
 
-        assert results == list(range(10000))
+        assert results == tasks
 
         cluster.shutdown()
+        client.disconnect()

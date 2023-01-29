@@ -17,7 +17,7 @@ class Client:
         self._connector = Connector(
             prefix="C",
             address=config,
-            callback=self._on_receive,
+            callback=self.__on_receive,
             stop_event=self._stop_event,
             polling_time=polling_time,
         )
@@ -27,7 +27,7 @@ class Client:
         self._semaphore: threading.Semaphore = threading.Semaphore(1)
 
     def __del__(self):
-        self._stop_event.set()
+        self.disconnect()
 
     def submit(self, fn: Callable, *args) -> Future:
         task_id = uuid.uuid1().bytes
@@ -43,7 +43,10 @@ class Client:
         self._ready_futures -= set(futures)
         return results
 
-    def _on_receive(self, message_type: MessageType, data: Message):
+    def disconnect(self):
+        self._stop_event.set()
+
+    def __on_receive(self, message_type: MessageType, data: Message):
         match message_type:
             case MessageType.TaskEcho:
                 assert isinstance(data, TaskEcho)
