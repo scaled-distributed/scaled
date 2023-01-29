@@ -21,14 +21,16 @@ class TestRouter(unittest.TestCase):
     def test_worker_master(self):
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=12348)
 
-        cluster = LocalCluster(address=config, n_workers=4)
+        cluster = LocalCluster(address=config, n_workers=8)
         time.sleep(2)
 
-        tasks = [random.randint(0, 100) for i in range(10000)]
+        tasks = [random.randint(0, 100) for i in range(100000)]
         client = Client(config=config)
-        futures = [client.submit(sleep_print, i) for i in tasks]
 
-        with ScopedLogger(f"get {len(futures)} results"):
+        with ScopedLogger(f"submit {len(tasks)} tasks"):
+            futures = [client.submit(sleep_print, i) for i in tasks]
+
+        with ScopedLogger(f"gather {len(futures)} results"):
             results = client.gather(futures)
 
         assert results == tasks
