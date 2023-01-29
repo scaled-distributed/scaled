@@ -45,3 +45,9 @@ class TestWorkerCollection(unittest.TestCase):
         collection.pop(b"b")
         self.assertEqual(collection.size(), 2)
         self.assertEqual(collection.capacity(), 2)
+
+    def test_worker_collection_in(self):
+        collection = WorkerCollection()
+        collection[b"a"] = None
+        self.assertTrue(collection.has_worker(b"a"))
+        self.assertFalse(collection.has_worker(b"w"))

@@ -2,7 +2,7 @@ import logging
 import os
 import socket
 import threading
-from typing import Callable
+from typing import Callable, List, Optional
 
 import zmq
 
@@ -18,26 +18,24 @@ class Connector(threading.Thread):
         address: ZMQConfig,
         callback: Callable[[MessageType, Message], None],
         stop_event: threading.Event,
-        polling_time: int = 1000,
+        polling_time: int = 1,
     ):
         threading.Thread.__init__(self)
 
-        self._context = zmq.Context.instance()
-
+        self._prefix = prefix
         self._address = address
+
+        self._context = zmq.Context.instance()
         self._socket = self._context.socket(zmq.DEALER)
-        self._identity: bytes = f"{prefix}|{socket.gethostname()}|{os.getpid()}".encode()
+        self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
 
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.connect(address.to_address())
+        self._socket.connect(self._address.to_address())
 
-        self._poller = zmq.Poller()
-        self._poller.register(self._socket, zmq.POLLIN)
         self._polling_time = polling_time
 
-        self._stop_event = stop_event
-
         self._callback = callback
+        self._stop_event = stop_event
 
         self.start()
 
@@ -50,17 +48,15 @@ class Connector(threading.Thread):
 
     def run(self) -> None:
         while not self._stop_event.is_set():
-            self._on_receive()
+            while count := self._socket.poll(self._polling_time * 1000):
+                for i in range(count):
+                    frames = self._socket.recv_multipart()
+                    self._on_receive(frames)
 
     def send(self, message_type: MessageType, data: Message):
         self._socket.send_multipart([message_type.value, *data.serialize()])
 
-    def _on_receive(self):
-        socks = self._poller.poll(self._polling_time)
-        if not socks:
-            return
-
-        frames = self._socket.recv_multipart()
+    def _on_receive(self, frames: List[bytes]):
         if len(frames) < 3:
             logging.error(f"{self._identity}: received unexpected frames {frames}")
             return

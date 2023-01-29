@@ -3,7 +3,7 @@ import multiprocessing
 from typing import List
 
 from scaled.io.config import ZMQConfig
-from scaled.utility.logging import setup_logger
+from scaled.utility.logging.utility import setup_logger
 from scaled.worker.worker import Worker
 
 

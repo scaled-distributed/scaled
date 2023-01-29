@@ -15,5 +15,5 @@ class SimpleClientManager(ClientManager):
     async def on_task_done(self, result: TaskResult):
         pass
 
-    async def loop(self):
+    async def routine(self):
         pass

@@ -10,7 +10,7 @@ from scaled.router.task_manager.simple import SimpleTaskManager
 from scaled.router.worker_manager.simple import SimpleWorkerManager
 
 WORKER_TIMEOUT_SECONDS = 10
-
+PREFIX = "Router:"
 
 class Router:
     def __init__(self, address: ZMQConfig, stop_event: threading.Event):
@@ -29,18 +29,22 @@ class Router:
     async def on_receive_message(self, source: bytes, message_type: MessageType, message: Message):
         match message_type:
             case MessageType.Heartbeat:
-                logging.info(f"received heartbeat from {source=}")
                 await self._worker_manager.on_heartbeat(source, message)
             case MessageType.TaskResult:
-                logging.info(f"received task result from {source=}")
                 await self._worker_manager.on_task_done(message)
             case MessageType.Task:
-                logging.info(f"received task from {source=}")
                 await self._task_manager.on_task_new(source, message)
             case MessageType.TaskCancel:
                 await self._task_manager.on_task_cancel(source, message.task_id)
             case _:
-                logging.error(f"unknown {message_type} from {source=}: {message}")
+                logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
 
     async def loop(self):
-        await asyncio.gather(self._binder.loop(), self._task_manager.loop(), self._worker_manager.loop())
+        logging.info("LocalRouter started")
+        while not self._stop_event.is_set():
+            await asyncio.gather(
+                self._binder.routine(),
+                self._task_manager.routine(),
+                self._worker_manager.routine()
+            )
+        logging.info("LocalRouter quited")

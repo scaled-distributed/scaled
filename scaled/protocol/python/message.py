@@ -77,7 +77,7 @@ class TaskResult(Message):
     result: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id, self.status.value, *self.result
+        return self.task_id, self.status.value, self.result
 
     @staticmethod
     def deserialize(data: List[bytes]):

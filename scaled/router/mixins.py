@@ -6,12 +6,11 @@ from scaled.protocol.python.objects import MessageType
 
 
 class Looper(metaclass=abc.ABCMeta):
-    async def loop(self):
+    async def routine(self):
         raise NotImplementedError()
 
 
 class ClientManager(Looper):
-
     @abc.abstractmethod
     async def on_task_new(self, client: bytes, task: Task):
         raise NotImplementedError()
@@ -24,8 +23,9 @@ class ClientManager(Looper):
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
-    async def loop(self):
+    async def routine(self):
         raise NotImplementedError()
+
 
 class TaskManager(Looper):
     @abc.abstractmethod
@@ -33,6 +33,10 @@ class TaskManager(Looper):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    async def on_task(self, task: Task):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     async def on_task_cancel(self, client: bytes, task_id: bytes):
         raise NotImplementedError()
 
@@ -40,14 +44,13 @@ class TaskManager(Looper):
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
-    async def loop(self):
+    async def routine(self):
         raise NotImplementedError()
-
 
 
 class WorkerManager(Looper):
     @abc.abstractmethod
-    async def on_task_new(self, task: Task):
+    async def assign_task_to_worker(self, task: Task) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -63,7 +66,7 @@ class WorkerManager(Looper):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def loop(self):
+    async def routine(self):
         raise NotImplementedError()
 
 
@@ -77,5 +80,5 @@ class Binder(Looper):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def loop(self):
+    async def routine(self):
         raise NotImplementedError()

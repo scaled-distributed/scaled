@@ -7,20 +7,28 @@ from typing import Any, Callable, Tuple
 
 class FunctionSerializer:
     @staticmethod
-    def serialize_function(fn: Callable, args: Tuple[Any]) -> Tuple[bytes, bytes]:
-        return f"{fn.__module__}:{fn.__name__}".encode(), pickle.dumps(args)
+    def serialize_function(fn: Callable) -> bytes:
+        return f"{fn.__module__}:{fn.__name__}".encode()
 
     @staticmethod
-    def deserialize_function(function: bytes, args: bytes) -> Tuple[Callable, Tuple[Any]]:
-        return load_function(function), pickle.loads(args)
+    def deserialize_function(payload: bytes) -> Callable:
+        return load_function(payload)
+
+    @staticmethod
+    def serialize_arguments(args: Tuple[Any, ...]) -> bytes:
+        return pickle.dumps(args)
+
+    @staticmethod
+    def deserialize_arguments(payload: bytes) -> Tuple[Any, ...]:
+        return pickle.loads(payload)
 
     @staticmethod
     def serialize_result(result: Any) -> bytes:
         return pickle.dumps(result)
 
     @staticmethod
-    def deserialize_result(result: bytes) -> Any:
-        return pickle.loads(result)
+    def deserialize_result(payload: bytes) -> Any:
+        return pickle.loads(payload)
 
 
 def load_function(function_name: bytes) -> Callable:
