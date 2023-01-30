@@ -69,13 +69,16 @@ class SimpleWorkerManager(WorkerManager):
 
     async def __clean_workers(self):
         now = time.time()
-        for dead_worker, task in filter(
-            lambda item: now - item[1] > self._timeout_seconds, self._worker_alive_since.items()
-        ):
-            logging.info(f"worker {dead_worker} disconnected")
-            if not self._worker_to_task.has_worker(dead_worker):
-                continue
 
+        dead_workers = [
+            worker
+            for worker, alive_since in self._worker_alive_since.items()
+            if now - alive_since > self._timeout_seconds
+        ]
+
+        for dead_worker in dead_workers:
+            logging.info(f"worker {dead_worker} disconnected")
+            self._worker_alive_since.pop(dead_worker)
             task = self._worker_to_task.pop(dead_worker)
             if task is None:
                 continue

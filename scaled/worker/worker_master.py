@@ -30,7 +30,6 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
     def run(self):
         setup_logger()
         self._start_workers()
-        self.join()
 
     def _start_workers(self):
         logging.info("WorkerMaster: started")
