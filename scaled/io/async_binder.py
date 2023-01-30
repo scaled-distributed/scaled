@@ -6,10 +6,10 @@ from typing import Awaitable, Callable, Optional
 
 import zmq.asyncio
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import Message, PROTOCOL
 from scaled.protocol.python.objects import MessageType
-from scaled.router.mixins import Binder
+from scaled.scheduler.mixins import Binder
 
 POLLING_TIME = 1000
 
@@ -53,4 +53,3 @@ class AsyncBinder(Binder):
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.setsockopt(zmq.LINGER, 0)

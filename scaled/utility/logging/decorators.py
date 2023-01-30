@@ -1,9 +1,9 @@
 import functools
+import inspect
 import logging
 import typing
 
 from scaled.utility.logging.scoped_logger import ScopedLogger
-from scaled.utility.logging.utility import get_caller_location
 
 
 def log_function(level_number: int = 2, logging_level: int = logging.INFO) -> typing.Callable:
@@ -18,3 +18,8 @@ def log_function(level_number: int = 2, logging_level: int = logging.INFO) -> ty
         return wrapper
 
     return decorator
+
+
+def get_caller_location(stack_level: int):
+    caller = inspect.getframeinfo(inspect.stack()[stack_level][0])
+    return f"{caller.filename}:{caller.lineno}"

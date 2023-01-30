@@ -2,7 +2,7 @@ import logging
 import multiprocessing
 
 from scaled.cluster.local.local_router import LocalRouter
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.worker_master import WorkerMaster
 
 PREFIX = "LocalCluster:"

@@ -4,7 +4,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.connector import Connector
 from scaled.protocol.python.message import MessageVariant, Task, TaskCancel, TaskResult
 from scaled.protocol.python.objects import MessageType, TaskStatus
@@ -45,6 +45,10 @@ class Worker(multiprocessing.get_context("spawn").Process):
             callback=self._on_receive,
             polling_time=self._polling_time,
         )
+
+        while not self._connector.ready():
+            continue
+
         self._heartbeat = WorkerHeartbeat(
             address=self._address,
             worker_identity=self._connector.identity,

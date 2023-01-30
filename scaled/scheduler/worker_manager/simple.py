@@ -4,8 +4,8 @@ import time
 from typing import Optional
 
 from scaled.protocol.python.objects import MessageType
-from scaled.router.mixins import Binder, TaskManager, WorkerManager
-from scaled.router.worker_manager.worker_collection import WorkerCollection
+from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
+from scaled.scheduler.worker_manager.worker_collection import WorkerCollection
 from scaled.protocol.python.message import Heartbeat, Task, TaskResult, TaskCancel
 
 
@@ -73,6 +73,9 @@ class SimpleWorkerManager(WorkerManager):
             lambda item: now - item[1] > self._timeout_seconds, self._worker_alive_since.items()
         ):
             logging.info(f"worker {dead_worker} disconnected")
+            if not self._worker_to_task.has_worker(dead_worker):
+                continue
+
             task = self._worker_to_task.pop(dead_worker)
             if task is None:
                 continue

@@ -2,7 +2,7 @@ import logging
 import multiprocessing
 from typing import List
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.utility.logging.utility import setup_logger
 from scaled.worker.worker import Worker
 
@@ -32,12 +32,6 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         self._start_workers()
         self.join()
 
-    def join(self):
-        for worker in self._workers:
-            worker.join()
-
-        logging.info("WorkerMaster: exited")
-
     def _start_workers(self):
         logging.info("WorkerMaster: started")
         for i in range(self._n_workers):
@@ -56,3 +50,6 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
 
         for worker in self._workers:
             worker.start()
+
+        for worker in self._workers:
+            worker.join()

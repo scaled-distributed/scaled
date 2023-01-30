@@ -2,11 +2,12 @@ import logging
 import os
 import socket
 import threading
+from queue import Queue
 from typing import Callable, Optional
 
 import zmq
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import PROTOCOL, Message
 from scaled.protocol.python.objects import MessageType
 
@@ -34,10 +35,15 @@ class Connector(threading.Thread):
         self._callback = callback
         self._stop_event = stop_event
 
+        self._send_queue = Queue()
+
         self.start()
 
     def __del__(self):
         self._socket.close()
+
+    def ready(self) -> bool:
+        return self._identity is not None
 
     @property
     def identity(self) -> bytes:
@@ -51,16 +57,21 @@ class Connector(threading.Thread):
         self._socket.connect(self._address.to_address())
 
         while not self._stop_event.is_set():
-            self.__on_receive()
+            self.__send_routine()
+            self.__receive_routine()
 
     def send(self, message_type: MessageType, data: Message):
-        self._socket.send_multipart([message_type.value, *data.serialize()])
+        self._send_queue.put((message_type.value, data.serialize()))
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.setsockopt(zmq.LINGER, 0)
 
-    def __on_receive(self):
+    def __send_routine(self):
+        while not self._send_queue.empty():
+            message_type, data = self._send_queue.get()
+            self._socket.send_multipart([message_type, *data])
+
+    def __receive_routine(self):
         count = self._socket.poll(self._polling_time * 1000)
         if not count:
             return

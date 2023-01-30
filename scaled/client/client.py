@@ -4,10 +4,10 @@ from concurrent.futures import Future
 
 from typing import Any, Callable, Dict, Iterable, List, Set
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.connector import Connector
 from scaled.protocol.python.function import FunctionSerializer
-from scaled.protocol.python.message import Message, Task, TaskEcho, TaskResult
+from scaled.protocol.python.message import MessageVariant, Task, TaskEcho, TaskResult
 from scaled.protocol.python.objects import MessageType
 
 
@@ -21,8 +21,9 @@ class Client:
             stop_event=self._stop_event,
             polling_time=polling_time,
         )
-        self._task_id_to_futures: Dict[bytes, Future] = dict()
-        self._ready_futures: Set[Future] = set()
+        self._running_futures: Dict[bytes, Future] = dict()
+        self._finished_futures: Set[Future] = set()
+
         self._count: int = 0
         self._semaphore: threading.Semaphore = threading.Semaphore(1)
 
@@ -35,28 +36,47 @@ class Client:
         self._connector.send(MessageType.Task, task)
 
         future = Future()
-        self._task_id_to_futures[task_id] = future
+        future.add_done_callback(self.__on_result)
+        with self._semaphore:
+            self._running_futures[task_id] = future
         return future
 
     def gather(self, futures: Iterable[Future]) -> List[Any]:
         results = [future.result() for future in futures]
-        self._ready_futures -= set(futures)
+        with self._semaphore:
+            self._finished_futures -= set(futures)
         return results
 
     def disconnect(self):
         self._stop_event.set()
 
-    def __on_receive(self, message_type: MessageType, data: Message):
+    def __on_result(self, result):
+        self._count += 1
+        if self._count % 1000 == 0:
+            print(f"running: {len(self._running_futures)} finished: {len(self._finished_futures)}")
+
+    def __on_receive(self, message_type: MessageType, data: MessageVariant):
         match message_type:
             case MessageType.TaskEcho:
-                assert isinstance(data, TaskEcho)
-                with self._semaphore:
-                    self._task_id_to_futures[data.task_id].set_running_or_notify_cancel()
+                self.__on_task_echo(data)
             case MessageType.TaskResult:
-                assert isinstance(data, TaskResult)
-                with self._semaphore:
-                    future = self._task_id_to_futures.pop(data.task_id)
-                    future.set_result(FunctionSerializer.deserialize_result(data.result))
-                    self._ready_futures.add(future)
+                self.__on_task_result(data)
             case _:
                 raise TypeError(f"Unknown {message_type=}")
+
+    def __on_task_echo(self, data: TaskEcho):
+        with self._semaphore:
+            if data.task_id not in self._running_futures:
+                return
+
+            future = self._running_futures[data.task_id]
+            future.set_running_or_notify_cancel()
+
+    def __on_task_result(self, result: TaskResult):
+        with self._semaphore:
+            if result.task_id not in self._running_futures:
+                return
+
+            future = self._running_futures.pop(result.task_id)
+            future.set_result(FunctionSerializer.deserialize_result(result.result))
+            self._finished_futures.add(future)

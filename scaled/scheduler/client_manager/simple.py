@@ -1,5 +1,5 @@
 from scaled.protocol.python.message import Task, TaskResult
-from scaled.router.mixins import ClientManager
+from scaled.scheduler.mixins import ClientManager
 
 
 class SimpleClientManager(ClientManager):

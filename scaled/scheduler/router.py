@@ -2,12 +2,12 @@ import asyncio
 import threading
 import logging
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import MessageVariant
 from scaled.protocol.python.objects import MessageType
-from scaled.router.task_manager.simple import SimpleTaskManager
-from scaled.router.worker_manager.simple import SimpleWorkerManager
+from scaled.scheduler.task_manager.simple import SimpleTaskManager
+from scaled.scheduler.worker_manager.simple import SimpleWorkerManager
 
 WORKER_TIMEOUT_SECONDS = 10
 PREFIX = "Router:"

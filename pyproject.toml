@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "scaled"
 description = "Lite distribution for python"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "GPL Version 3" }
 authors = [{ name = "Zhuo Yin", email = "zhuoyin@gmail.com" }]
 dynamic = ["dependencies", "version"]
@@ -14,7 +14,8 @@ dynamic = ["dependencies", "version"]
 Home = "https://github.com/yzard/scaled"
 
 [project.scripts]
-# scaled_client = "scaled.client:main"
+scaled_scheduler = "scaled.entry_points.scheduler:main"
+scaled_cluster = "scaled.entry_points.standalone_cluster:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

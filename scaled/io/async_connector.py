@@ -5,7 +5,7 @@ import socket
 from typing import AsyncGenerator
 import zmq.asyncio
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import PROTOCOL, Message
 from scaled.protocol.python.objects import MessageType
 

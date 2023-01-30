@@ -4,7 +4,7 @@ import unittest
 
 from scaled.client.client import Client
 from scaled.cluster.local_cluster import LocalCluster
-from scaled.io.config import ZMQConfig, ZMQType
+from scaled.utility.zmq_config import ZMQConfig, ZMQType
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
@@ -21,7 +21,7 @@ class TestRouter(unittest.TestCase):
     def test_worker_master(self):
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=12348)
 
-        cluster = LocalCluster(address=config, n_workers=8)
+        cluster = LocalCluster(address=config, n_workers=4)
         time.sleep(2)
 
         tasks = [random.randint(0, 100) for i in range(100000)]

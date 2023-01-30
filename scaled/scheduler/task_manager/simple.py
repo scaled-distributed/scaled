@@ -5,7 +5,7 @@ from typing import Deque, Dict, Optional, Set, Tuple
 
 from scaled.protocol.python.message import Task, TaskCancelEcho, TaskEcho, TaskResult
 from scaled.protocol.python.objects import MessageType, TaskEchoStatus, TaskStatus
-from scaled.router.mixins import Binder, TaskManager, WorkerManager
+from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
 
 
 class SimpleTaskManager(TaskManager):

@@ -4,7 +4,7 @@ import time
 import psutil
 import zmq
 
-from scaled.io.config import ZMQConfig
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import Heartbeat
 from scaled.protocol.python.objects import MessageType
 
