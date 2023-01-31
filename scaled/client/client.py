@@ -1,4 +1,5 @@
 import json
+import logging
 import threading
 import uuid
 from concurrent.futures import Future
@@ -38,7 +39,6 @@ class Client:
         self._connector.send(MessageType.Task, task)
 
         future = Future()
-        future.add_done_callback(self.__on_result)
         self._futures[task_id] = future
         return future
 
@@ -55,10 +55,6 @@ class Client:
 
     def disconnect(self):
         self._stop_event.set()
-
-    def __on_result(self, result):
-        self._count += 1
-        print(f"finished: {self._count}, connector: {json.dumps(self._connector.monitor())}")
 
     def __on_receive(self, message_type: MessageType, data: MessageVariant):
         match message_type:
@@ -80,8 +76,12 @@ class Client:
     def __on_task_result(self, result: TaskResult):
         if result.task_id not in self._futures:
             return
+
         future = self._futures[result.task_id]
         future.set_result((result.task_id, FunctionSerializer.deserialize_result(result.result)))
+
+        self._count += 1
+        logging.debug(f"finished: {self._count}, connector: {json.dumps(self._connector.monitor())}")
 
     def __on_monitor_response(self, data: MonitorResponse):
         self._monitor_future.set_result(data.data)

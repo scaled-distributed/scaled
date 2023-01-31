@@ -63,6 +63,8 @@ class AsyncBinder(Binder):
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.SNDHWM, 0)
+        self._socket.setsockopt(zmq.RCVHWM, 0)
 
     def __is_valid_message(self, frames: List[bytes]) -> bool:
         if len(frames) < 3:

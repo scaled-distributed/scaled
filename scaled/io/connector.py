@@ -77,6 +77,8 @@ class Connector(threading.Thread):
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.SNDHWM, 0)
+        self._socket.setsockopt(zmq.RCVHWM, 0)
 
     def __send_routine(self):
         while not self._send_queue.empty():
