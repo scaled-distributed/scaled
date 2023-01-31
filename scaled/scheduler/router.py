@@ -4,7 +4,7 @@ import logging
 
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import MessageVariant
+from scaled.protocol.python.message import MessageVariant, MonitorRequest, MonitorResponse
 from scaled.protocol.python.objects import MessageType
 from scaled.scheduler.task_manager.simple import SimpleTaskManager
 from scaled.scheduler.worker_manager.simple import SimpleWorkerManager
@@ -31,6 +31,8 @@ class Router:
         match message_type:
             case MessageType.Heartbeat:
                 await self._worker_manager.on_heartbeat(source, message)
+            case MessageType.MonitorRequest:
+                await self.statistics(source, message)
             case MessageType.TaskResult:
                 await self._worker_manager.on_task_done(message)
             case MessageType.Task:
@@ -45,3 +47,13 @@ class Router:
         while not self._stop_event.is_set():
             await asyncio.gather(self._binder.routine(), self._task_manager.routine(), self._worker_manager.routine())
         logging.info("LocalRouter quited")
+
+    async def statistics(self, source: bytes, request: MonitorRequest):
+        stats = MonitorResponse(
+            {
+                "binder": await self._binder.statistics(),
+                "task_manager": await self._task_manager.statistics(),
+                "worker_manager": await self._worker_manager.statistics(),
+            }
+        )
+        await self._binder.send(source, MessageType.MonitorResponse, stats)

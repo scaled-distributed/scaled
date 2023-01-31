@@ -1,13 +1,14 @@
+import json
 import threading
 import uuid
 from concurrent.futures import Future
 
-from typing import Any, Callable, Dict, Iterable, List, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.connector import Connector
 from scaled.protocol.python.function import FunctionSerializer
-from scaled.protocol.python.message import MessageVariant, Task, TaskEcho, TaskResult
+from scaled.protocol.python.message import MessageVariant, MonitorRequest, MonitorResponse, Task, TaskEcho, TaskResult
 from scaled.protocol.python.objects import MessageType
 
 
@@ -21,11 +22,12 @@ class Client:
             stop_event=self._stop_event,
             polling_time=polling_time,
         )
-        self._running_futures: Dict[bytes, Future] = dict()
-        self._finished_futures: Set[Future] = set()
 
+        self._futures: Dict[bytes, Future] = dict()
+
+        # debug info
         self._count: int = 0
-        self._semaphore: threading.Semaphore = threading.Semaphore(1)
+        self._monitor_future: Optional[Future] = None
 
     def __del__(self):
         self.disconnect()
@@ -37,23 +39,26 @@ class Client:
 
         future = Future()
         future.add_done_callback(self.__on_result)
-        with self._semaphore:
-            self._running_futures[task_id] = future
+        self._futures[task_id] = future
         return future
 
+    def monitor(self):
+        self._monitor_future = Future()
+        self._connector.send(MessageType.MonitorRequest, MonitorRequest(b""))
+        return self._monitor_future.result()
+
     def gather(self, futures: Iterable[Future]) -> List[Any]:
-        results = [future.result() for future in futures]
-        with self._semaphore:
-            self._finished_futures -= set(futures)
-        return results
+        task_ids, results = zip(*[future.result() for future in futures])
+        for task_id in task_ids:
+            self._futures.pop(task_id)
+        return list(results)
 
     def disconnect(self):
         self._stop_event.set()
 
     def __on_result(self, result):
         self._count += 1
-        if self._count % 1000 == 0:
-            print(f"running: {len(self._running_futures)} finished: {len(self._finished_futures)}")
+        print(f"finished: {self._count}, connector: {json.dumps(self._connector.monitor())}")
 
     def __on_receive(self, message_type: MessageType, data: MessageVariant):
         match message_type:
@@ -61,22 +66,22 @@ class Client:
                 self.__on_task_echo(data)
             case MessageType.TaskResult:
                 self.__on_task_result(data)
+            case MessageType.MonitorResponse:
+                self.__on_monitor_response(data)
             case _:
                 raise TypeError(f"Unknown {message_type=}")
 
     def __on_task_echo(self, data: TaskEcho):
-        with self._semaphore:
-            if data.task_id not in self._running_futures:
-                return
-
-            future = self._running_futures[data.task_id]
-            future.set_running_or_notify_cancel()
+        if data.task_id not in self._futures:
+            return
+        future = self._futures[data.task_id]
+        future.set_running_or_notify_cancel()
 
     def __on_task_result(self, result: TaskResult):
-        with self._semaphore:
-            if result.task_id not in self._running_futures:
-                return
+        if result.task_id not in self._futures:
+            return
+        future = self._futures[result.task_id]
+        future.set_result((result.task_id, FunctionSerializer.deserialize_result(result.result)))
 
-            future = self._running_futures.pop(result.task_id)
-            future.set_result(FunctionSerializer.deserialize_result(result.result))
-            self._finished_futures.add(future)
+    def __on_monitor_response(self, data: MonitorResponse):
+        self._monitor_future.set_result(data.data)

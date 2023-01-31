@@ -17,9 +17,9 @@ class SimpleTaskManager(TaskManager):
 
         self._task_id_to_client: Dict[bytes, bytes] = dict()
         self._task_id_to_task: Dict[bytes, Task] = dict()
+
         self._running: Set[bytes] = set()
         self._canceling: Set[bytes] = set()
-
         self._unassigned: Deque[Tuple[bytes, Task]] = deque()
         self._failed: Set[bytes] = set()
         self._canceled: Set[bytes] = set()
@@ -30,6 +30,15 @@ class SimpleTaskManager(TaskManager):
 
     async def routine(self):
         await self.__on_assign_tasks()
+
+    async def statistics(self) -> Dict:
+        return {
+            "running": len(self._running),
+            "canceling": len(self._canceling),
+            "unassigned": len(self._unassigned),
+            "failed": len(self._failed),
+            "canceled": len(self._canceled),
+        }
 
     async def on_task_new(self, client: bytes, task: Task):
         self._unassigned.append((client, task))

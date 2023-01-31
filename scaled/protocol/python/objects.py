@@ -7,7 +7,13 @@ class MessageType(enum.Enum):
     TaskCancel = b"TC"
     TaskCancelEcho = b"TX"
     TaskResult = b"TR"
-    Heartbeat = b"IF"
+    Heartbeat = b"HB"
+    MonitorRequest = b"MR"
+    MonitorResponse = b"MS"
+
+    @staticmethod
+    def allowed_values():
+        return {member.value for member in MessageType}
 
 
 class TaskStatus(enum.Enum):

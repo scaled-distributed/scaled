@@ -1,9 +1,11 @@
+import copy
 import logging
 import os
 import socket
 import threading
+from collections import defaultdict
 from queue import Queue
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 import zmq
 
@@ -37,6 +39,12 @@ class Connector(threading.Thread):
 
         self._send_queue = Queue()
 
+        self._mutex = threading.Lock()
+        self._statistics = {
+            "received": defaultdict(lambda: 0),
+            "sent": defaultdict(lambda: 0)
+        }
+
         self.start()
 
     def __del__(self):
@@ -61,7 +69,11 @@ class Connector(threading.Thread):
             self.__receive_routine()
 
     def send(self, message_type: MessageType, data: Message):
-        self._send_queue.put((message_type.value, data.serialize()))
+        self._send_queue.put((message_type, data.serialize()))
+
+    def monitor(self):
+        with self._mutex:
+            return copy.copy(self._statistics)
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
@@ -69,7 +81,8 @@ class Connector(threading.Thread):
     def __send_routine(self):
         while not self._send_queue.empty():
             message_type, data = self._send_queue.get()
-            self._socket.send_multipart([message_type, *data])
+            self.__count_one("sent", message_type)
+            self._socket.send_multipart([message_type.value, *data])
 
     def __receive_routine(self):
         count = self._socket.poll(self._polling_time * 1000)
@@ -78,9 +91,21 @@ class Connector(threading.Thread):
 
         for _ in range(count):
             frames = self._socket.recv_multipart()
-            if len(frames) < 3:
+            if len(frames) < 2:
                 logging.error(f"{self._identity}: received unexpected frames {frames}")
                 return
 
-            message_type, *payload = frames
-            self._callback(MessageType(message_type), PROTOCOL[message_type].deserialize(payload))
+            if frames[0] not in {member.value for member in MessageType}:
+                logging.error(f"{self._identity}: received unexpected frames {frames}")
+                return
+
+            message_type_bytes, *payload = frames
+            message_type = MessageType(message_type_bytes)
+            message = PROTOCOL[message_type_bytes].deserialize(payload)
+
+            self.__count_one("received", message_type)
+            self._callback(message_type, message)
+
+    def __count_one(self, count_type: Literal["sent", "received"], message_type: MessageType):
+        with self._mutex:
+            self._statistics[count_type][message_type.name] += 1

@@ -1,5 +1,6 @@
 import asyncio
 import multiprocessing
+import time
 import unittest
 
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
@@ -14,9 +15,6 @@ class TestWorker(unittest.TestCase):
         async def callback(to: bytes, message_type: MessageType, message: Message):
             print(message)
 
-        async def main(d):
-            await asyncio.gather(d.routine())
-
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=12346)
 
         stop_event = multiprocessing.get_context("spawn").Event()
@@ -25,4 +23,4 @@ class TestWorker(unittest.TestCase):
 
         driver = AsyncBinder(stop_event=stop_event, prefix="Backend", address=config)
         driver.register(callback)
-        asyncio.run(main(driver))
+        asyncio.run(driver.routine())

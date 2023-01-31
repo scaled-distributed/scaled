@@ -1,6 +1,7 @@
 import abc
+import json
 import struct
-from typing import List, Tuple, TypeVar
+from typing import Dict, List, Tuple, TypeVar
 
 import attrs
 
@@ -53,7 +54,7 @@ class TaskCancel(Message):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.task_id,)
+        return self.task_id,
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -100,6 +101,30 @@ class Heartbeat(Message):
         return Heartbeat(data[0], struct.unpack("f", data[1])[0])
 
 
+@attrs.define
+class MonitorRequest(Message):
+    data: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.data,
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return TaskCancel(data[0])
+
+
+@attrs.define
+class MonitorResponse(Message):
+    data: Dict
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return json.dumps(self.data).encode(),
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return MonitorResponse(json.loads(data[0]))
+
+
 PROTOCOL = {
     MessageType.Heartbeat.value: Heartbeat,
     MessageType.Task.value: Task,
@@ -107,4 +132,6 @@ PROTOCOL = {
     MessageType.TaskCancel.value: TaskCancel,
     MessageType.TaskCancelEcho.value: TaskCancelEcho,
     MessageType.TaskResult.value: TaskResult,
+    MessageType.MonitorRequest.value: MonitorRequest,
+    MessageType.MonitorResponse.value: MonitorResponse,
 }

@@ -1,9 +1,9 @@
+import json
 import random
-import time
+
 import unittest
 
 from scaled.client.client import Client
-from scaled.cluster.local_cluster import LocalCluster
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
@@ -14,19 +14,15 @@ def sleep_print(sec: int):
     return sec * 1
 
 
-class TestRouter(unittest.TestCase):
+class TestClient(unittest.TestCase):
     def setUp(self) -> None:
         setup_logger()
 
-    def test_worker_master(self):
+    def test_client(self):
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
-
-        cluster = LocalCluster(address=config, n_workers=4)
-        time.sleep(2)
-
-        tasks = [random.randint(0, 100) for i in range(100000)]
         client = Client(config=config)
 
+        tasks = [random.randint(0, 100) for i in range(100000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(sleep_print, i) for i in tasks]
 
@@ -34,6 +30,11 @@ class TestRouter(unittest.TestCase):
             results = client.gather(futures)
 
         assert results == tasks
+        client.disconnect()
 
-        cluster.shutdown()
+    def test_monitor(self):
+        config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
+        client = Client(config=config)
+
+        print(json.dumps(client.monitor(), indent=4))
         client.disconnect()

@@ -60,8 +60,14 @@ class WorkerCollection:
 
         return False
 
-    def get_unused_worker(self) -> Optional[bytes]:
+    def get_one_unused_worker(self) -> Optional[bytes]:
         if self.capacity():
             return next(iter(self._unused_workers))
 
         return None
+
+    def get_unused_workers(self) -> Set[bytes]:
+        return self._unused_workers
+
+    def get_used_workers(self) -> Dict[bytes, Task]:
+        return self._used_workers

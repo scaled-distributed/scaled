@@ -1,12 +1,17 @@
 import abc
-from typing import Awaitable, Callable, List
+from typing import Awaitable, Callable, Dict, List, Optional
 
 from scaled.protocol.python.message import Heartbeat, Message, Task, TaskResult
 from scaled.protocol.python.objects import MessageType
 
 
 class Looper(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
     async def routine(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
         raise NotImplementedError()
 
 
