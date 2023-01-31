@@ -28,7 +28,12 @@ class ClientManager(Looper):
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
+    @abc.abstractmethod
     async def routine(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
         raise NotImplementedError()
 
 
@@ -49,7 +54,12 @@ class TaskManager(Looper):
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
+    @abc.abstractmethod
     async def routine(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
         raise NotImplementedError()
 
 
@@ -74,6 +84,10 @@ class WorkerManager(Looper):
     async def routine(self):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
+        raise NotImplementedError()
+
 
 class Binder(Looper):
     @abc.abstractmethod
@@ -86,4 +100,26 @@ class Binder(Looper):
 
     @abc.abstractmethod
     async def routine(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
+        raise NotImplementedError()
+
+
+class Connector(Looper):
+    @abc.abstractmethod
+    def register(self, callback: Callable[[bytes, bytes, List[bytes]], Awaitable[None]]):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def send(self, message_type: MessageType, data: Message):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def routine(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
         raise NotImplementedError()

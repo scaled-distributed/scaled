@@ -1,6 +1,5 @@
 import asyncio
 import multiprocessing
-import time
 import unittest
 
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
@@ -21,6 +20,6 @@ class TestWorker(unittest.TestCase):
         worker = Worker(stop_event=stop_event, address=config, polling_time=1, heartbeat_interval=1)
         worker.start()
 
-        driver = AsyncBinder(stop_event=stop_event, prefix="Backend", address=config)
+        driver = AsyncBinder(prefix="Backend", address=config)
         driver.register(callback)
         asyncio.run(driver.routine())

@@ -19,7 +19,7 @@ class Router:
 
         self._stop_event = stop_event
 
-        self._binder = AsyncBinder(stop_event=self._stop_event, prefix="S", address=self._address)
+        self._binder = AsyncBinder(prefix="S", address=self._address)
         self._task_manager = SimpleTaskManager(stop_event=self._stop_event)
         self._worker_manager = SimpleWorkerManager(stop_event=self._stop_event, timeout_seconds=WORKER_TIMEOUT_SECONDS)
 

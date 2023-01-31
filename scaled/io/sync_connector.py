@@ -14,7 +14,7 @@ from scaled.protocol.python.message import PROTOCOL, Message
 from scaled.protocol.python.objects import MessageType
 
 
-class Connector(threading.Thread):
+class SyncConnector(threading.Thread):
     def __init__(
         self,
         prefix: str,

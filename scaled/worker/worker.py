@@ -5,7 +5,7 @@ import time
 from typing import Any, Callable, Dict, Optional
 
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.io.connector import Connector
+from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.message import MessageVariant, Task, TaskCancel, TaskResult
 from scaled.protocol.python.objects import MessageType, TaskStatus
 from scaled.utility.logging.utility import setup_logger
@@ -19,7 +19,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
     ):
         multiprocessing.Process.__init__(self, name="Worker")
 
-        self._connector: Optional[Connector] = None
+        self._connector: Optional[SyncConnector] = None
         self._address = address
         self._stop_event = stop_event
         self._polling_time = polling_time
@@ -38,7 +38,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
     def _initialize(self):
         self._thread_stop_event = threading.Event()
 
-        self._connector = Connector(
+        self._connector = SyncConnector(
             prefix="W",
             address=self._address,
             stop_event=self._thread_stop_event,

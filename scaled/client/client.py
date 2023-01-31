@@ -7,7 +7,7 @@ from concurrent.futures import Future
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.io.connector import Connector
+from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.function import FunctionSerializer
 from scaled.protocol.python.message import MessageVariant, MonitorRequest, MonitorResponse, Task, TaskEcho, TaskResult
 from scaled.protocol.python.objects import MessageType
@@ -16,7 +16,7 @@ from scaled.protocol.python.objects import MessageType
 class Client:
     def __init__(self, config: ZMQConfig, polling_time: int = 1):
         self._stop_event = threading.Event()
-        self._connector = Connector(
+        self._connector = SyncConnector(
             prefix="C",
             address=config,
             callback=self.__on_receive,

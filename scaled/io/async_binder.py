@@ -1,4 +1,3 @@
-import threading
 import logging
 import os
 import socket
@@ -16,9 +15,7 @@ POLLING_TIME = 1000
 
 
 class AsyncBinder(Binder):
-    def __init__(self, stop_event: threading.Event, prefix: str, address: ZMQConfig):
-        self._stop_event = stop_event
-
+    def __init__(self, prefix: str, address: ZMQConfig):
         self._address = address
         self._identity: bytes = f"{prefix}|{socket.gethostname()}|{os.getpid()}".encode()
 
