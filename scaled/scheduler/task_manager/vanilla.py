@@ -9,7 +9,7 @@ from scaled.protocol.python.objects import MessageType, TaskEchoStatus, TaskStat
 from scaled.scheduler.mixins import TaskManager, WorkerManager
 
 
-class SimpleTaskManager(TaskManager):
+class VanillaTaskManager(TaskManager):
     def __init__(self, stop_event: threading.Event):
         self._stop_event = stop_event
 

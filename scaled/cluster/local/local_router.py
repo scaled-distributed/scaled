@@ -5,7 +5,7 @@ from typing import Optional
 
 import uvloop
 
-from scaled.scheduler.worker_manager.simple import AllocatorType
+from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.scheduler.router import Router
 from scaled.utility.logging.utility import setup_logger

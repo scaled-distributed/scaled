@@ -1,8 +1,7 @@
 import abc
-from typing import Awaitable, Callable, Dict, List
+from typing import Dict
 
-from scaled.protocol.python.message import Heartbeat, Message, Task, TaskResult
-from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import FunctionAdd, Heartbeat, Task, TaskResult
 
 
 class Looper(metaclass=abc.ABCMeta):
@@ -14,6 +13,27 @@ class Looper(metaclass=abc.ABCMeta):
     async def statistics(self) -> Dict:
         raise NotImplementedError()
 
+
+class FunctionManager(Looper):
+    @abc.abstractmethod
+    async def on_function_check(self, function_name: bytes) -> bool:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_function_add(self, function: FunctionAdd):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_function_request(self, function_name: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def routine(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def statistics(self) -> Dict:
+        raise NotImplementedError()
 
 class ClientManager(Looper):
     @abc.abstractmethod

@@ -7,7 +7,15 @@ class MessageType(enum.Enum):
     TaskCancel = b"TC"
     TaskCancelEcho = b"TX"
     TaskResult = b"TR"
+
     Heartbeat = b"HB"
+
+    FunctionCheck = b"FC"
+    FunctionAdd = b"FA"
+    FunctionEcho = b"FE"
+    FunctionRequest = b"FQ"
+    FunctionResponse = b"FP"
+
     MonitorRequest = b"MR"
     MonitorResponse = b"MS"
 

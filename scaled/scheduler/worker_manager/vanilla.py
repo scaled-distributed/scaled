@@ -22,7 +22,7 @@ class AllocatorType(enum.Enum):
         return self.value
 
 
-class SimpleWorkerManager(WorkerManager):
+class VanillaWorkerManager(WorkerManager):
     def __init__(self, stop_event: threading.Event, allocator_type: AllocatorType, timeout_seconds: int):
         self._stop_event = stop_event
         self._timeout_seconds = timeout_seconds

@@ -4,7 +4,7 @@ from scaled.protocol.python.message import Task, TaskResult
 from scaled.scheduler.mixins import ClientManager
 
 
-class SimpleClientManager(ClientManager):
+class VanillaClientManager(ClientManager):
     def __init__(self):
         pass
 

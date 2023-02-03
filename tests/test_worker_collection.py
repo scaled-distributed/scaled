@@ -1,7 +1,7 @@
 import unittest
 
 from scaled.protocol.python.message import Task
-from scaled.scheduler.worker_manager.allocators.worker_collection import WorkerCollection
+from scaled.scheduler.worker_manager.allocators.one_to_one import WorkerCollection
 
 
 class TestWorkerCollection(unittest.TestCase):

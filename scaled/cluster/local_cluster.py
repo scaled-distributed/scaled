@@ -2,7 +2,7 @@ import logging
 import multiprocessing
 
 from scaled.cluster.local.local_router import LocalRouter
-from scaled.scheduler.worker_manager.simple import AllocatorType
+from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.worker_master import WorkerMaster
 

@@ -54,7 +54,7 @@ class TaskCancel(Message):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id,
+        return (self.task_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -93,7 +93,7 @@ class Heartbeat(Message):
     cpu_usage: float
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return struct.pack("f", self.cpu_usage),
+        return (struct.pack("f", self.cpu_usage),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -105,7 +105,7 @@ class MonitorRequest(Message):
     data: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.data,
+        return (self.data,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -117,11 +117,73 @@ class MonitorResponse(Message):
     data: Dict
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return json.dumps(self.data).encode(),
+        return (json.dumps(self.data).encode(),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
         return MonitorResponse(json.loads(data[0]))
+
+
+@attrs.define
+class FunctionCheck(Message):
+    function_name: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.function_name,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return FunctionCheck(data[0])
+
+
+@attrs.define
+class FunctionAdd(Message):
+    function_name: bytes
+    function: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.function_name, self.function
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return FunctionAdd(data[0], data[1])
+
+
+@attrs.define
+class FunctionEcho(Message):
+    function_name: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.function_name,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return FunctionEcho(data[0])
+
+
+@attrs.define
+class FunctionRequest(Message):
+    function_name: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.function_name,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return FunctionRequest(data[0])
+
+
+@attrs.define
+class FunctionResponse(Message):
+    function_name: bytes
+    function: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.function_name, self.function
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return FunctionResponse(data[0], data[1])
 
 
 PROTOCOL = {
@@ -133,4 +195,9 @@ PROTOCOL = {
     MessageType.TaskResult.value: TaskResult,
     MessageType.MonitorRequest.value: MonitorRequest,
     MessageType.MonitorResponse.value: MonitorResponse,
+    MessageType.FunctionCheck.value: FunctionCheck,
+    MessageType.FunctionAdd.value: FunctionAdd,
+    MessageType.FunctionEcho.value: FunctionEcho,
+    MessageType.FunctionRequest.value: FunctionRequest,
+    MessageType.FunctionResponse.value: FunctionResponse,
 }
