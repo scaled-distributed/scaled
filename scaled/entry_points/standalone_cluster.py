@@ -17,9 +17,8 @@ def get_args():
     parser.add_argument(
         "--num-of-workers", "-n", type=int, default=os.cpu_count() - 1, help="number of workers in " "cluster"
     )
-    parser.add_argument("--polling-time", type=int, default=1, help="number of seconds waiting while polling")
     parser.add_argument(
-        "--heartbeat-interval", type=int, default=1, help="number of seconds to send heartbeat " "interval"
+        "--heartbeat-interval", type=int, default=10, help="number of seconds to send heartbeat " "interval"
     )
     parser.add_argument("address", type=ZMQConfig.from_string, help="scheduler address to connect to")
     return parser.parse_args()
@@ -32,7 +31,6 @@ def main():
     cluster = StandaloneCluster(
         address=args.address,
         n_workers=args.num_of_workers,
-        polling_time=args.polling_time,
         heartbeat_interval=args.heartbeat_interval,
         stop_event=stop_event,
     )

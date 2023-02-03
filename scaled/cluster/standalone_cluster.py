@@ -12,7 +12,6 @@ class StandaloneCluster:
         self,
         address: ZMQConfig,
         n_workers: int,
-        polling_time: int,
         heartbeat_interval: int,
         stop_event: multiprocessing.Event,
     ):
@@ -21,7 +20,6 @@ class StandaloneCluster:
             address=address,
             stop_event=self._stop_event,
             n_workers=n_workers,
-            polling_time=polling_time,
             heartbeat_interval=heartbeat_interval,
         )
         self._worker_master.start()

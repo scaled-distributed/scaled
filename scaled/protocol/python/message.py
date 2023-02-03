@@ -90,15 +90,14 @@ class TaskResult(Message):
 
 @attrs.define
 class Heartbeat(Message):
-    identity: bytes
     cpu_usage: float
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.identity, struct.pack("f", self.cpu_usage)
+        return struct.pack("f", self.cpu_usage),
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(data[0], struct.unpack("f", data[1])[0])
+        return Heartbeat(struct.unpack("f", data[0])[0])
 
 
 @attrs.define

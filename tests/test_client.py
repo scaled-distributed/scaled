@@ -36,5 +36,5 @@ class TestClient(unittest.TestCase):
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
         client = Client(config=config)
 
-        print(json.dumps(client.monitor(), indent=4))
+        print(json.dumps(client.statistics(), indent=4))
         client.disconnect()

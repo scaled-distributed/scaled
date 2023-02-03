@@ -1,15 +1,15 @@
 import logging
 import os
 import socket
-import threading
 from collections import defaultdict
 from typing import Awaitable, Callable, List, Literal, Optional
 
-import zmq
+import zmq.asyncio
 
+from scaled.io.config import POLLING_TIME_MILLI_SECONDS
 from scaled.scheduler.mixins import Connector
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import PROTOCOL, Message
+from scaled.protocol.python.message import MessageVariant, PROTOCOL
 from scaled.protocol.python.objects import MessageType
 
 
@@ -17,42 +17,47 @@ class AsyncConnector(Connector):
     def __init__(
         self,
         prefix: str,
+        context: zmq.asyncio.Context,
+        socket_type: int,
         address: ZMQConfig,
-        stop_event: threading.Event,
-        polling_time: int = 1,
+        bind_or_connect: Literal["bind", "connect"],
+        callback: Callable[[MessageType, MessageVariant], Awaitable[None]]
     ):
         self._prefix = prefix
         self._address = address
 
-        self._context = zmq.Context.instance()
-        self._socket = self._context.socket(zmq.DEALER)
+        self._context = context
+        self._socket = self._context.socket(socket_type)
         self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
         self.__set_socket_options()
-        self._socket.connect(self._address.to_address())
 
-        self._polling_time = polling_time
+        if bind_or_connect == "bind":
+            self._socket.bind(self._address.to_address())
+        elif bind_or_connect == "connect":
+            self._socket.connect(self._address.to_address())
+        else:
+            raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
 
-        self._callback: Optional[Callable[[MessageType, Message], Awaitable[None]]] = None
-        self._stop_event = stop_event
+        logging.info(f"{self.__get_prefix()} connect to {self._address.to_address()}")
 
-        self._statistics = {
-            "received": defaultdict(lambda: 0),
-            "sent": defaultdict(lambda: 0)
-        }
+        self._callback: Callable[[MessageType, MessageVariant], Awaitable[None]] = callback
+
+        self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
     def __del__(self):
         self._socket.close()
 
-    def register(self, callback: Callable[[bytes, MessageType, Message], Awaitable[None]]):
-        self._callback = callback
+    @property
+    def identity(self) -> bytes:
+        return self._identity
 
     async def routine(self):
-        count = self._socket.poll(self._polling_time * 1000)
+        count = await self._socket.poll(POLLING_TIME_MILLI_SECONDS)
         if not count:
             return
 
         for _ in range(count):
-            frames = self._socket.recv_multipart()
+            frames = await self._socket.recv_multipart()
             if not self.__is_valid_message(frames):
                 continue
 
@@ -61,17 +66,13 @@ class AsyncConnector(Connector):
             message = PROTOCOL[message_type_bytes].deserialize(payload)
 
             self.__count_one("received", message_type)
-            self._callback(message_type, message)
+            await self._callback(message_type, message)
 
-    @property
-    def identity(self) -> bytes:
-        return self._identity
-
-    async def send(self, message_type: MessageType, data: Message):
+    async def send(self, message_type: MessageType, data: MessageVariant):
         self.__count_one("sent", message_type)
-        self._socket.send_multipart([message_type.value, *data])
+        await self._socket.send_multipart([message_type.value, *data.serialize()])
 
-    def statistics(self):
+    async def statistics(self):
         return self._statistics
 
     def __set_socket_options(self):
@@ -84,11 +85,14 @@ class AsyncConnector(Connector):
 
     def __is_valid_message(self, frames: List[bytes]) -> bool:
         if len(frames) < 2:
-            logging.error(f"{self.__class__.__name__}: received unexpected frames {frames}")
+            logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
             return False
 
         if frames[0] not in {member.value for member in MessageType}:
-            logging.error(f"{self._identity}: received unexpected frames {frames}")
+            logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
             return False
 
         return True
+
+    def __get_prefix(self):
+        return f"{self.__class__.__name__}[{self._identity.decode()}]:"

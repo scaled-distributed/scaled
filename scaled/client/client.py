@@ -6,6 +6,8 @@ from concurrent.futures import Future
 
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
+import zmq
+
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.function import FunctionSerializer
@@ -14,14 +16,16 @@ from scaled.protocol.python.objects import MessageType
 
 
 class Client:
-    def __init__(self, config: ZMQConfig, polling_time: int = 1):
+    def __init__(self, config: ZMQConfig):
         self._stop_event = threading.Event()
         self._connector = SyncConnector(
+            stop_event=self._stop_event,
             prefix="C",
+            context=zmq.Context.instance(),
+            socket_type=zmq.DEALER,
+            bind_or_connect="connect",
             address=config,
             callback=self.__on_receive,
-            stop_event=self._stop_event,
-            polling_time=polling_time,
         )
 
         self._futures: Dict[bytes, Future] = dict()
@@ -42,7 +46,7 @@ class Client:
         self._futures[task_id] = future
         return future
 
-    def monitor(self):
+    def statistics(self):
         self._monitor_future = Future()
         self._connector.send(MessageType.MonitorRequest, MonitorRequest(b""))
         return self._monitor_future.result()
@@ -81,7 +85,7 @@ class Client:
         future.set_result((result.task_id, FunctionSerializer.deserialize_result(result.result)))
 
         self._count += 1
-        logging.debug(f"finished: {self._count}, connector: {json.dumps(self._connector.monitor())}")
+        # logging.debug(f"finished: {self._count}, connector: {json.dumps(self._connector.monitor())}")
 
     def __on_monitor_response(self, data: MonitorResponse):
         self._monitor_future.set_result(data.data)

@@ -2,26 +2,34 @@ import asyncio
 import threading
 import logging
 
+import zmq.asyncio
+
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.io.async_binder import AsyncBinder
+from scaled.io.async_router import AsyncRouter
 from scaled.protocol.python.message import MessageVariant, MonitorRequest, MonitorResponse
 from scaled.protocol.python.objects import MessageType
 from scaled.scheduler.task_manager.simple import SimpleTaskManager
-from scaled.scheduler.worker_manager.simple import SimpleWorkerManager
+from scaled.scheduler.worker_manager.simple import AllocatorType, SimpleWorkerManager
 
-WORKER_TIMEOUT_SECONDS = 10
 PREFIX = "Router:"
 
 
 class Router:
-    def __init__(self, address: ZMQConfig, stop_event: threading.Event):
+    def __init__(
+        self,
+        address: ZMQConfig,
+        stop_event: threading.Event,
+        worker_timeout_seconds: int,
+        allocator_type: AllocatorType,
+    ):
         self._address = address
-
         self._stop_event = stop_event
 
-        self._binder = AsyncBinder(prefix="S", address=self._address)
+        self._binder = AsyncRouter(prefix="S", address=self._address)
         self._task_manager = SimpleTaskManager(stop_event=self._stop_event)
-        self._worker_manager = SimpleWorkerManager(stop_event=self._stop_event, timeout_seconds=WORKER_TIMEOUT_SECONDS)
+        self._worker_manager = SimpleWorkerManager(
+            stop_event=self._stop_event, allocator_type=allocator_type, timeout_seconds=worker_timeout_seconds
+        )
 
         self._binder.register(self.on_receive_message)
         self._task_manager.hook(self._binder, self._worker_manager)

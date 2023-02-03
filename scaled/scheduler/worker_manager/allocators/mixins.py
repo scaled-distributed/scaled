@@ -33,7 +33,6 @@ class TaskAllocator(metaclass=abc.ABCMeta):
         task id"""
         raise NotImplementedError()
 
-
     @abc.abstractmethod
     def status(self) -> Dict:
         raise NotImplementedError()

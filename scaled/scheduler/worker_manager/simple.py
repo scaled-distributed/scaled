@@ -1,3 +1,4 @@
+import enum
 import threading
 import logging
 import time
@@ -7,13 +8,21 @@ from scaled.protocol.python.objects import MessageType
 from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
 from scaled.scheduler.worker_manager.allocators.one_to_one import OneToOneAllocator
 from scaled.protocol.python.message import Heartbeat, Task, TaskResult, TaskCancel
-
+from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 
 POLLING_TIME = 1
 
 
+class AllocatorType(enum.Enum):
+    OneToOne = "one_to_one"
+    Queued = "queued"
+
+    def __repr__(self):
+        return self.value
+
+
 class SimpleWorkerManager(WorkerManager):
-    def __init__(self, stop_event: threading.Event, timeout_seconds: int):
+    def __init__(self, stop_event: threading.Event, allocator_type: AllocatorType, timeout_seconds: int):
         self._stop_event = stop_event
         self._timeout_seconds = timeout_seconds
 
@@ -21,15 +30,21 @@ class SimpleWorkerManager(WorkerManager):
         self._task_manager: Optional[TaskManager] = None
 
         self._worker_alive_since = {}
-        self._allocator = OneToOneAllocator()
+
+        if allocator_type == AllocatorType.OneToOne:
+            self._allocator = OneToOneAllocator()
+        elif allocator_type == AllocatorType.Queued:
+            self._allocator = QueuedAllocator(1000)
+        else:
+            raise TypeError(f"received invalid allocator type: {allocator_type}")
 
     def hook(self, binder: Binder, task_manager: TaskManager):
         self._binder = binder
         self._task_manager = task_manager
 
     async def on_heartbeat(self, source: bytes, info: Heartbeat):
-        self._allocator.add_worker(info.identity)
-        self._worker_alive_since[info.identity] = time.time()
+        self._allocator.add_worker(source)
+        self._worker_alive_since[source] = time.time()
 
     async def assign_task_to_worker(self, task: Task) -> bool:
         worker = self._allocator.assign_task(task)

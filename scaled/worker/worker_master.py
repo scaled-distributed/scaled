@@ -9,20 +9,12 @@ from scaled.worker.worker import Worker
 
 
 class WorkerMaster(multiprocessing.get_context("spawn").Process):
-    def __init__(
-        self,
-        address: ZMQConfig,
-        n_workers: int,
-        stop_event: multiprocessing.Event,
-        polling_time: int,
-        heartbeat_interval: int,
-    ):
+    def __init__(self, address: ZMQConfig, n_workers: int, stop_event: multiprocessing.Event, heartbeat_interval: int):
         multiprocessing.Process.__init__(self, name="WorkerMaster")
 
         self._address = address
         self._n_workers = n_workers
 
-        self._polling_time = polling_time
         self._heartbeat_interval = heartbeat_interval
 
         self._stop_event = stop_event
@@ -37,7 +29,7 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         for worker in self._workers:
             worker.join()
 
-    def shutdown(self):
+    def shutdown(self, *args):
         self._stop_event.set()
         self.wait_for_workers()
 
@@ -52,8 +44,7 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
                 Worker(
                     address=self._address,
                     stop_event=self._stop_event,
-                    polling_time=self._polling_time,
-                    heartbeat_interval=self._heartbeat_interval,
+                    heartbeat_interval_seconds=self._heartbeat_interval,
                 )
             )
 

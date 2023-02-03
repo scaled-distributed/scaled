@@ -1,5 +1,5 @@
 import abc
-from typing import Awaitable, Callable, Dict, List, Optional
+from typing import Awaitable, Callable, Dict, List
 
 from scaled.protocol.python.message import Heartbeat, Message, Task, TaskResult
 from scaled.protocol.python.objects import MessageType
@@ -108,10 +108,6 @@ class Binder(Looper):
 
 
 class Connector(Looper):
-    @abc.abstractmethod
-    def register(self, callback: Callable[[bytes, bytes, List[bytes]], Awaitable[None]]):
-        raise NotImplementedError()
-
     @abc.abstractmethod
     async def send(self, message_type: MessageType, data: Message):
         raise NotImplementedError()

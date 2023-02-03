@@ -6,15 +6,14 @@ from typing import Awaitable, Callable, Dict, List, Literal, Optional
 
 import zmq.asyncio
 
+from scaled.io.config import POLLING_TIME_MILLI_SECONDS
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import Message, PROTOCOL
+from scaled.protocol.python.message import MessageVariant, PROTOCOL
 from scaled.protocol.python.objects import MessageType
 from scaled.scheduler.mixins import Binder
 
-POLLING_TIME = 1000
 
-
-class AsyncBinder(Binder):
+class AsyncRouter(Binder):
     def __init__(self, prefix: str, address: ZMQConfig):
         self._address = address
         self._identity: bytes = f"{prefix}|{socket.gethostname()}|{os.getpid()}".encode()
@@ -23,20 +22,17 @@ class AsyncBinder(Binder):
         self._socket = self._context.socket(zmq.ROUTER)
         self.__set_socket_options()
         self._socket.bind(self._address.to_address())
-        logging.info(f"{self.__class__.__name__}: bind to {address.to_address()}")
+        logging.info(f"{self.__get_prefix()} bind to {address.to_address()}")
 
-        self._callback: Optional[Callable[[bytes, MessageType, Message], Awaitable[None]]] = None
+        self._callback: Optional[Callable[[bytes, MessageType, MessageVariant], Awaitable[None]]] = None
 
-        self._statistics = {
-            "received": defaultdict(lambda: 0),
-            "sent": defaultdict(lambda: 0)
-        }
+        self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
-    def register(self, callback: Callable[[bytes, MessageType, Message], Awaitable[None]]):
+    def register(self, callback: Callable[[bytes, MessageType, MessageVariant], Awaitable[None]]):
         self._callback = callback
 
     async def routine(self):
-        count = await self._socket.poll(POLLING_TIME)
+        count = await self._socket.poll(POLLING_TIME_MILLI_SECONDS)
         if not count:
             return
 
@@ -54,9 +50,9 @@ class AsyncBinder(Binder):
     async def statistics(self) -> Dict:
         return self._statistics
 
-    async def send(self, to: bytes, message_type: MessageType, data: Message):
+    async def send(self, to: bytes, message_type: MessageType, message: MessageVariant):
         self.__count_one("sent", message_type)
-        await self._socket.send_multipart([to, message_type.value, *data.serialize()])
+        await self._socket.send_multipart([to, message_type.value, *message.serialize()])
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
@@ -65,14 +61,17 @@ class AsyncBinder(Binder):
 
     def __is_valid_message(self, frames: List[bytes]) -> bool:
         if len(frames) < 3:
-            logging.error(f"{self.__class__.__name__}: received unexpected frames {frames}")
+            logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
             return False
 
         if frames[1] not in {member.value for member in MessageType}:
-            logging.error(f"{self._identity}: received unexpected frames {frames}")
+            logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
             return False
 
         return True
 
     def __count_one(self, count_type: Literal["sent", "received"], message_type: MessageType):
         self._statistics[count_type][message_type.name] += 1
+
+    def __get_prefix(self):
+        return f"{self.__class__.__name__}[{self._identity.decode()}]:"
