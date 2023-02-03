@@ -1,23 +1,21 @@
 import abc
 from typing import Dict, List, Optional
 
-from scaled.protocol.python.message import Task
-
 
 class TaskAllocator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def add_worker(self, worker: bytes):
+    def add_worker(self, worker: bytes) -> bool:
         """add worker to worker collection"""
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def remove_worker(self, worker: bytes) -> List[Task]:
-        """remove worker to worker collection, and return list of tasks of removed worker"""
+    def remove_worker(self, worker: bytes) -> List[bytes]:
+        """remove worker to worker collection, and return list of task_ids of removed worker"""
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def assign_task(self, task: Task) -> Optional[bytes]:
-        """assign task in allocator, return None means no available worker, otherwise will return worker been
+    def assign_task(self, task_id: bytes) -> Optional[bytes]:
+        """assign task_id in allocator, return None means no available worker, otherwise will return worker been
         assigned to"""
         raise NotImplementedError()
 
@@ -34,5 +32,5 @@ class TaskAllocator(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def status(self) -> Dict:
+    def statistics(self) -> Dict:
         raise NotImplementedError()

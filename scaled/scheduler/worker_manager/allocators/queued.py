@@ -1,43 +1,47 @@
 from collections import deque
-from typing import Deque, Dict, List, Optional
+from typing import Deque, Dict, List, Optional, Set
 
-from scaled.protocol.python.message import Task
 from scaled.scheduler.worker_manager.allocators.mixins import TaskAllocator
 
 
 class QueuedAllocator(TaskAllocator):
     def __init__(self, max_tasks_per_worker: int):
         self._max_tasks_per_worker = max_tasks_per_worker
-        self._workers: Dict[bytes, Dict[bytes, Task]] = dict()
+        self._workers_to_task_ids: Dict[bytes, Set[bytes]] = dict()
         self._capacity: Deque[bytes] = deque()
         self._task_to_worker = {}
 
-    def add_worker(self, worker: bytes):
-        if worker in self._workers:
-            return
+    def add_worker(self, worker: bytes) -> bool:
+        if worker in self._workers_to_task_ids:
+            return False
 
-        self._workers[worker] = dict()
+        self._workers_to_task_ids[worker] = set()
         self._capacity.extend([worker] * self._max_tasks_per_worker)
+        return True
 
-    def remove_worker(self, worker: bytes) -> List[Task]:
-        if worker not in self._workers:
+    def remove_worker(self, worker: bytes) -> List[bytes]:
+        if worker not in self._workers_to_task_ids:
             return []
 
         new_capacity = deque()
         new_capacity.extend([w for w in self._capacity if w != worker])
         self._capacity = new_capacity
-        return list(self._workers.pop(worker).values())
 
-    def assign_task(self, task: Task) -> Optional[bytes]:
+        tasks = self._workers_to_task_ids.pop(worker)
+        for task in tasks:
+            self._task_to_worker.pop(task)
+        return list(tasks)
+
+    def assign_task(self, task_id: bytes) -> Optional[bytes]:
         if not self._capacity:
             return None
 
-        if task.task_id in self._task_to_worker:
-            return self._task_to_worker[task.task_id]
+        if task_id in self._task_to_worker:
+            return self._task_to_worker[task_id]
 
         worker = self._capacity.popleft()
-        self._workers[worker][task.task_id] = task
-        self._task_to_worker[task.task_id] = worker
+        self._workers_to_task_ids[worker].add(task_id)
+        self._task_to_worker[task_id] = worker
         return worker
 
     def remove_task(self, task_id: bytes) -> Optional[bytes]:
@@ -45,7 +49,7 @@ class QueuedAllocator(TaskAllocator):
             return None
 
         worker = self._task_to_worker.pop(task_id)
-        self._workers[worker].pop(task_id)
+        self._workers_to_task_ids[worker].remove(task_id)
         self._capacity.append(worker)
         return worker
 
@@ -55,8 +59,8 @@ class QueuedAllocator(TaskAllocator):
 
         return self._task_to_worker[task_id]
 
-    def status(self) -> Dict:
+    def statistics(self) -> Dict:
         return {
             "type": "queued",
-            "worker_to_tasks": {worker.decode(): len(tasks) for worker, tasks in self._workers.items()},
+            "worker_to_tasks": {worker.decode(): len(tasks) for worker, tasks in self._workers_to_task_ids.items()},
         }

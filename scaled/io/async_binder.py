@@ -10,10 +10,9 @@ from scaled.io.config import POLLING_TIME_MILLI_SECONDS
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import MessageVariant, PROTOCOL
 from scaled.protocol.python.objects import MessageType
-from scaled.scheduler.mixins import Binder
 
 
-class AsyncRouter(Binder):
+class AsyncBinder:
     def __init__(self, prefix: str, address: ZMQConfig):
         self._address = address
         self._identity: bytes = f"{prefix}|{socket.gethostname()}|{os.getpid()}".encode()

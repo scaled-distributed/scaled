@@ -3,16 +3,17 @@ import logging
 from collections import deque
 from typing import Deque, Dict, Optional, Set, Tuple
 
+from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import Task, TaskCancelEcho, TaskEcho, TaskResult
 from scaled.protocol.python.objects import MessageType, TaskEchoStatus, TaskStatus
-from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
+from scaled.scheduler.mixins import TaskManager, WorkerManager
 
 
 class SimpleTaskManager(TaskManager):
     def __init__(self, stop_event: threading.Event):
         self._stop_event = stop_event
 
-        self._binder: Optional[Binder] = None
+        self._binder: Optional[AsyncBinder] = None
         self._worker_manager: Optional[WorkerManager] = None
 
         self._task_id_to_client: Dict[bytes, bytes] = dict()
@@ -24,7 +25,7 @@ class SimpleTaskManager(TaskManager):
         self._failed: Set[bytes] = set()
         self._canceled: Set[bytes] = set()
 
-    def hook(self, binder: Binder, worker_manager: WorkerManager):
+    def hook(self, binder: AsyncBinder, worker_manager: WorkerManager):
         self._binder = binder
         self._worker_manager = worker_manager
 
@@ -41,12 +42,16 @@ class SimpleTaskManager(TaskManager):
         }
 
     async def on_task_new(self, client: bytes, task: Task):
+        await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.SubmitOK))
         self._unassigned.append((client, task))
-        await self.__on_assign_tasks()
 
-    async def on_task(self, task: Task):
-        assert task.task_id in self._task_id_to_client
-        client = self._task_id_to_client[task.task_id]
+    async def on_task_reroute(self, task_id: bytes):
+        assert task_id in self._task_id_to_client
+
+        client = self._task_id_to_client.pop(task_id)
+        task = self._task_id_to_task.pop(task_id)
+        self._running.remove(task_id)
+
         self._unassigned.append((client, task))
 
     async def on_task_cancel(self, client: bytes, task_id: bytes):
@@ -59,12 +64,14 @@ class SimpleTaskManager(TaskManager):
 
         if task_id not in self._running:
             logging.warning(f"cannot cancel task is not running: {task_id=}")
-            await self._binder.send(client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.Failed))
+            await self._binder.send(
+                client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.Duplicated)
+            )
             return
 
         self._running.remove(task_id)
         self._canceling.add(task_id)
-        await self._binder.send(client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.OK))
+        await self._binder.send(client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.CancelOK))
         await self._worker_manager.on_task_cancel(task_id)
 
     async def on_task_done(self, result: TaskResult):
@@ -73,9 +80,9 @@ class SimpleTaskManager(TaskManager):
             case TaskStatus.Success:
                 await self.__on_task_success(result)
             case TaskStatus.Failed:
-                await self.__on_task_done(self._running, self._failed, result)
+                await self.__on_task_failed(self._running, self._failed, result)
             case TaskStatus.Canceled:
-                await self.__on_task_done(self._canceling, self._canceled, result)
+                await self.__on_task_failed(self._canceling, self._canceled, result)
             case _:
                 raise ValueError(f"unknown TaskResult status: {result.status}")
 
@@ -91,10 +98,10 @@ class SimpleTaskManager(TaskManager):
         self._task_id_to_client[task.task_id] = client
         self._task_id_to_task[task.task_id] = task
         self._running.add(task.task_id)
-        await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.OK))
 
     async def __on_task_success(self, result: TaskResult):
-        assert result.task_id in self._running
+        if result.task_id not in self._running:
+            return
 
         self._running.remove(result.task_id)
         self._task_id_to_task.pop(result.task_id)
@@ -102,8 +109,9 @@ class SimpleTaskManager(TaskManager):
 
         await self._binder.send(client, MessageType.TaskResult, result)
 
-    async def __on_task_done(self, processing_set: Set[bytes], processed_set: Set[bytes], result: TaskResult):
-        assert result.task_id in processing_set
+    async def __on_task_failed(self, processing_set: Set[bytes], processed_set: Set[bytes], result: TaskResult):
+        if result.task_id not in processing_set:
+            return
 
         processing_set.remove(result.task_id)
         self._task_id_to_task.pop(result.task_id)

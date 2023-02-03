@@ -7,13 +7,12 @@ from typing import Awaitable, Callable, List, Literal, Optional
 import zmq.asyncio
 
 from scaled.io.config import POLLING_TIME_MILLI_SECONDS
-from scaled.scheduler.mixins import Connector
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import MessageVariant, PROTOCOL
 from scaled.protocol.python.objects import MessageType
 
 
-class AsyncConnector(Connector):
+class AsyncConnector:
     def __init__(
         self,
         prefix: str,

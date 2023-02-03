@@ -1,14 +1,12 @@
 from typing import Dict, Generator, Optional, Set
 
-from scaled.protocol.python.message import Task
-
 
 class WorkerCollection:
     def __init__(self):
-        self._used_workers: Dict[bytes, Task] = {}
+        self._used_workers: Dict[bytes, bytes] = {}
         self._unused_workers: Set[bytes] = set()
 
-    def __setitem__(self, worker: bytes, task: Optional[Task]):
+    def __setitem__(self, worker: bytes, task: Optional[bytes]):
         assert isinstance(worker, bytes)
         if task is not None:
             if worker in self._used_workers:
@@ -22,7 +20,7 @@ class WorkerCollection:
 
             self._unused_workers.add(worker)
 
-    def __getitem__(self, worker: bytes) -> Optional[Task]:
+    def __getitem__(self, worker: bytes) -> Optional[bytes]:
         if not isinstance(worker, bytes):
             raise TypeError(f"Expect worker to be type bytes, got: type={type(worker)} {worker=}")
 
@@ -32,7 +30,7 @@ class WorkerCollection:
         yield from self._unused_workers
         yield from self._used_workers.keys()
 
-    def pop(self, worker: bytes) -> Optional[Task]:
+    def pop(self, worker: bytes) -> Optional[bytes]:
         if worker not in self._used_workers and worker not in self._unused_workers:
             raise KeyError(f"worker not exists: {worker}")
 
@@ -69,5 +67,5 @@ class WorkerCollection:
     def get_unused_workers(self) -> Set[bytes]:
         return self._unused_workers
 
-    def get_used_workers(self) -> Dict[bytes, Task]:
+    def get_used_workers(self) -> Dict[bytes, bytes]:
         return self._used_workers

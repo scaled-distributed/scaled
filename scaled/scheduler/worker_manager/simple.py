@@ -4,8 +4,9 @@ import logging
 import time
 from typing import Dict, Optional
 
+from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.objects import MessageType
-from scaled.scheduler.mixins import Binder, TaskManager, WorkerManager
+from scaled.scheduler.mixins import TaskManager, WorkerManager
 from scaled.scheduler.worker_manager.allocators.one_to_one import OneToOneAllocator
 from scaled.protocol.python.message import Heartbeat, Task, TaskResult, TaskCancel
 from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
@@ -26,7 +27,7 @@ class SimpleWorkerManager(WorkerManager):
         self._stop_event = stop_event
         self._timeout_seconds = timeout_seconds
 
-        self._binder: Optional[Binder] = None
+        self._binder: Optional[AsyncBinder] = None
         self._task_manager: Optional[TaskManager] = None
 
         self._worker_alive_since = {}
@@ -38,16 +39,18 @@ class SimpleWorkerManager(WorkerManager):
         else:
             raise TypeError(f"received invalid allocator type: {allocator_type}")
 
-    def hook(self, binder: Binder, task_manager: TaskManager):
+    def hook(self, binder: AsyncBinder, task_manager: TaskManager):
         self._binder = binder
         self._task_manager = task_manager
 
-    async def on_heartbeat(self, source: bytes, info: Heartbeat):
-        self._allocator.add_worker(source)
-        self._worker_alive_since[source] = time.time()
+    async def on_heartbeat(self, worker: bytes, info: Heartbeat):
+        if self._allocator.add_worker(worker):
+            logging.info(f"worker {worker} connected")
+
+        self._worker_alive_since[worker] = time.time()
 
     async def assign_task_to_worker(self, task: Task) -> bool:
-        worker = self._allocator.assign_task(task)
+        worker = self._allocator.assign_task(task.task_id)
         if worker is None:
             return False
 
@@ -66,7 +69,9 @@ class SimpleWorkerManager(WorkerManager):
     async def on_task_done(self, task_result: TaskResult):
         worker = self._allocator.remove_task(task_result.task_id)
         if worker is None:
-            logging.error(f"received unknown task_id={task_result.task_id}")
+            logging.error(
+                f"received task_id={task_result.task_id} not known to any worker, might due to worker get disconnected"
+            )
             return
 
         await self._task_manager.on_task_done(task_result)
@@ -75,20 +80,21 @@ class SimpleWorkerManager(WorkerManager):
         await self.__clean_workers()
 
     async def statistics(self) -> Dict:
-        return self._allocator.status()
+        return self._allocator.statistics()
 
     async def __clean_workers(self):
         now = time.time()
-
         dead_workers = [
-            worker
-            for worker, alive_since in self._worker_alive_since.items()
-            if now - alive_since > self._timeout_seconds
+            w for w, alive_since in self._worker_alive_since.items() if now - alive_since > self._timeout_seconds
         ]
-
         for dead_worker in dead_workers:
             logging.info(f"worker {dead_worker} disconnected")
             self._worker_alive_since.pop(dead_worker)
-            for task in self._allocator.remove_worker(dead_worker):
-                logging.info(f"rerouting {task=}")
-                await self._task_manager.on_task(task)
+
+            task_ids = self._allocator.remove_worker(dead_worker)
+            if not task_ids:
+                continue
+
+            logging.info(f"rerouting {len(task_ids)} tasks")
+            for task_id in task_ids:
+                await self._task_manager.on_task_reroute(task_id)

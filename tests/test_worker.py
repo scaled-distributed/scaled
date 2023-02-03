@@ -3,7 +3,7 @@ import multiprocessing
 import unittest
 
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
-from scaled.io.async_router import AsyncRouter
+from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import Message
 from scaled.protocol.python.objects import MessageType
 from scaled.worker.worker import Worker
@@ -20,6 +20,6 @@ class TestWorker(unittest.TestCase):
         worker = Worker(stop_event=stop_event, address=config, polling_time_seconds=1, heartbeat_interval_seconds=1)
         worker.start()
 
-        driver = AsyncRouter(prefix="Backend", address=config)
+        driver = AsyncBinder(prefix="Backend", address=config)
         driver.register(callback)
         asyncio.run(driver.routine())

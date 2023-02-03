@@ -43,7 +43,7 @@ class TaskManager(Looper):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task(self, task: Task):
+    async def on_task_reroute(self, task_id: bytes):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -88,34 +88,3 @@ class WorkerManager(Looper):
     async def statistics(self) -> Dict:
         raise NotImplementedError()
 
-
-class Binder(Looper):
-    @abc.abstractmethod
-    def register(self, callback: Callable[[bytes, bytes, List[bytes]], Awaitable[None]]):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def send(self, to: bytes, message_type: MessageType, data: Message):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def routine(self):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def statistics(self) -> Dict:
-        raise NotImplementedError()
-
-
-class Connector(Looper):
-    @abc.abstractmethod
-    async def send(self, message_type: MessageType, data: Message):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def routine(self):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def statistics(self) -> Dict:
-        raise NotImplementedError()

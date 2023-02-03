@@ -23,6 +23,6 @@ class TaskStatus(enum.Enum):
 
 
 class TaskEchoStatus(enum.Enum):
-    OK = b"OK"
+    SubmitOK = b"SK"
+    CancelOK = b"CK"
     Duplicated = b"DC"
-    Failed = b"FD"
