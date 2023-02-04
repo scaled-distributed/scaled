@@ -16,7 +16,7 @@ class FunctionSerializer:
 
     @staticmethod
     def serialize_arguments(args: Tuple[Any, ...]) -> bytes:
-        return pickle.dumps(args)
+        return pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def deserialize_arguments(payload: bytes) -> Tuple[Any, ...]:
@@ -24,7 +24,7 @@ class FunctionSerializer:
 
     @staticmethod
     def serialize_result(result: Any) -> bytes:
-        return pickle.dumps(result)
+        return pickle.dumps(result, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def deserialize_result(payload: bytes) -> Any:

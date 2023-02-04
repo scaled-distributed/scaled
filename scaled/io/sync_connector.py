@@ -24,7 +24,7 @@ class SyncConnector(threading.Thread):
         socket_type: int,
         bind_or_connect: Literal["bind", "connect"],
         address: ZMQConfig,
-        callback: Callable[[MessageType, MessageVariant], None]
+        callback: Callable[[MessageType, MessageVariant], None],
     ):
         threading.Thread.__init__(self)
 
@@ -48,7 +48,7 @@ class SyncConnector(threading.Thread):
 
         self._send_queue = Queue()
 
-        self._mutex = threading.Lock()
+        self._statistics_mutex = threading.Lock()
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
         self.start()
@@ -61,18 +61,15 @@ class SyncConnector(threading.Thread):
         return self._identity
 
     def run(self) -> None:
-        logging.info(f"{self.__get_prefix()} connect to {self._address.to_address()}")
         while not self._stop_event.is_set():
             self.__routine_send()
             self.__routine_receive()
-
-        logging.info(f"{self.__get_prefix()} exited")
 
     def send(self, message_type: MessageType, data: MessageVariant):
         self._send_queue.put((message_type, data.serialize()))
 
     def monitor(self):
-        with self._mutex:
+        with self._statistics_mutex:
             return copy.copy(self._statistics)
 
     def __set_socket_options(self):
@@ -109,7 +106,7 @@ class SyncConnector(threading.Thread):
             self._callback(message_type, message)
 
     def __count_one(self, count_type: Literal["sent", "received"], message_type: MessageType):
-        with self._mutex:
+        with self._statistics_mutex:
             self._statistics[count_type][message_type.name] += 1
 
     def __get_prefix(self):

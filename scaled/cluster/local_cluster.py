@@ -6,8 +6,6 @@ from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.worker_master import WorkerMaster
 
-PREFIX = "LocalCluster:"
-
 
 class LocalCluster:
     def __init__(
@@ -20,10 +18,7 @@ class LocalCluster:
     ):
         self._stop_event = multiprocessing.get_context("spawn").Event()
         self._worker_master = WorkerMaster(
-            address=address,
-            stop_event=self._stop_event,
-            n_workers=n_workers,
-            heartbeat_interval=heartbeat_interval,
+            stop_event=self._stop_event, address=address, n_workers=n_workers, heartbeat_interval=heartbeat_interval
         )
         self._router = LocalRouter(
             address=address,
@@ -34,13 +29,16 @@ class LocalCluster:
 
         self._worker_master.start()
         self._router.start()
-        logging.info(f"{PREFIX} started")
+        logging.info(f"{self.__get_prefix()} started")
 
     def __del__(self):
         self.shutdown()
+        logging.info(f"{self.__get_prefix()} shutdown")
 
     def shutdown(self):
-        logging.info(f"{PREFIX} shutdown")
         self._stop_event.set()
         self._worker_master.join()
         self._router.join()
+
+    def __get_prefix(self):
+        return f"{self.__class__.__name__}:"

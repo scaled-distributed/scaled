@@ -25,11 +25,11 @@ MessageVariant = TypeVar("MessageVariant", bound=Message)
 @attrs.define
 class Task(Message):
     task_id: bytes
-    function_name: bytes
+    function_id: bytes
     function_args: bytes
 
     def serialize(self) -> Tuple[bytes, bytes, bytes]:
-        return self.task_id, self.function_name, self.function_args
+        return self.task_id, self.function_id, self.function_args
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -126,10 +126,10 @@ class MonitorResponse(Message):
 
 @attrs.define
 class FunctionCheck(Message):
-    function_name: bytes
+    function_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.function_name,)
+        return (self.function_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -138,11 +138,11 @@ class FunctionCheck(Message):
 
 @attrs.define
 class FunctionAdd(Message):
-    function_name: bytes
+    function_id: bytes
     function: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.function_name, self.function
+        return self.function_id, self.function
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -151,10 +151,10 @@ class FunctionAdd(Message):
 
 @attrs.define
 class FunctionEcho(Message):
-    function_name: bytes
+    function_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.function_name,)
+        return (self.function_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -163,10 +163,10 @@ class FunctionEcho(Message):
 
 @attrs.define
 class FunctionRequest(Message):
-    function_name: bytes
+    function_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.function_name,)
+        return (self.function_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -175,11 +175,11 @@ class FunctionRequest(Message):
 
 @attrs.define
 class FunctionResponse(Message):
-    function_name: bytes
+    function_id: bytes
     function: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.function_name, self.function
+        return self.function_id, self.function
 
     @staticmethod
     def deserialize(data: List[bytes]):

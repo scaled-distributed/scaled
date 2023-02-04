@@ -9,7 +9,7 @@ from scaled.worker.worker import Worker
 
 
 class WorkerMaster(multiprocessing.get_context("spawn").Process):
-    def __init__(self, address: ZMQConfig, n_workers: int, stop_event: multiprocessing.Event, heartbeat_interval: int):
+    def __init__(self, stop_event: multiprocessing.Event, address: ZMQConfig, n_workers: int, heartbeat_interval: int):
         multiprocessing.Process.__init__(self, name="WorkerMaster")
 
         self._address = address
@@ -26,8 +26,8 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         self.__start_workers()
 
     def shutdown(self, *args):
+        logging.info(f"received signal, abort")
         self._stop_event.set()
-        self.__wait_for_workers()
 
     def __register_signal(self):
         signal.signal(signal.SIGINT, self.shutdown)
@@ -54,13 +54,16 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         for worker in self._workers:
             worker.start()
 
+        while not self._stop_event.is_set():
+            continue
+
         self.__wait_for_workers()
 
     def __wait_for_workers(self):
         for worker in self._workers:
             worker.join()
 
-        logging.info(f"{self.__get_prefix()} exited")
+        logging.info(f"{self.__get_prefix()} shutdown")
 
     def __get_prefix(self):
         return f"{self.__class__.__name__}:"

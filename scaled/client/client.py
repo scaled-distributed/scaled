@@ -51,12 +51,6 @@ class Client:
         self._connector.send(MessageType.MonitorRequest, MonitorRequest(b""))
         return self._monitor_future.result()
 
-    def gather(self, futures: Iterable[Future]) -> List[Any]:
-        task_ids, results = zip(*[future.result() for future in futures])
-        for task_id in task_ids:
-            self._futures.pop(task_id)
-        return list(results)
-
     def disconnect(self):
         self._stop_event.set()
 
@@ -81,8 +75,8 @@ class Client:
         if result.task_id not in self._futures:
             return
 
-        future = self._futures[result.task_id]
-        future.set_result((result.task_id, FunctionSerializer.deserialize_result(result.result)))
+        future = self._futures.pop(result.task_id)
+        future.set_result(FunctionSerializer.deserialize_result(result.result))
 
         self._count += 1
         # logging.debug(f"finished: {self._count}, connector: {json.dumps(self._connector.monitor())}")

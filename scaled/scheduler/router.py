@@ -51,10 +51,10 @@ class Router:
                 logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
 
     async def loop(self):
-        logging.info("LocalRouter started")
+        logging.info("Router started")
         while not self._stop_event.is_set():
             await asyncio.gather(self._binder.routine(), self._task_manager.routine(), self._worker_manager.routine())
-        logging.info("LocalRouter quited")
+        logging.info("Router quited")
 
     async def statistics(self, source: bytes, request: MonitorRequest):
         stats = MonitorResponse(

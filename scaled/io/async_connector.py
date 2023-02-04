@@ -2,7 +2,7 @@ import logging
 import os
 import socket
 from collections import defaultdict
-from typing import Awaitable, Callable, List, Literal, Optional
+from typing import Awaitable, Callable, List, Literal
 
 import zmq.asyncio
 
@@ -20,7 +20,7 @@ class AsyncConnector:
         socket_type: int,
         address: ZMQConfig,
         bind_or_connect: Literal["bind", "connect"],
-        callback: Callable[[MessageType, MessageVariant], Awaitable[None]]
+        callback: Callable[[MessageType, MessageVariant], Awaitable[None]],
     ):
         self._prefix = prefix
         self._address = address
@@ -36,8 +36,6 @@ class AsyncConnector:
             self._socket.connect(self._address.to_address())
         else:
             raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
-
-        logging.info(f"{self.__get_prefix()} connect to {self._address.to_address()}")
 
         self._callback: Callable[[MessageType, MessageVariant], Awaitable[None]] = callback
 

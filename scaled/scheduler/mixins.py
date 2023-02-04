@@ -35,6 +35,7 @@ class FunctionManager(Looper):
     async def statistics(self) -> Dict:
         raise NotImplementedError()
 
+
 class ClientManager(Looper):
     @abc.abstractmethod
     async def on_task_new(self, client: bytes, task: Task):
@@ -107,4 +108,3 @@ class WorkerManager(Looper):
     @abc.abstractmethod
     async def statistics(self) -> Dict:
         raise NotImplementedError()
-

@@ -28,6 +28,7 @@ def main():
     args = get_args()
     setup_logger()
 
+    __register_signal()
     cluster = StandaloneCluster(
         address=args.address,
         n_workers=args.num_of_workers,

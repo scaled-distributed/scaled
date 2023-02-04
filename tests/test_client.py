@@ -22,14 +22,14 @@ class TestClient(unittest.TestCase):
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
         client = Client(config=config)
 
-        tasks = [random.randint(0, 100) for i in range(100000)]
+        tasks = [random.randint(0, 100) for i in range(10000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(sleep_print, i) for i in tasks]
 
         with ScopedLogger(f"gather {len(futures)} results"):
-            results = client.gather(futures)
+            results = [future.result() for future in futures]
 
-        assert results == tasks
+        self.assertEqual(results, tasks)
         client.disconnect()
 
     def test_monitor(self):

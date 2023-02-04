@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Set
 
 from scaled.protocol.python.message import FunctionAdd
 from scaled.scheduler.mixins import FunctionManager
@@ -6,7 +6,7 @@ from scaled.scheduler.mixins import FunctionManager
 
 class VanillaFunctionManager(FunctionManager):
     def __init__(self):
-        pass
+        self._function_id_to_task_ids: Dict[bytes, Set[bytes]] = dict()
 
     async def on_function_add(self, function: FunctionAdd):
         pass

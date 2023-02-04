@@ -97,11 +97,14 @@ class Worker(multiprocessing.get_context("spawn").Process):
         while not self._stop_event.is_set():
             time.sleep(0.01)
 
+        self.__shutdown()
+
     def __shutdown(self, *args):
+        assert args is not None
         self._thread_stop_event.set()
         self._agent_connector.join()
         self._agent.join()
-        logging.info(f"{self.__get_prefix()} exited")
+        logging.info(f"{self.__get_prefix()} quited")
 
     def __register_signal(self):
         signal.signal(signal.SIGINT, self.__shutdown)
@@ -119,7 +122,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
     def __process_task(self, task: Task):
         # noinspection PyBroadException
         try:
-            function = self.__get_function(task.function_name)
+            function = self.__get_function(task.function_id)
             result = FunctionSerializer.serialize_result(
                 function(*FunctionSerializer.deserialize_arguments(task.function_args))
             )

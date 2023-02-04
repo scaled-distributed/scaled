@@ -31,6 +31,5 @@ class LocalRouter(multiprocessing.get_context("spawn").Process):
             allocator_type=self._allocator_type,
             worker_timeout_seconds=self._worker_timeout_seconds,
         )
-
         uvloop.install()
         asyncio.run(self._router.loop())
