@@ -15,6 +15,7 @@ class LocalCluster:
         heartbeat_interval: int = 1,
         allocator_type: AllocatorType = AllocatorType.Queued,
         worker_timeout_seconds: int = 10,
+        function_timeout_seconds: int = 60,
     ):
         self._stop_event = multiprocessing.get_context("spawn").Event()
         self._worker_master = WorkerMaster(
@@ -25,6 +26,7 @@ class LocalCluster:
             stop_event=self._stop_event,
             allocator_type=allocator_type,
             worker_timeout_seconds=worker_timeout_seconds,
+            function_timeout_seconds=function_timeout_seconds
         )
 
         self._worker_master.start()

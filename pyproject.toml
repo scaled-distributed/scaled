@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scaled"
-description = "Lite distribution for python"
+description = "Large Scale Distribution Toolkit"
 requires-python = ">=3.11"
+readme = { file = "README.md", content-type = "text/markdown"}
 license = { text = "GPL Version 3" }
 authors = [{ name = "Zhuo Yin", email = "zhuoyin@gmail.com" }]
 dynamic = ["dependencies", "version"]

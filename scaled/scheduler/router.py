@@ -3,10 +3,10 @@ import threading
 import logging
 
 from scaled.scheduler.client_manager.vanilla import VanillaClientManager
+from scaled.scheduler.function_manager.vanilla import VanillaFunctionManager
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import MessageVariant, MonitorRequest, MonitorResponse
-from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import MessageType, MessageVariant, MonitorRequest, MonitorResponse
 from scaled.scheduler.task_manager.vanilla import VanillaTaskManager
 from scaled.scheduler.worker_manager.vanilla import AllocatorType, VanillaWorkerManager
 
@@ -18,21 +18,24 @@ class Router:
         self,
         address: ZMQConfig,
         stop_event: threading.Event,
-        worker_timeout_seconds: int,
         allocator_type: AllocatorType,
+        worker_timeout_seconds: int,
+        function_timeout_seconds: int,
     ):
         self._address = address
         self._stop_event = stop_event
 
         self._binder = AsyncBinder(prefix="S", address=self._address)
         self._client_manager = VanillaClientManager()
+        self._function_manager = VanillaFunctionManager(function_timeout_seconds=function_timeout_seconds)
         self._task_manager = VanillaTaskManager(stop_event=self._stop_event)
         self._worker_manager = VanillaWorkerManager(
             stop_event=self._stop_event, allocator_type=allocator_type, timeout_seconds=worker_timeout_seconds
         )
 
         self._binder.register(self.on_receive_message)
-        self._task_manager.hook(self._binder, self._worker_manager)
+        self._function_manager.hook(self._binder)
+        self._task_manager.hook(self._binder, self._function_manager, self._worker_manager)
         self._worker_manager.hook(self._binder, self._task_manager)
 
     async def on_receive_message(self, source: bytes, message_type: MessageType, message: MessageVariant):
@@ -47,13 +50,20 @@ class Router:
                 await self._task_manager.on_task_new(source, message)
             case MessageType.TaskCancel:
                 await self._task_manager.on_task_cancel(source, message.task_id)
+            case MessageType.FunctionRequest:
+                await self._function_manager.on_function(source, message)
             case _:
                 logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
 
     async def loop(self):
         logging.info("Router started")
         while not self._stop_event.is_set():
-            await asyncio.gather(self._binder.routine(), self._task_manager.routine(), self._worker_manager.routine())
+            await asyncio.gather(
+                self._binder.routine(),
+                self._task_manager.routine(),
+                self._function_manager.routine(),
+                self._worker_manager.routine(),
+            )
         logging.info("Router quited")
 
     async def statistics(self, source: bytes, request: MonitorRequest):
@@ -61,6 +71,7 @@ class Router:
             {
                 "binder": await self._binder.statistics(),
                 "task_manager": await self._task_manager.statistics(),
+                "function_manager": await self._function_manager.statistics(),
                 "worker_manager": await self._worker_manager.statistics(),
             }
         )

@@ -8,8 +8,7 @@ import zmq.asyncio
 
 from scaled.io.config import POLLING_TIME_MILLI_SECONDS
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import MessageVariant, PROTOCOL
-from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
 class AsyncBinder:
@@ -47,7 +46,10 @@ class AsyncBinder:
             await self._callback(source, message_type, message)
 
     async def statistics(self) -> Dict:
-        return self._statistics
+        return {
+            "received": {k: v for k, v in self._statistics["received"].items()},
+            "sent": {k: v for k, v in self._statistics["sent"].items()},
+        }
 
     async def send(self, to: bytes, message_type: MessageType, message: MessageVariant):
         self.__count_one("sent", message_type)

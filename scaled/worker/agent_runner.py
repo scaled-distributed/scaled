@@ -6,8 +6,7 @@ import psutil
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import Heartbeat, MessageVariant
-from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import Heartbeat, MessageType, MessageVariant
 from scaled.utility.zmq_config import ZMQConfig
 
 
@@ -73,5 +72,7 @@ class WorkerHeartbeat:
         if time.time() - self._start < self._heartbeat_interval_seconds:
             return
 
-        await self._connector.send(MessageType.Heartbeat, Heartbeat(self._process.cpu_percent() / 100))
+        await self._connector.send(
+            MessageType.Heartbeat, Heartbeat(self._process.cpu_percent() / 100, self._process.memory_info().rss)
+        )
         self._start = time.time()

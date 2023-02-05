@@ -1,7 +1,7 @@
 import abc
 from typing import Dict
 
-from scaled.protocol.python.message import FunctionAdd, Heartbeat, Task, TaskResult
+from scaled.protocol.python.message import FunctionRequest, Heartbeat, Task, TaskResult
 
 
 class Looper(metaclass=abc.ABCMeta):
@@ -16,15 +16,15 @@ class Looper(metaclass=abc.ABCMeta):
 
 class FunctionManager(Looper):
     @abc.abstractmethod
-    async def on_function_check(self, function_name: bytes) -> bool:
+    async def on_function(self, source: bytes, request: FunctionRequest):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_function_add(self, function: FunctionAdd):
+    async def on_task_use_function(self, task_id: bytes, function_id: bytes):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_function_request(self, function_name: bytes):
+    async def on_task_done_function(self, task_id: bytes, function_id: bytes):
         raise NotImplementedError()
 
     @abc.abstractmethod

@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import signal
+import time
 from typing import List
 
 from scaled.utility.zmq_config import ZMQConfig
@@ -23,7 +24,7 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
     def run(self):
         setup_logger()
         self.__register_signal()
-        self.__start_workers()
+        self.__start_workers_and_run_forever()
 
     def shutdown(self, *args):
         logging.info(f"received signal, abort")
@@ -33,7 +34,7 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         signal.signal(signal.SIGINT, self.shutdown)
         signal.signal(signal.SIGTERM, self.shutdown)
 
-    def __start_workers(self):
+    def __start_workers_and_run_forever(self):
         logging.info(
             f"{self.__get_prefix()} starting {self._n_workers} workers, heartbeat interval is "
             f"{self._heartbeat_interval} seconds"
@@ -54,14 +55,12 @@ class WorkerMaster(multiprocessing.get_context("spawn").Process):
         for worker in self._workers:
             worker.start()
 
-        while not self._stop_event.is_set():
-            continue
-
-        self.__wait_for_workers()
-
-    def __wait_for_workers(self):
         for worker in self._workers:
             worker.join()
+
+        while not self._stop_event.is_set():
+            time.sleep(0.1)
+            continue
 
         logging.info(f"{self.__get_prefix()} shutdown")
 

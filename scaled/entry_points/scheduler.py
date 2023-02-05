@@ -19,6 +19,12 @@ def get_args():
         "--worker-timeout-seconds", type=int, default=60, help="discard worker when timeout seconds " "reached"
     )
     parser.add_argument(
+        "--function-timeout-seconds",
+        type=int,
+        default=60,
+        help="discard function in scheduler when timeout seconds " "reached",
+    )
+    parser.add_argument(
         "--allocator-type",
         required=True,
         type=AllocatorType,
@@ -41,6 +47,7 @@ def main():
         stop_event=stop_event,
         allocator_type=args.allocator_type,
         worker_timeout_seconds=args.worker_timeout_seconds,
+        function_timeout_seconds=args.function_timeout_seconds,
     )
     uvloop.install()
     asyncio.run(router.loop())

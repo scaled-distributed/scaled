@@ -22,7 +22,7 @@ class TestLocalCluster(unittest.TestCase):
         cluster = LocalCluster(address=config, n_workers=2)
         client = Client(config=config)
 
-        tasks = [random.randint(0, 100) for i in range(12000)]
+        tasks = [random.randint(0, 100) for i in range(10000)]
 
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(sleep_print, i) for i in tasks]

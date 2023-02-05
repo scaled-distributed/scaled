@@ -5,10 +5,9 @@ import time
 from typing import Dict, Optional
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.objects import MessageType
 from scaled.scheduler.mixins import TaskManager, WorkerManager
 from scaled.scheduler.worker_manager.allocators.one_to_one import OneToOneAllocator
-from scaled.protocol.python.message import Heartbeat, Task, TaskResult, TaskCancel
+from scaled.protocol.python.message import Heartbeat, MessageType, Task, TaskResult, TaskCancel
 from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 
 POLLING_TIME = 1

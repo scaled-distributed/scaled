@@ -1,14 +1,59 @@
 import abc
-import json
+import enum
+import pickle
 import struct
 from typing import Dict, List, Tuple, TypeVar
 
 import attrs
 
-from scaled.protocol.python.objects import MessageType, TaskStatus, TaskEchoStatus
+
+class MessageType(enum.Enum):
+    Task = b"TK"
+    TaskEcho = b"TE"
+    TaskCancel = b"TC"
+    TaskCancelEcho = b"TX"
+    TaskResult = b"TR"
+
+    Heartbeat = b"HB"
+
+    FunctionRequest = b"FR"
+    FunctionResponse = b"FA"
+
+    MonitorRequest = b"MR"
+    MonitorResponse = b"MS"
+
+    @staticmethod
+    def allowed_values():
+        return {member.value for member in MessageType}
 
 
-class Message(metaclass=abc.ABCMeta):
+class TaskStatus(enum.Enum):
+    Success = b"S"
+    Failed = b"F"
+    Canceled = b"C"
+
+
+class TaskEchoStatus(enum.Enum):
+    SubmitOK = b"SK"
+    CancelOK = b"CK"
+    Duplicated = b"DC"
+
+
+class FunctionRequestType(enum.Enum):
+    Check = b"C"
+    Add = b"A"
+    Request = b"R"
+    Delete = b"D"
+
+
+class FunctionResponseType(enum.Enum):
+    OK = b"OK"
+    NotExists = b"NE"
+    StillHaveTask = b"HT"
+    Duplicated = b"DC"
+
+
+class _Message(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def serialize(self) -> Tuple[bytes, ...]:
         raise NotImplementedError()
@@ -19,11 +64,11 @@ class Message(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-MessageVariant = TypeVar("MessageVariant", bound=Message)
+MessageVariant = TypeVar("MessageVariant", bound=_Message)
 
 
 @attrs.define
-class Task(Message):
+class Task(_Message):
     task_id: bytes
     function_id: bytes
     function_args: bytes
@@ -37,7 +82,7 @@ class Task(Message):
 
 
 @attrs.define
-class TaskEcho(Message):
+class TaskEcho(_Message):
     task_id: bytes
     status: TaskEchoStatus
 
@@ -50,7 +95,7 @@ class TaskEcho(Message):
 
 
 @attrs.define
-class TaskCancel(Message):
+class TaskCancel(_Message):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
@@ -62,7 +107,7 @@ class TaskCancel(Message):
 
 
 @attrs.define
-class TaskCancelEcho(Message):
+class TaskCancelEcho(_Message):
     task_id: bytes
     status: TaskEchoStatus
 
@@ -75,7 +120,7 @@ class TaskCancelEcho(Message):
 
 
 @attrs.define
-class TaskResult(Message):
+class TaskResult(_Message):
     task_id: bytes
     status: TaskStatus
     result: bytes
@@ -89,19 +134,20 @@ class TaskResult(Message):
 
 
 @attrs.define
-class Heartbeat(Message):
+class Heartbeat(_Message):
     cpu_usage: float
+    rss_size: int
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (struct.pack("f", self.cpu_usage),)
+        return (struct.pack("fI", self.cpu_usage, self.rss_size),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(struct.unpack("f", data[0])[0])
+        return Heartbeat(*struct.unpack("fI", data[0]))
 
 
 @attrs.define
-class MonitorRequest(Message):
+class MonitorRequest(_Message):
     data: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
@@ -113,77 +159,43 @@ class MonitorRequest(Message):
 
 
 @attrs.define
-class MonitorResponse(Message):
+class MonitorResponse(_Message):
     data: Dict
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (json.dumps(self.data).encode(),)
+        return (pickle.dumps(self.data),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return MonitorResponse(json.loads(data[0]))
+        return MonitorResponse(pickle.loads(data[0]))
 
 
 @attrs.define
-class FunctionCheck(Message):
+class FunctionRequest(_Message):
+    type: FunctionRequestType
     function_id: bytes
+    content: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.function_id,)
+        return self.type.value, self.function_id, self.content
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return FunctionCheck(data[0])
+        return FunctionRequest(FunctionRequestType(data[0]), data[1], data[2])
 
 
 @attrs.define
-class FunctionAdd(Message):
+class FunctionResponse(_Message):
+    status: FunctionResponseType
     function_id: bytes
-    function: bytes
+    content: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.function_id, self.function
+        return self.status.value, self.function_id, self.content
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return FunctionAdd(data[0], data[1])
-
-
-@attrs.define
-class FunctionEcho(Message):
-    function_id: bytes
-
-    def serialize(self) -> Tuple[bytes, ...]:
-        return (self.function_id,)
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return FunctionEcho(data[0])
-
-
-@attrs.define
-class FunctionRequest(Message):
-    function_id: bytes
-
-    def serialize(self) -> Tuple[bytes, ...]:
-        return (self.function_id,)
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return FunctionRequest(data[0])
-
-
-@attrs.define
-class FunctionResponse(Message):
-    function_id: bytes
-    function: bytes
-
-    def serialize(self) -> Tuple[bytes, ...]:
-        return self.function_id, self.function
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return FunctionResponse(data[0], data[1])
+        return FunctionResponse(FunctionResponseType(data[0]), data[1], data[2])
 
 
 PROTOCOL = {
@@ -195,9 +207,6 @@ PROTOCOL = {
     MessageType.TaskResult.value: TaskResult,
     MessageType.MonitorRequest.value: MonitorRequest,
     MessageType.MonitorResponse.value: MonitorResponse,
-    MessageType.FunctionCheck.value: FunctionCheck,
-    MessageType.FunctionAdd.value: FunctionAdd,
-    MessageType.FunctionEcho.value: FunctionEcho,
     MessageType.FunctionRequest.value: FunctionRequest,
     MessageType.FunctionResponse.value: FunctionResponse,
 }

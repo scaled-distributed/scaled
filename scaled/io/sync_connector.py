@@ -3,16 +3,14 @@ import logging
 import os
 import socket
 import threading
-from collections import defaultdict
-from queue import Queue
+from collections import defaultdict, deque
 from typing import Callable, Literal
 
 import zmq
 
 from scaled.io.config import POLLING_TIME_MILLI_SECONDS
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import MessageVariant, PROTOCOL
-from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
 class SyncConnector(threading.Thread):
@@ -46,7 +44,7 @@ class SyncConnector(threading.Thread):
         self._callback = callback
         self._stop_event = stop_event
 
-        self._send_queue = Queue()
+        self._send_queue = deque()
 
         self._statistics_mutex = threading.Lock()
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
@@ -65,8 +63,8 @@ class SyncConnector(threading.Thread):
             self.__routine_send()
             self.__routine_receive()
 
-    def send(self, message_type: MessageType, data: MessageVariant):
-        self._send_queue.put((message_type, data.serialize()))
+    def send(self, message_type: MessageType, message: MessageVariant):
+        self._send_queue.append((message_type, message))
 
     def monitor(self):
         with self._statistics_mutex:
@@ -78,10 +76,9 @@ class SyncConnector(threading.Thread):
         self._socket.setsockopt(zmq.RCVHWM, 0)
 
     def __routine_send(self):
-        while not self._send_queue.empty():
-            message_type, data = self._send_queue.get()
-            self.__count_one("sent", message_type)
-            self._socket.send_multipart([message_type.value, *data])
+        while self._send_queue:
+            message_type, message = self._send_queue.popleft()
+            self._socket.send_multipart([message_type.value, *message.serialize()])
 
     def __routine_receive(self):
         count = self._socket.poll(POLLING_TIME_MILLI_SECONDS)
@@ -90,6 +87,7 @@ class SyncConnector(threading.Thread):
 
         for _ in range(count):
             frames = self._socket.recv_multipart()
+
             if len(frames) < 2:
                 logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
                 return

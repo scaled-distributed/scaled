@@ -8,8 +8,7 @@ import zmq.asyncio
 
 from scaled.io.config import POLLING_TIME_MILLI_SECONDS
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import MessageVariant, PROTOCOL
-from scaled.protocol.python.objects import MessageType
+from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
 class AsyncConnector:
