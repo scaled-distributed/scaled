@@ -1,7 +1,7 @@
 import random
 
 from scaled.client.client import Client
-from scaled.cluster.scheduler_cluster_combo import SchedulerClusterCombo
+from scaled.cluster.combo import SchedulerClusterCombo
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger

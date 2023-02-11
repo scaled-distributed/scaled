@@ -42,7 +42,7 @@ class VanillaFunctionManager(FunctionManager):
             return
 
         if request.type == FunctionRequestType.Delete:
-            await self.__on_function_router_delete(source, request.function_id)
+            await self.__on_function_scheduler_delete(source, request.function_id)
             return
 
         logging.error(f"received unknown function request type {request=} from {source=}")
@@ -95,7 +95,7 @@ class VanillaFunctionManager(FunctionManager):
 
         await self.__send_function_response(client, function_id, FunctionResponseType.OK)
 
-    async def __on_function_router_delete(self, client: bytes, function_id: bytes):
+    async def __on_function_scheduler_delete(self, client: bytes, function_id: bytes):
         if function_id not in self._function_id_to_function:
             await self.__send_function_response(client, function_id, FunctionResponseType.NotExists)
             return

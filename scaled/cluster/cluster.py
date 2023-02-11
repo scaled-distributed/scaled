@@ -11,7 +11,7 @@ from scaled.utility.logging.utility import setup_logger
 from scaled.worker.worker import Worker
 
 
-class Cluster(multiprocessing.get_context("spawn").Process):
+class ClusterProcess(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
         stop_event: EventClass,

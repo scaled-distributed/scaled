@@ -38,7 +38,7 @@ class AsyncAgent:
             callback=self.on_receive_internal,
         )
 
-        self._heartbeat = WorkerHeartbeat(
+        self._heartbeat = _WorkerHeartbeat(
             connector=self._connector_external, heartbeat_interval_seconds=heartbeat_interval_seconds
         )
 
@@ -59,7 +59,7 @@ class AsyncAgent:
             )
 
 
-class WorkerHeartbeat:
+class _WorkerHeartbeat:
     def __init__(self, connector: AsyncConnector, heartbeat_interval_seconds: int):
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._connector: AsyncConnector = connector

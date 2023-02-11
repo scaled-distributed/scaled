@@ -3,9 +3,7 @@ import asyncio
 import signal
 import threading
 
-import uvloop
-
-from scaled.scheduler.router import Router
+from scaled.scheduler.main import Scheduler
 from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.event_loop import EventLoopType, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
@@ -46,7 +44,7 @@ def main():
 
     __register_signal()
 
-    router = Router(
+    scheduler = Scheduler(
         address=args.address,
         stop_event=stop_event,
         allocator_type=args.allocator_type,
@@ -54,7 +52,7 @@ def main():
         function_timeout_seconds=args.function_timeout_seconds,
     )
     register_event_loop(args.event_loop)
-    asyncio.run(router.loop())
+    asyncio.run(scheduler.loop())
 
 
 def __register_signal():
@@ -63,4 +61,5 @@ def __register_signal():
 
 
 def __handle_signal(*args):
+    assert args is not None
     stop_event.set()

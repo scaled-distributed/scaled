@@ -1,12 +1,12 @@
 import logging
 import multiprocessing
 
-from scaled.cluster.local.local_router import LocalRouter
+from scaled.cluster.scheduler import SchedulerProcess
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.serializer.mixins import Serializer
 from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.cluster.cluster import Cluster
+from scaled.cluster.cluster import ClusterProcess
 
 
 class SchedulerClusterCombo:
@@ -22,7 +22,7 @@ class SchedulerClusterCombo:
         serializer: Serializer = DefaultSerializer(),
     ):
         self._stop_event = multiprocessing.get_context("spawn").Event()
-        self._cluster = Cluster(
+        self._cluster = ClusterProcess(
             stop_event=self._stop_event,
             address=address,
             n_workers=n_workers,
@@ -30,7 +30,7 @@ class SchedulerClusterCombo:
             event_loop=event_loop,
             serializer=serializer,
         )
-        self._router = LocalRouter(
+        self._scheduler = SchedulerProcess(
             address=address,
             stop_event=self._stop_event,
             allocator_type=allocator_type,
@@ -39,7 +39,7 @@ class SchedulerClusterCombo:
         )
 
         self._cluster.start()
-        self._router.start()
+        self._scheduler.start()
         logging.info(f"{self.__get_prefix()} started")
 
     def __del__(self):
@@ -49,7 +49,7 @@ class SchedulerClusterCombo:
     def shutdown(self):
         self._stop_event.set()
         self._cluster.join()
-        self._router.join()
+        self._scheduler.join()
 
     def __get_prefix(self):
         return f"{self.__class__.__name__}:"

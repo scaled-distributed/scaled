@@ -27,7 +27,7 @@ from scaled.protocol.python.message import (
     TaskResult,
     TaskStatus,
 )
-from scaled.worker.agent_runner import AsyncAgent
+from scaled.worker.async_agent import AsyncAgent
 
 
 class Agent(threading.Thread):

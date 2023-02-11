@@ -5,8 +5,7 @@ import os
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.utility.event_loop import EventLoopType
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.utility.logging.utility import setup_logger
-from scaled.cluster.cluster import Cluster
+from scaled.cluster.cluster import ClusterProcess
 
 stop_event = multiprocessing.get_context("spawn").Event()
 
@@ -30,9 +29,7 @@ def get_args():
 
 def main():
     args = get_args()
-    setup_logger()
-
-    cluster = Cluster(
+    cluster = ClusterProcess(
         stop_event=stop_event,
         address=args.address,
         n_workers=args.num_of_workers,
@@ -41,4 +38,3 @@ def main():
         serializer=DefaultSerializer(),
     )
     cluster.run()
-

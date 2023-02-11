@@ -10,10 +10,10 @@ from scaled.protocol.python.message import MessageType, MessageVariant, MonitorR
 from scaled.scheduler.task_manager.vanilla import VanillaTaskManager
 from scaled.scheduler.worker_manager.vanilla import AllocatorType, VanillaWorkerManager
 
-PREFIX = "Router:"
+PREFIX = "Scheduler:"
 
 
-class Router:
+class Scheduler:
     def __init__(
         self,
         address: ZMQConfig,
@@ -66,7 +66,7 @@ class Router:
         logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
 
     async def loop(self):
-        logging.info("Router started")
+        logging.info("Scheduler started")
         while not self._stop_event.is_set():
             await asyncio.gather(
                 self._binder.routine(),
@@ -74,9 +74,10 @@ class Router:
                 self._function_manager.routine(),
                 self._worker_manager.routine(),
             )
-        logging.info("Router quited")
+        logging.info("Scheduler quited")
 
     async def statistics(self, source: bytes, request: MonitorRequest):
+        assert isinstance(request, MonitorRequest)
         stats = MonitorResponse(
             {
                 "binder": await self._binder.statistics(),
