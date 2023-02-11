@@ -3,8 +3,10 @@ from typing import Any, Callable, Tuple
 
 import cloudpickle
 
+from scaled.protocol.python.serializer.mixins import Serializer
 
-class FunctionSerializer:
+
+class DefaultSerializer(Serializer):
     @staticmethod
     def serialize_function(fn: Callable) -> bytes:
         return cloudpickle.dumps(fn)

@@ -37,6 +37,7 @@ class TaskEchoStatus(enum.Enum):
     SubmitOK = b"SK"
     CancelOK = b"CK"
     Duplicated = b"DC"
+    FunctionNotExists = b"FN"
 
 
 class FunctionRequestType(enum.Enum):
@@ -99,7 +100,7 @@ class TaskCancel(_Message):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.task_id,)
+        return self.task_id,
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -139,7 +140,7 @@ class Heartbeat(_Message):
     rss_size: int
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (struct.pack("fI", self.cpu_usage, self.rss_size),)
+        return struct.pack("fI", self.cpu_usage, self.rss_size),
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -148,14 +149,12 @@ class Heartbeat(_Message):
 
 @attrs.define
 class MonitorRequest(_Message):
-    data: bytes
-
     def serialize(self) -> Tuple[bytes, ...]:
-        return (self.data,)
+        return b"",
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return TaskCancel(data[0])
+        return MonitorRequest()
 
 
 @attrs.define
@@ -163,7 +162,7 @@ class MonitorResponse(_Message):
     data: Dict
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (pickle.dumps(self.data),)
+        return pickle.dumps(self.data),
 
     @staticmethod
     def deserialize(data: List[bytes]):

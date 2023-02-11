@@ -1,11 +1,12 @@
 import argparse
 import multiprocessing
 import os
-import signal
 
-from scaled.cluster.standalone_cluster import StandaloneCluster
+from scaled.protocol.python.serializer.default import DefaultSerializer
+from scaled.utility.event_loop import EventLoopType
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.utility.logging.utility import setup_logger
+from scaled.cluster.cluster import Cluster
 
 stop_event = multiprocessing.get_context("spawn").Event()
 
@@ -20,6 +21,9 @@ def get_args():
     parser.add_argument(
         "--heartbeat-interval", type=int, default=10, help="number of seconds to send heartbeat " "interval"
     )
+    parser.add_argument(
+        "--event-loop", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
+    )
     parser.add_argument("address", type=ZMQConfig.from_string, help="scheduler address to connect to")
     return parser.parse_args()
 
@@ -28,20 +32,13 @@ def main():
     args = get_args()
     setup_logger()
 
-    __register_signal()
-    cluster = StandaloneCluster(
+    cluster = Cluster(
+        stop_event=stop_event,
         address=args.address,
         n_workers=args.num_of_workers,
         heartbeat_interval=args.heartbeat_interval,
-        stop_event=stop_event,
+        event_loop=args.event_loop,
+        serializer=DefaultSerializer(),
     )
-    cluster.join()
+    cluster.run()
 
-
-def __register_signal():
-    signal.signal(signal.SIGINT, __handle_signal)
-    signal.signal(signal.SIGTERM, __handle_signal)
-
-
-def __handle_signal(*args):
-    stop_event.set()

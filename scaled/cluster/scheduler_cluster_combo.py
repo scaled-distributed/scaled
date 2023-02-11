@@ -2,34 +2,43 @@ import logging
 import multiprocessing
 
 from scaled.cluster.local.local_router import LocalRouter
+from scaled.protocol.python.serializer.default import DefaultSerializer
+from scaled.protocol.python.serializer.mixins import Serializer
 from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.worker_master import WorkerMaster
+from scaled.cluster.cluster import Cluster
 
 
-class LocalCluster:
+class SchedulerClusterCombo:
     def __init__(
         self,
         address: ZMQConfig,
         n_workers: int,
         heartbeat_interval: int = 1,
-        allocator_type: AllocatorType = AllocatorType.Queued,
+        event_loop: str = "builtin",
         worker_timeout_seconds: int = 10,
         function_timeout_seconds: int = 60,
+        allocator_type: AllocatorType = AllocatorType.Queued,
+        serializer: Serializer = DefaultSerializer(),
     ):
         self._stop_event = multiprocessing.get_context("spawn").Event()
-        self._worker_master = WorkerMaster(
-            stop_event=self._stop_event, address=address, n_workers=n_workers, heartbeat_interval=heartbeat_interval
+        self._cluster = Cluster(
+            stop_event=self._stop_event,
+            address=address,
+            n_workers=n_workers,
+            heartbeat_interval=heartbeat_interval,
+            event_loop=event_loop,
+            serializer=serializer,
         )
         self._router = LocalRouter(
             address=address,
             stop_event=self._stop_event,
             allocator_type=allocator_type,
             worker_timeout_seconds=worker_timeout_seconds,
-            function_timeout_seconds=function_timeout_seconds
+            function_timeout_seconds=function_timeout_seconds,
         )
 
-        self._worker_master.start()
+        self._cluster.start()
         self._router.start()
         logging.info(f"{self.__get_prefix()} started")
 
@@ -39,7 +48,7 @@ class LocalCluster:
 
     def shutdown(self):
         self._stop_event.set()
-        self._worker_master.join()
+        self._cluster.join()
         self._router.join()
 
     def __get_prefix(self):

@@ -39,21 +39,31 @@ class Router:
         self._worker_manager.hook(self._binder, self._task_manager)
 
     async def on_receive_message(self, source: bytes, message_type: MessageType, message: MessageVariant):
-        match message_type:
-            case MessageType.Heartbeat:
-                await self._worker_manager.on_heartbeat(source, message)
-            case MessageType.MonitorRequest:
-                await self.statistics(source, message)
-            case MessageType.TaskResult:
-                await self._worker_manager.on_task_done(message)
-            case MessageType.Task:
-                await self._task_manager.on_task_new(source, message)
-            case MessageType.TaskCancel:
-                await self._task_manager.on_task_cancel(source, message.task_id)
-            case MessageType.FunctionRequest:
-                await self._function_manager.on_function(source, message)
-            case _:
-                logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
+        if message_type == MessageType.Heartbeat:
+            await self._worker_manager.on_heartbeat(source, message)
+            return
+
+        if message_type ==  MessageType.MonitorRequest:
+            await self.statistics(source, message)
+            return
+
+        if message_type == MessageType.Task:
+            await self._task_manager.on_task_new(source, message)
+            return
+
+        if message_type ==  MessageType.TaskCancel:
+            await self._task_manager.on_task_cancel(source, message.task_id)
+            return
+
+        if message_type ==  MessageType.TaskResult:
+            await self._worker_manager.on_task_done(message)
+            return
+
+        if message_type ==  MessageType.FunctionRequest:
+            await self._function_manager.on_function(source, message)
+            return
+
+        logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
 
     async def loop(self):
         logging.info("Router started")

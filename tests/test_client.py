@@ -19,10 +19,11 @@ class TestClient(unittest.TestCase):
         setup_logger()
 
     def test_client(self):
+        # need server
         config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
         client = Client(config=config)
 
-        tasks = [random.randint(0, 100) for i in range(100000)]
+        tasks = [random.randint(0, 100) for _ in range(10000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(sleep_print, i) for i in tasks]
 

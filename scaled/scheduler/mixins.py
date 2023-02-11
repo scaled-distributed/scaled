@@ -28,6 +28,10 @@ class FunctionManager(Looper):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    async def has_function(self, function_id: bytes) -> bool:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     async def routine(self):
         raise NotImplementedError()
 

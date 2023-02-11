@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 import time
 from typing import Dict, Optional, Set
@@ -28,15 +29,23 @@ class VanillaFunctionManager(FunctionManager):
         self._binder = binder
 
     async def on_function(self, source: bytes, request: FunctionRequest):
-        match request.type:
-            case FunctionRequestType.Check:
-                await self.__on_function_check(source, request.function_id)
-            case FunctionRequestType.Add:
-                await self.__on_function_add(source, request.function_id, request.content)
-            case FunctionRequestType.Request:
-                await self.__on_function_request(source, request)
-            case FunctionRequestType.Delete:
-                await self.__on_function_router_delete(source, request.function_id)
+        if request.type == FunctionRequestType.Check:
+            await self.__on_function_check(source, request.function_id)
+            return
+
+        if request.type == FunctionRequestType.Add:
+            await self.__on_function_add(source, request.function_id, request.content)
+            return
+
+        if request.type == FunctionRequestType.Request:
+            await self.__on_function_request(source, request)
+            return
+
+        if request.type == FunctionRequestType.Delete:
+            await self.__on_function_router_delete(source, request.function_id)
+            return
+
+        logging.error(f"received unknown function request type {request=} from {source=}")
 
     async def __on_function_request(self, source: bytes, function_request: FunctionRequest):
         if function_request.function_id not in self._function_id_to_function:
@@ -56,6 +65,9 @@ class VanillaFunctionManager(FunctionManager):
                 self._function_id_to_function[function_request.function_id],
             ),
         )
+
+    async def has_function(self, function_id: bytes) -> bool:
+        return function_id in self._function_id_to_function
 
     async def on_task_use_function(self, task_id: bytes, function_id: bytes):
         self._function_id_to_alive_since[function_id] = time.time()
@@ -93,8 +105,10 @@ class VanillaFunctionManager(FunctionManager):
             return
 
         self._function_id_to_function.pop(function_id)
-        self._function_id_to_task_ids.pop(function_id)
         self._function_id_to_alive_since.pop(function_id)
+
+        self._function_id_to_task_ids.pop(function_id)
+
         await self.__send_function_response(client, function_id, FunctionResponseType.StillHaveTask)
 
     async def __send_function_response(self, client: bytes, function_id: bytes, response_type: FunctionResponseType):

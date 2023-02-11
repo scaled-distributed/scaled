@@ -9,3 +9,11 @@ The goal for this project should be as simple as possible
 - I will provide golang or Rust version of Scheduler, the goal for the Scheduler should be completely computer language 
   agnostic, which means they follow the same protocol
 - Scheduler might support function based computing tree in the future
+
+# Installation
+`pip install scaled`
+
+if you want to use uvloop, please do: `pip install uvloop`, default we are using python builtin uvloop
+
+
+# How to use it

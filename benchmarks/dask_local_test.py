@@ -3,6 +3,7 @@ import random
 from dask.distributed import Client as DaskClient, LocalCluster as DaskLocalCluster
 
 from scaled.utility.logging.scoped_logger import ScopedLogger
+from scaled.utility.logging.utility import setup_logger
 
 
 def sleep_print(sec: int):
@@ -10,7 +11,8 @@ def sleep_print(sec: int):
 
 
 def main():
-    tasks = [random.randint(0, 100) for i in range(100000)]
+    setup_logger()
+    tasks = [random.randint(0, 100) for _ in range(10000)]
 
     cluster = DaskLocalCluster(n_workers=1, threads_per_worker=2, memory_limit="100GB")
     client = DaskClient(cluster)

@@ -1,16 +1,16 @@
 import hashlib
 import threading
-import time
 import uuid
 from concurrent.futures import Future
 
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Set, Tuple
 
 import zmq
 
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.sync_connector import SyncConnector
-from scaled.protocol.python.function import FunctionSerializer
+from scaled.protocol.python.serializer.mixins import FunctionSerializerType
+from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.message import (
     FunctionRequest,
     FunctionRequestType,
@@ -22,12 +22,13 @@ from scaled.protocol.python.message import (
     MonitorResponse,
     Task,
     TaskEcho,
+    TaskEchoStatus,
     TaskResult,
 )
 
 
 class Client:
-    def __init__(self, config: ZMQConfig):
+    def __init__(self, config: ZMQConfig, serializer: FunctionSerializerType = DefaultSerializer()):
         self._stop_event = threading.Event()
         self._connector = SyncConnector(
             stop_event=self._stop_event,
@@ -38,9 +39,12 @@ class Client:
             address=config,
             callback=self.__on_receive,
         )
+        self._serializer = serializer
 
-        self._futures: Dict[bytes, Future] = dict()
-        self._function_id_usage_count: Dict[bytes, int] = dict()
+        self._function_to_function_id_cache: dict[Callable, bytes] = dict()
+        self._ready_function_ids: Set[bytes] = set()
+        self._task_id_to_futures: Dict[bytes, Future] = dict()
+
         self._statistics_future: Optional[Future] = None
 
     def __del__(self):
@@ -50,72 +54,81 @@ class Client:
         function_id = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
-        task = Task(task_id, function_id, FunctionSerializer.serialize_arguments(args))
+        task = Task(task_id, function_id, self._serializer.serialize_arguments(args))
         self._connector.send(MessageType.Task, task)
 
         future = Future()
-        self._futures[task_id] = future
+        self._task_id_to_futures[task_id] = future
         return future
 
     def statistics(self):
         self._statistics_future = Future()
-        self._connector.send(MessageType.MonitorRequest, MonitorRequest(b""))
+        self._connector.send(MessageType.MonitorRequest, MonitorRequest())
         return self._statistics_future.result()
 
     def disconnect(self):
         self._stop_event.set()
 
+    def __on_receive(self, message_type: MessageType, message: MessageVariant):
+        if message_type == MessageType.FunctionResponse:
+            self.__on_function_response(message)
+            return
+
+        if message_type == MessageType.TaskEcho:
+            self.__on_task_echo(message)
+            return
+
+        if message_type == MessageType.TaskResult:
+            self.__on_task_result(message)
+            return
+
+        if message_type == MessageType.MonitorResponse:
+            self.__on_statistics_response(message)
+            return
+
+        raise TypeError(f"Unknown {message_type=}")
+
+    def __on_task_echo(self, task_echo: TaskEcho):
+        assert task_echo.status in {TaskEchoStatus.SubmitOK, TaskEchoStatus.CancelOK}, (
+            f"Unknown task status: " f"{task_echo=}"
+        )
+
+        if task_echo.task_id not in self._task_id_to_futures:
+            return
+
+        future = self._task_id_to_futures[task_echo.task_id]
+        future.set_running_or_notify_cancel()
+
+    def __on_function_response(self, response: FunctionResponse):
+        assert response.status in {FunctionResponseType.OK, FunctionResponseType.Duplicated}
+        self._ready_function_ids.add(response.function_id)
+
+    def __on_task_result(self, result: TaskResult):
+        if result.task_id not in self._task_id_to_futures:
+            return
+
+        future = self._task_id_to_futures.pop(result.task_id)
+        future.set_result(self._serializer.deserialize_result(result.result))
+
+    def __on_statistics_response(self, monitor_response: MonitorResponse):
+        self._statistics_future.set_result(monitor_response.data)
+
     def __get_function_id(self, fn: Callable) -> bytes:
-        function_bytes = FunctionSerializer.serialize_function(fn)
-        function_id = hashlib.md5(function_bytes).hexdigest().encode()
+        if fn in self._function_to_function_id_cache:
+            return self._function_to_function_id_cache[fn]
 
-        if function_id in self._function_id_usage_count:
-            return function_id
-
+        function_id, function_bytes = self.__generate_function_id_bytes(fn)
         self._connector.send(
             MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Add, function_id, function_bytes)
         )
 
-        while function_id not in self._function_id_usage_count:
-            time.sleep(0.1)
+        while function_id not in self._ready_function_ids:
+            continue
 
+        self._function_to_function_id_cache[fn] = function_id
         return function_id
 
-    def __on_receive(self, message_type: MessageType, message: MessageVariant):
-        match message_type:
-            case MessageType.FunctionResponse:
-                self.__on_function_response(message)
-            case MessageType.TaskEcho:
-                self.__on_task_echo(message)
-            case MessageType.TaskResult:
-                self.__on_task_result(message)
-            case MessageType.MonitorResponse:
-                self.__on_statistics_response(message)
-            case _:
-                raise TypeError(f"Unknown {message_type=}")
-
-    def __on_function_response(self, response: FunctionResponse):
-        if response.status == FunctionResponseType.Duplicated:
-            return
-
-        assert response.status == FunctionResponseType.OK
-        if response.function_id in self._function_id_usage_count:
-            return
-
-        self._function_id_usage_count[response.function_id] = 0
-
-    def __on_task_echo(self, task_echo: TaskEcho):
-        if task_echo.task_id not in self._futures:
-            return
-        future = self._futures[task_echo.task_id]
-        future.set_running_or_notify_cancel()
-
-    def __on_task_result(self, result: TaskResult):
-        if result.task_id not in self._futures:
-            return
-
-        future = self._futures.pop(result.task_id)
-        future.set_result(FunctionSerializer.deserialize_result(result.result))
-
-    def __on_statistics_response(self, monitor_response: MonitorResponse):
-        self._statistics_future.set_result(monitor_response.data)
+    def __generate_function_id_bytes(self, fn) -> Tuple[bytes, bytes]:
+        function_bytes = self._serializer.serialize_function(fn)
+        function_id = hashlib.md5(function_bytes).hexdigest().encode()
+        return function_id, function_bytes

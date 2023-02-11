@@ -7,6 +7,7 @@ import uvloop
 
 from scaled.scheduler.router import Router
 from scaled.scheduler.worker_manager.vanilla import AllocatorType
+from scaled.utility.event_loop import EventLoopType, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.utility.logging.utility import setup_logger
 
@@ -31,6 +32,9 @@ def get_args():
         choices={t for t in AllocatorType},
         help="specify allocator type",
     )
+    parser.add_argument(
+        "--event-loop", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
+    )
     parser.add_argument("address", type=ZMQConfig.from_string, help="scheduler address to connect to")
 
     return parser.parse_args()
@@ -49,7 +53,7 @@ def main():
         worker_timeout_seconds=args.worker_timeout_seconds,
         function_timeout_seconds=args.function_timeout_seconds,
     )
-    uvloop.install()
+    register_event_loop(args.event_loop)
     asyncio.run(router.loop())
 
 

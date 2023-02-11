@@ -10,7 +10,7 @@ from scaled.protocol.python.message import Heartbeat, MessageType, MessageVarian
 from scaled.utility.zmq_config import ZMQConfig
 
 
-class AgentRunner:
+class AsyncAgent:
     def __init__(
         self,
         stop_event: threading.Event,
@@ -34,7 +34,7 @@ class AgentRunner:
             context=context,
             socket_type=zmq.PAIR,
             address=address_internal,
-            bind_or_connect="connect",
+            bind_or_connect="bind",
             callback=self.on_receive_internal,
         )
 

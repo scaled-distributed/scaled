@@ -1,8 +1,10 @@
 import random
 
+from scaled.client.client import Client
+from scaled.cluster.scheduler_cluster_combo import SchedulerClusterCombo
+from scaled.utility.zmq_config import ZMQConfig, ZMQType
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
-from dask.distributed import Client as DaskClient
 
 
 def sleep_print(sec: int):
@@ -11,10 +13,12 @@ def sleep_print(sec: int):
 
 def main():
     setup_logger()
+    config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
 
-    tasks = [random.randint(0, 100) for _ in range(10000)]
+    cluster = SchedulerClusterCombo(address=config, n_workers=10, event_loop="uvloop")
+    client = Client(config=config)
 
-    client = DaskClient("127.0.0.1:12345")
+    tasks = [random.randint(0, 100) for _ in range(100000)]
 
     with ScopedLogger(f"submit {len(tasks)} tasks"):
         futures = [client.submit(sleep_print, i) for i in tasks]
@@ -23,6 +27,9 @@ def main():
         results = [future.result() for future in futures]
 
     assert results == tasks
+
+    cluster.shutdown()
+    client.disconnect()
 
 
 if __name__ == "__main__":

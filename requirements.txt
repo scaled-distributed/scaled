@@ -3,5 +3,4 @@ pytz
 attrs
 psutil
 colorlog
-uvloop
 cloudpickle

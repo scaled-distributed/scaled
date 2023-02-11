@@ -6,7 +6,7 @@ from typing import Awaitable, Callable, Dict, List, Literal, Optional
 
 import zmq.asyncio
 
-from scaled.io.config import POLLING_TIME_MILLI_SECONDS
+from scaled.io.config import POLLING_TIME_MILLISECONDS
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
@@ -30,7 +30,7 @@ class AsyncBinder:
         self._callback = callback
 
     async def routine(self):
-        count = await self._socket.poll(POLLING_TIME_MILLI_SECONDS)
+        count = await self._socket.poll(POLLING_TIME_MILLISECONDS)
         if not count:
             return
 

@@ -52,6 +52,12 @@ class VanillaTaskManager(TaskManager):
         }
 
     async def on_task_new(self, client: bytes, task: Task):
+        if not await self._function_manager.has_function(task.function_id):
+            await self._binder.send(
+                client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.FunctionNotExists)
+            )
+            return
+
         await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.SubmitOK))
         await self._function_manager.on_task_use_function(task.task_id, task.function_id)
         self._unassigned.append((client, task))
@@ -87,15 +93,19 @@ class VanillaTaskManager(TaskManager):
 
     async def on_task_done(self, result: TaskResult):
         """job done can be success or failed"""
-        match result.status:
-            case TaskStatus.Success:
-                await self.__on_task_success(result)
-            case TaskStatus.Failed:
-                await self.__on_task_failed(self._running, "fail", result)
-            case TaskStatus.Canceled:
-                await self.__on_task_failed(self._canceling, "cancel", result)
-            case _:
-                raise ValueError(f"unknown TaskResult status: {result.status}")
+        if result.status == TaskStatus.Success:
+            await self.__on_task_success(result)
+            return
+
+        if result.status == TaskStatus.Failed:
+            await self.__on_task_failed(self._running, "fail", result)
+            return
+
+        if result.status == TaskStatus.Canceled:
+            await self.__on_task_failed(self._canceling, "cancel", result)
+            return
+
+        raise ValueError(f"unknown TaskResult status: {result.status}")
 
     async def __on_assign_tasks(self):
         if not self._unassigned:

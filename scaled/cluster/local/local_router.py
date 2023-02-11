@@ -1,11 +1,10 @@
 import asyncio
 import multiprocessing
 import threading
-from typing import Optional
-
-import uvloop
+from typing import Literal, Optional
 
 from scaled.scheduler.worker_manager.vanilla import AllocatorType
+from scaled.utility.event_loop import register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.scheduler.router import Router
 from scaled.utility.logging.utility import setup_logger
@@ -19,6 +18,7 @@ class LocalRouter(multiprocessing.get_context("spawn").Process):
         allocator_type: AllocatorType,
         worker_timeout_seconds: int,
         function_timeout_seconds: int,
+        event_loop: Literal["builtin", "uvloop"] = "builtin",
     ):
         multiprocessing.Process.__init__(self, name="LocalRouter")
         self._address = address
@@ -27,6 +27,7 @@ class LocalRouter(multiprocessing.get_context("spawn").Process):
         self._worker_timeout_seconds = worker_timeout_seconds
         self._function_timeout_seconds = function_timeout_seconds
         self._router: Optional[Router] = None
+        self._event_loop = event_loop
 
     def run(self) -> None:
         # scheduler have its own single process
@@ -38,5 +39,6 @@ class LocalRouter(multiprocessing.get_context("spawn").Process):
             worker_timeout_seconds=self._worker_timeout_seconds,
             function_timeout_seconds=self._function_timeout_seconds,
         )
-        uvloop.install()
+
+        register_event_loop(self._event_loop)
         asyncio.run(self._router.loop())
