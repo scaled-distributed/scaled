@@ -1,5 +1,4 @@
 pyzmq
-pytz
 attrs
 psutil
 colorlog
