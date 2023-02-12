@@ -26,24 +26,19 @@ class Agent(threading.Thread):
         address: ZMQConfig,
         address_internal: ZMQConfig,
         heartbeat_interval_seconds: int,
+        function_retention_seconds: int,
         event_loop: str,
     ):
         threading.Thread.__init__(self)
-
-        self._stop_event: threading.Event = stop_event
-        self._address: ZMQConfig = address
-        self._address_internal: ZMQConfig = address_internal
-
-        self._heartbeat_interval_seconds: int = heartbeat_interval_seconds
-
         self._event_loop = event_loop
 
         self._agent = AsyncAgent(
-            stop_event=self._stop_event,
+            stop_event=stop_event,
             context=context,
-            address=self._address,
-            address_internal=self._address_internal,
-            heartbeat_interval_seconds=self._heartbeat_interval_seconds,
+            address=address,
+            address_internal=address_internal,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
+            function_retention_seconds=function_retention_seconds,
         )
 
     def run(self) -> None:
@@ -57,6 +52,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         address: ZMQConfig,
         stop_event: multiprocessing.Event,
         heartbeat_interval_seconds: int,
+        function_retention_seconds: int,
         event_loop: str,
         serializer: FunctionSerializerType,
     ):
@@ -64,6 +60,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
         self._address = address
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._function_retention_seconds = function_retention_seconds
         self._event_loop = event_loop
         self._stop_event = stop_event
         self._serializer = serializer
@@ -113,6 +110,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             address=self._address,
             address_internal=internal_channel,
             heartbeat_interval_seconds=self._heartbeat_interval_seconds,
+            function_retention_seconds=self._function_retention_seconds,
             event_loop=self._event_loop,
         )
         self._agent.start()
@@ -146,7 +144,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         except Exception as e:
             logging.exception(f"{self.get_prefix()} error when processing {task=}:")
             self._agent_connector.send(
-                MessageType.TaskResult, TaskResult(task.task_id,  TaskStatus.Failed, str(e).encode())
+                MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Failed, str(e).encode())
             )
 
     def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):

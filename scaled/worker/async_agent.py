@@ -29,6 +29,7 @@ class AsyncAgent:
         address: ZMQConfig,
         address_internal: ZMQConfig,
         heartbeat_interval_seconds: int,
+        function_retention_seconds: int,
     ):
         self._stop_event = stop_event
 
@@ -50,7 +51,9 @@ class AsyncAgent:
         )
 
         self._function_cache = _FunctionCache(
-            connector_external=self._connector_external, connector_internal=self._connector_internal
+            connector_external=self._connector_external,
+            connector_internal=self._connector_internal,
+            function_retention_seconds=function_retention_seconds,
         )
 
         self._heartbeat = _WorkerHeartbeat(
@@ -86,16 +89,21 @@ class AsyncAgent:
 
 
 class _FunctionCache:
-    def __init__(self, connector_external: AsyncConnector, connector_internal: AsyncConnector):
+    def __init__(
+        self, connector_external: AsyncConnector, connector_internal: AsyncConnector, function_retention_seconds: int
+    ):
         self._connector_external = connector_external
         self._connector_internal = connector_internal
+        self._function_retention_seconds = function_retention_seconds
 
         self._cached_functions: Dict[bytes, bytes] = dict()
+        self._cached_functions_alive_since: Dict[bytes, float] = dict()
         self._pending_tasks: Dict[bytes, List[Task]] = defaultdict(list)
 
     async def on_new_task(self, task: Task):
         if task.function_id in self._cached_functions:
             task.function_content = self._cached_functions[task.function_id]
+            self._cached_functions_alive_since[task.function_id] = time.time()
             await self._connector_internal.send(MessageType.Task, task)
             return
 
@@ -110,14 +118,24 @@ class _FunctionCache:
 
         assert response.status == FunctionResponseType.OK
         function_content = response.content
+
         self._cached_functions[response.function_id] = function_content
-        tasks = self._pending_tasks.pop(response.function_id)
-        for task in tasks:
+        self._cached_functions_alive_since[response.function_id] = time.time()
+
+        for task in self._pending_tasks.pop(response.function_id):
             task.function_content = function_content
             await self._connector_internal.send(MessageType.Task, task)
 
     async def routine(self):
-        pass
+        now = time.time()
+        idle_functions = [
+            function_id
+            for function_id, alive_since in self._cached_functions_alive_since.items()
+            if now - alive_since > self._function_retention_seconds
+        ]
+        for function_id in idle_functions:
+            self._cached_functions_alive_since.pop(function_id)
+            self._cached_functions.pop(function_id)
 
 
 class _WorkerHeartbeat:

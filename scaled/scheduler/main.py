@@ -20,14 +20,14 @@ class Scheduler:
         stop_event: threading.Event,
         per_worker_queue_size: int,
         worker_timeout_seconds: int,
-        function_timeout_seconds: int,
+        function_retention_seconds: int,
     ):
         self._address = address
         self._stop_event = stop_event
 
         self._binder = AsyncBinder(prefix="S", address=self._address)
         self._client_manager = VanillaClientManager()
-        self._function_manager = VanillaFunctionManager(function_timeout_seconds=function_timeout_seconds)
+        self._function_manager = VanillaFunctionManager(function_retention_seconds=function_retention_seconds)
         self._task_manager = VanillaTaskManager(stop_event=self._stop_event)
         self._worker_manager = VanillaWorkerManager(
             stop_event=self._stop_event,

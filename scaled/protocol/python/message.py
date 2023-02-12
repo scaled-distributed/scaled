@@ -141,11 +141,11 @@ class Heartbeat(_Message):
     rss_size: int
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (struct.pack("fI", self.cpu_usage, self.rss_size),)
+        return (struct.pack("fQ", self.cpu_usage, self.rss_size),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(*struct.unpack("fI", data[0]))
+        return Heartbeat(*struct.unpack("fQ", data[0]))
 
 
 @attrs.define

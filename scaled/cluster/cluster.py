@@ -17,7 +17,8 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         stop_event: EventClass,
         address: ZMQConfig,
         n_workers: int,
-        heartbeat_interval: int,
+        heartbeat_interval_seconds: int,
+        function_retention_seconds: int,
         event_loop: str,
         serializer: Serializer,
     ):
@@ -27,7 +28,8 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
 
         self._address = address
         self._n_workers = n_workers
-        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._function_retention_seconds = function_retention_seconds
         self._event_loop = event_loop
         self._serializer = serializer
 
@@ -49,15 +51,16 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
 
     def __start_workers_and_run_forever(self):
         logging.info(
-            f"{self.__get_prefix()} starting {self._n_workers} workers, heartbeat interval is "
-            f"{self._heartbeat_interval} seconds"
+            f"{self.__get_prefix()} starting {self._n_workers} workers, heartbeat_interval_seconds="
+            f"{self._heartbeat_interval_seconds}, function_retention_seconds={self._function_retention_seconds}"
         )
 
         self._workers = [
             Worker(
                 address=self._address,
                 stop_event=self._stop_event,
-                heartbeat_interval_seconds=self._heartbeat_interval,
+                heartbeat_interval_seconds=self._heartbeat_interval_seconds,
+                function_retention_seconds=self._function_retention_seconds,
                 event_loop=self._event_loop,
                 serializer=self._serializer,
             )

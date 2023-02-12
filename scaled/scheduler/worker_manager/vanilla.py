@@ -28,7 +28,7 @@ class VanillaWorkerManager(WorkerManager):
         self._binder: Optional[AsyncBinder] = None
         self._task_manager: Optional[TaskManager] = None
 
-        self._worker_alive_since = {}
+        self._worker_alive_since = dict()
         self._allocator = QueuedAllocator(per_worker_queue_size)
 
     def hook(self, binder: AsyncBinder, task_manager: TaskManager):

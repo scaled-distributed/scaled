@@ -15,13 +15,13 @@ from scaled.scheduler.mixins import FunctionManager
 
 
 class VanillaFunctionManager(FunctionManager):
-    def __init__(self, function_timeout_seconds: int):
+    def __init__(self, function_retention_seconds: int):
         self._function_id_to_function: Dict[bytes, bytes] = dict()
         self._function_id_to_alive_since: Dict[bytes, float] = dict()
 
         self._function_id_to_task_ids: Dict[bytes, Set[bytes]] = defaultdict(set)
 
-        self._function_timeout_seconds = function_timeout_seconds
+        self._function_retention_seconds = function_retention_seconds
 
         self._binder: Optional[AsyncBinder] = None
 
@@ -119,10 +119,11 @@ class VanillaFunctionManager(FunctionManager):
         dead_functions = [
             function_id
             for function_id, alive_since in self._function_id_to_alive_since.items()
-            if now - alive_since > self._function_timeout_seconds and function_id not in self._function_id_to_task_ids
+            if now - alive_since > self._function_retention_seconds and function_id not in self._function_id_to_task_ids
         ]
 
         for function_id in dead_functions:
+            logging.info(f"remove function cache {function_id=}")
             self._function_id_to_function.pop(function_id)
             self._function_id_to_alive_since.pop(function_id)
 

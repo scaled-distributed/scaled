@@ -17,7 +17,7 @@ def get_args():
         "--worker-timeout-seconds", "-wt", type=int, default=60, help="discard worker when timeout seconds reached"
     )
     parser.add_argument(
-        "--function-timeout-seconds",
+        "--function-retention-seconds",
         "-ft",
         type=int,
         default=60,
@@ -49,7 +49,7 @@ def main():
         stop_event=stop_event,
         per_worker_queue_size=args.per_worker_queue_size,
         worker_timeout_seconds=args.worker_timeout_seconds,
-        function_timeout_seconds=args.function_timeout_seconds,
+        function_retention_seconds=args.function_retention_seconds,
     )
     register_event_loop(args.event_loop)
     asyncio.run(scheduler.loop())

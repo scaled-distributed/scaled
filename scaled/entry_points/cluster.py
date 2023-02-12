@@ -21,6 +21,9 @@ def get_args():
         "--heartbeat-interval", type=int, default=10, help="number of seconds to send heartbeat interval"
     )
     parser.add_argument(
+        "--function-retention-seconds", type=int, default=10, help="number of seconds function cached in worker process"
+    )
+    parser.add_argument(
         "--event-loop", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
     )
     parser.add_argument("address", type=ZMQConfig.from_string, help="scheduler address to connect to")
@@ -35,7 +38,8 @@ def main():
         stop_event=stop_event,
         address=args.address,
         n_workers=args.num_of_workers,
-        heartbeat_interval=args.heartbeat_interval,
+        heartbeat_interval_seconds=args.heartbeat_interval,
+        function_retention_seconds=args.function_retention_seconds,
         event_loop=args.event_loop,
         serializer=DefaultSerializer(),
     )

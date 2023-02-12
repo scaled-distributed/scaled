@@ -1,4 +1,4 @@
-from collections import deque
+from collections import defaultdict, deque
 from typing import Deque, Dict, List, Optional, Set
 
 from scaled.scheduler.worker_manager.allocators.mixins import TaskAllocator
@@ -17,6 +17,7 @@ class QueuedAllocator(TaskAllocator):
 
         self._workers_to_task_ids[worker] = set()
         self._capacity.extend([worker] * self._max_tasks_per_worker)
+        self.__reorganize_capacity()
         return True
 
     def remove_worker(self, worker: bytes) -> List[bytes]:
@@ -64,3 +65,24 @@ class QueuedAllocator(TaskAllocator):
             "type": "queued",
             "worker_to_tasks": {worker.decode(): len(tasks) for worker, tasks in self._workers_to_task_ids.items()},
         }
+
+    def __reorganize_capacity(self):
+        worker_to_count = defaultdict(int)
+
+        total_capacity = len(self._capacity)
+        while self._capacity:
+            worker_to_count[self._capacity.popleft()] += 1
+
+        while total_capacity > 0:
+            for worker in worker_to_count.keys():
+                if worker_to_count[worker] == 0:
+                    continue
+
+                worker_to_count[worker] -= 1
+                total_capacity -= 1
+                self._capacity.append(worker)
+                if total_capacity == 0:
+                    break
+
+        for worker, count in worker_to_count.items():
+            assert count == 0, f"failed to reorganize {worker=}, capacity={count}"

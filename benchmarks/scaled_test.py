@@ -24,7 +24,7 @@ def main():
     tasks = [random.randint(0, 101) for _ in range(10000)]
 
     with ScopedLogger(f"scaled submit {len(tasks)} tasks"):
-        futures = [client.submit(sleep_print, i) for i in tasks]
+        futures = [client.submit(sleep_print, a) for a in tasks]
 
     with ScopedLogger(f"scaled gather {len(futures)} results"):
         results = [future.result() for future in futures]

@@ -13,10 +13,10 @@ class SchedulerClusterCombo:
         self,
         address: str,
         n_workers: int,
-        heartbeat_interval: int = 1,
+        heartbeat_interval_seconds: int = 1,
         event_loop: str = "builtin",
         worker_timeout_seconds: int = 10,
-        function_timeout_seconds: int = 60,
+        function_retention_seconds: int = 60,
         per_worker_queue_size: int = 1000,
         serializer: Serializer = DefaultSerializer(),
     ):
@@ -25,7 +25,8 @@ class SchedulerClusterCombo:
             stop_event=self._stop_event,
             address=ZMQConfig.from_string(address),
             n_workers=n_workers,
-            heartbeat_interval=heartbeat_interval,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
+            function_retention_seconds=function_retention_seconds,
             event_loop=event_loop,
             serializer=serializer,
         )
@@ -34,7 +35,7 @@ class SchedulerClusterCombo:
             stop_event=self._stop_event,
             per_worker_queue_size=per_worker_queue_size,
             worker_timeout_seconds=worker_timeout_seconds,
-            function_timeout_seconds=function_timeout_seconds,
+            function_retention_seconds=function_retention_seconds,
         )
 
         self._cluster.start()
