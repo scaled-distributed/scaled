@@ -27,7 +27,7 @@ def get_args():
         "--per-worker-queue-size",
         "-qs",
         type=int,
-        default=1000,
+        default=2,
         help="specify per worker queue size",
     )
     parser.add_argument(

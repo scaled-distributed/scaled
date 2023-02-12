@@ -56,13 +56,15 @@ if __name__ == "__main__":
 
 use `scaled_scheduler` to start scheduler, for example:
 ```bash
-scaled_scheduler --allocator-type queued tcp://0.0.0.0:8516
+scaled_scheduler tcp://0.0.0.0:8516
 ```
 
-use `scaled_cluster` to start workers:
+use `scaled_cluster` to start 10 workers:
 ```bash
 scaled_worker -n 10 tcp://127.0.0.1:8516
 ```
+
+for detail options of above 2 program, please use argument `-h` to check out all available options
 
 Then you can write simply write client code as:
 
