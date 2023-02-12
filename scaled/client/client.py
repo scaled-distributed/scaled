@@ -23,7 +23,7 @@ from scaled.protocol.python.message import (
     Task,
     TaskEcho,
     TaskEchoStatus,
-    TaskResult,
+    TaskResult, TaskStatus,
 )
 
 
@@ -108,7 +108,17 @@ class Client:
             return
 
         future = self._task_id_to_futures.pop(result.task_id)
-        future.set_result(self._serializer.deserialize_result(result.result))
+
+        if result.status == TaskStatus.Success:
+            future.set_result(self._serializer.deserialize_result(result.result))
+            return
+
+        if result.status == TaskStatus.Failed:
+            future.set_result(result.result.decode())
+            return
+
+        if result.status == TaskStatus.Canceled:
+            return
 
     def __on_statistics_response(self, monitor_response: MonitorResponse):
         self._statistics_future.set_result(monitor_response.data)

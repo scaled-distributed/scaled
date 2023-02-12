@@ -21,8 +21,7 @@ def register_event_loop(event_loop_type: str):
             import uvloop
         except ImportError:
             raise ImportError(f"please use pip install uvloop if try to use uvloop as event loop")
+
         uvloop.install()
-
-
 
     logging.info(f"use event loop: {event_loop_type.value}")
