@@ -1,12 +1,23 @@
 import asyncio
 import threading
 import time
+from collections import defaultdict
+from typing import Dict, List
 
 import psutil
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import Heartbeat, MessageType, MessageVariant
+from scaled.protocol.python.message import (
+    FunctionRequest,
+    FunctionRequestType,
+    FunctionResponse,
+    FunctionResponseType,
+    Heartbeat,
+    MessageType,
+    MessageVariant,
+    Task,
+)
 from scaled.utility.zmq_config import ZMQConfig
 
 
@@ -38,6 +49,10 @@ class AsyncAgent:
             callback=self.on_receive_internal,
         )
 
+        self._function_cache = _FunctionCache(
+            connector_external=self._connector_external, connector_internal=self._connector_internal
+        )
+
         self._heartbeat = _WorkerHeartbeat(
             connector=self._connector_external, heartbeat_interval_seconds=heartbeat_interval_seconds
         )
@@ -47,7 +62,15 @@ class AsyncAgent:
         return self._connector_external.identity
 
     async def on_receive_external(self, message_type: MessageType, message: MessageVariant):
-        await self._connector_internal.send(message_type, message)
+        if message_type == MessageType.Task:
+            await self._function_cache.on_new_task(message)
+            return
+
+        if message_type == MessageType.FunctionResponse:
+            await self._function_cache.on_new_function(message)
+            return
+
+        raise TypeError(f"Unknown {message_type=}")
 
     async def on_receive_internal(self, message_type: MessageType, message: MessageVariant):
         await self._connector_external.send(message_type, message)
@@ -55,8 +78,46 @@ class AsyncAgent:
     async def loop(self):
         while not self._stop_event.is_set():
             await asyncio.gather(
-                self._heartbeat.routine(), self._connector_external.routine(), self._connector_internal.routine()
+                self._heartbeat.routine(),
+                self._connector_external.routine(),
+                self._connector_internal.routine(),
+                self._function_cache.routine(),
             )
+
+
+class _FunctionCache:
+    def __init__(self, connector_external: AsyncConnector, connector_internal: AsyncConnector):
+        self._connector_external = connector_external
+        self._connector_internal = connector_internal
+
+        self._cached_functions: Dict[bytes, bytes] = dict()
+        self._pending_tasks: Dict[bytes, List[Task]] = defaultdict(list)
+
+    async def on_new_task(self, task: Task):
+        if task.function_id in self._cached_functions:
+            task.function_content = self._cached_functions[task.function_id]
+            await self._connector_internal.send(MessageType.Task, task)
+            return
+
+        self._pending_tasks[task.function_id].append(task)
+        await self._connector_external.send(
+            MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
+        )
+
+    async def on_new_function(self, response: FunctionResponse):
+        if response.function_id in self._cached_functions:
+            return
+
+        assert response.status == FunctionResponseType.OK
+        function_content = response.content
+        self._cached_functions[response.function_id] = function_content
+        tasks = self._pending_tasks.pop(response.function_id)
+        for task in tasks:
+            task.function_content = function_content
+            await self._connector_internal.send(MessageType.Task, task)
+
+    async def routine(self):
+        pass
 
 
 class _WorkerHeartbeat:

@@ -5,8 +5,7 @@ import signal
 import threading
 import time
 from queue import Queue
-from collections import defaultdict
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, Optional
 
 import zmq
 import zmq.asyncio
@@ -15,18 +14,7 @@ from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.event_loop import register_event_loop
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
-from scaled.protocol.python.message import (
-    FunctionRequestType,
-    FunctionRequest,
-    FunctionResponse,
-    FunctionResponseType,
-    MessageType,
-    MessageVariant,
-    Task,
-    TaskCancel,
-    TaskResult,
-    TaskStatus,
-)
+from scaled.protocol.python.message import MessageType, MessageVariant, Task, TaskCancel, TaskResult, TaskStatus
 from scaled.worker.async_agent import AsyncAgent
 
 
@@ -86,7 +74,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._ready_event = multiprocessing.get_context("spawn").Event()
 
         self._cached_functions: Dict[bytes, Callable] = {}
-        self._pending_function_to_tasks: Dict[bytes, List[Task]] = defaultdict(list)
 
     def wait_till_ready(self):
         while not self._ready_event.is_set():
@@ -147,18 +134,11 @@ class Worker(multiprocessing.get_context("spawn").Process):
             return
 
         task = self._task_queue.get()
-        if task.function_id not in self._cached_functions:
-            self._agent_connector.send(
-                MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
-            )
-            self._pending_function_to_tasks[task.function_id].append(task)
-            return
-
         try:
-            function = self._cached_functions[task.function_id]
-            if function is None:
-                raise ValueError(f"{self.get_prefix()}cannot get function for {task=}")
+            if task.function_id not in self._cached_functions:
+                self._cached_functions[task.function_id] = self._serializer.deserialize_function(task.function_content)
 
+            function = self._cached_functions[task.function_id]
             args = self._serializer.deserialize_arguments(task.function_args)
             result = self._serializer.serialize_result(function(*args))
             self._agent_connector.send(MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Success, result))
@@ -169,10 +149,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
             )
 
     def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.FunctionResponse:
-            self.__connector_process_function_response(message)
-            return
-
         if message_type == MessageType.Task:
             self.__connector_process_task(message)
             return
@@ -182,21 +158,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
             return
 
         logging.error(f"{self.get_prefix()} unsupported {message_type=} {message=}")
-
-    def __connector_process_function_response(self, function_response: FunctionResponse):
-        if function_response.status == FunctionResponseType.NotExists:
-            return
-
-        assert function_response.status == FunctionResponseType.OK
-        self._cached_functions[function_response.function_id] = self._serializer.deserialize_function(
-            function_response.content
-        )
-
-        if function_response.function_id not in self._pending_function_to_tasks:
-            return
-
-        for task in self._pending_function_to_tasks.pop(function_response.function_id):
-            self.__connector_process_task(task)
 
     def __connector_process_task(self, task: Task):
         self._task_queue.put(task)

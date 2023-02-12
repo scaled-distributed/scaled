@@ -72,14 +72,15 @@ MessageVariant = TypeVar("MessageVariant", bound=_Message)
 class Task(_Message):
     task_id: bytes
     function_id: bytes
+    function_content: bytes
     function_args: bytes
 
-    def serialize(self) -> Tuple[bytes, bytes, bytes]:
-        return self.task_id, self.function_id, self.function_args
+    def serialize(self) -> Tuple[bytes, bytes, bytes, bytes]:
+        return self.task_id, self.function_id, self.function_content, self.function_args
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Task(data[0], data[1], data[2])
+        return Task(data[0], data[1], data[2], data[3])
 
 
 @attrs.define
@@ -100,7 +101,7 @@ class TaskCancel(_Message):
     task_id: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id,
+        return (self.task_id,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -140,7 +141,7 @@ class Heartbeat(_Message):
     rss_size: int
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return struct.pack("fI", self.cpu_usage, self.rss_size),
+        return (struct.pack("fI", self.cpu_usage, self.rss_size),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -150,7 +151,7 @@ class Heartbeat(_Message):
 @attrs.define
 class MonitorRequest(_Message):
     def serialize(self) -> Tuple[bytes, ...]:
-        return b"",
+        return (b"",)
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -162,7 +163,7 @@ class MonitorResponse(_Message):
     data: Dict
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return pickle.dumps(self.data),
+        return (pickle.dumps(self.data),)
 
     @staticmethod
     def deserialize(data: List[bytes]):

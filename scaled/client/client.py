@@ -54,7 +54,7 @@ class Client:
         function_id = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
-        task = Task(task_id, function_id, self._serializer.serialize_arguments(args))
+        task = Task(task_id, function_id, b"", self._serializer.serialize_arguments(args))
         self._connector.send(MessageType.Task, task)
 
         future = Future()
