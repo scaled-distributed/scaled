@@ -23,7 +23,8 @@ if you want to use uvloop, please do: `pip install uvloop`, default we are using
 ```python
 import random
 
-from scaled import Client, SchedulerClusterCombo
+from scaled.client import Client
+from scaled.cluster.combo import SchedulerClusterCombo
 
 
 def calculate(sec: int):
@@ -66,7 +67,7 @@ scaled_worker -n 10 tcp://127.0.0.1:8516
 Then you can write simply write client code as:
 
 ```python
-from scaled import Client
+from scaled.client import Client
 
 
 def foobar(foo: int):

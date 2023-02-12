@@ -3,7 +3,7 @@ import random
 
 import unittest
 
-from scaled import Client
+from scaled.client import Client
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
