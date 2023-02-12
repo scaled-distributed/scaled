@@ -139,13 +139,13 @@ class Worker(multiprocessing.get_context("spawn").Process):
                 self._cached_functions[task.function_id] = self._serializer.deserialize_function(task.function_content)
 
             function = self._cached_functions[task.function_id]
-            args = self._serializer.deserialize_arguments(task.function_args)
-            result = self._serializer.serialize_result(function(*args))
+            args, kwargs = self._serializer.deserialize_arguments(task.function_args)
+            result = self._serializer.serialize_result(function(*args, **kwargs))
             self._agent_connector.send(MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Success, result))
         except Exception as e:
             logging.exception(f"{self.get_prefix()} error when processing {task=}:")
             self._agent_connector.send(
-                MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Failed, str(e).encode())
+                MessageType.TaskResult, TaskResult(task.task_id,  TaskStatus.Failed, str(e).encode())
             )
 
     def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):

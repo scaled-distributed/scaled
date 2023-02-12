@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Callable, Tuple, TypeVar
+from typing import Any, Callable, Dict, Tuple, TypeVar
 
 
 class Serializer(metaclass=abc.ABCMeta):
@@ -15,7 +15,7 @@ class Serializer(metaclass=abc.ABCMeta):
 
     @staticmethod
     @abc.abstractmethod
-    def serialize_arguments(args: Tuple[Any, ...]) -> bytes:
+    def serialize_arguments(args: Tuple[Any, ...], kwargs: Dict) -> bytes:
         raise NotImplementedError()
 
     @staticmethod

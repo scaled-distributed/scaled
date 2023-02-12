@@ -12,7 +12,7 @@ from scaled.cluster.cluster import ClusterProcess
 class SchedulerClusterCombo:
     def __init__(
         self,
-        address: ZMQConfig,
+        address: str,
         n_workers: int,
         heartbeat_interval: int = 1,
         event_loop: str = "builtin",
@@ -24,14 +24,14 @@ class SchedulerClusterCombo:
         self._stop_event = multiprocessing.get_context("spawn").Event()
         self._cluster = ClusterProcess(
             stop_event=self._stop_event,
-            address=address,
+            address=ZMQConfig.from_string(address),
             n_workers=n_workers,
             heartbeat_interval=heartbeat_interval,
             event_loop=event_loop,
             serializer=serializer,
         )
         self._scheduler = SchedulerProcess(
-            address=address,
+            address=ZMQConfig.from_string(address),
             stop_event=self._stop_event,
             allocator_type=allocator_type,
             worker_timeout_seconds=worker_timeout_seconds,

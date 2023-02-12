@@ -28,7 +28,7 @@ from scaled.protocol.python.message import (
 
 
 class Client:
-    def __init__(self, config: ZMQConfig, serializer: FunctionSerializerType = DefaultSerializer()):
+    def __init__(self, address: str, serializer: FunctionSerializerType = DefaultSerializer()):
         self._stop_event = threading.Event()
         self._connector = SyncConnector(
             stop_event=self._stop_event,
@@ -36,7 +36,7 @@ class Client:
             context=zmq.Context.instance(),
             socket_type=zmq.DEALER,
             bind_or_connect="connect",
-            address=config,
+            address=ZMQConfig.from_string(address),
             callback=self.__on_receive,
         )
         self._serializer = serializer
@@ -50,11 +50,11 @@ class Client:
     def __del__(self):
         self.disconnect()
 
-    def submit(self, fn: Callable, *args) -> Future:
+    def submit(self, fn: Callable, *args, **kwargs) -> Future:
         function_id = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
-        task = Task(task_id, function_id, b"", self._serializer.serialize_arguments(args))
+        task = Task(task_id, function_id, b"", self._serializer.serialize_arguments(args, kwargs))
         self._connector.send(MessageType.Task, task)
 
         future = Future()

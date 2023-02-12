@@ -3,8 +3,7 @@ import random
 
 import unittest
 
-from scaled.client.client import Client
-from scaled.utility.zmq_config import ZMQConfig, ZMQType
+from scaled import Client
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
@@ -20,8 +19,7 @@ class TestClient(unittest.TestCase):
 
     def test_client(self):
         # need server
-        config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
-        client = Client(config=config)
+        client = Client(address="tcp://127.0.0.1:2345")
 
         tasks = [random.randint(0, 100) for _ in range(10000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
@@ -34,7 +32,6 @@ class TestClient(unittest.TestCase):
         client.disconnect()
 
     def test_monitor(self):
-        config = ZMQConfig(type=ZMQType.tcp, host="127.0.0.1", port=2345)
-        client = Client(config=config)
+        client = Client(address="tcp://127.0.0.1:2345")
         print(json.dumps(client.statistics(), indent=4))
         client.disconnect()
