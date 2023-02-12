@@ -8,7 +8,7 @@ from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import MessageType, MessageVariant, MonitorRequest, MonitorResponse
 from scaled.scheduler.task_manager.vanilla import VanillaTaskManager
-from scaled.scheduler.worker_manager.vanilla import AllocatorType, VanillaWorkerManager
+from scaled.scheduler.worker_manager.vanilla import VanillaWorkerManager
 
 PREFIX = "Scheduler:"
 
@@ -18,7 +18,7 @@ class Scheduler:
         self,
         address: ZMQConfig,
         stop_event: threading.Event,
-        allocator_type: AllocatorType,
+        per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_timeout_seconds: int,
     ):
@@ -30,7 +30,9 @@ class Scheduler:
         self._function_manager = VanillaFunctionManager(function_timeout_seconds=function_timeout_seconds)
         self._task_manager = VanillaTaskManager(stop_event=self._stop_event)
         self._worker_manager = VanillaWorkerManager(
-            stop_event=self._stop_event, allocator_type=allocator_type, timeout_seconds=worker_timeout_seconds
+            stop_event=self._stop_event,
+            per_worker_queue_size=per_worker_queue_size,
+            timeout_seconds=worker_timeout_seconds,
         )
 
         self._binder.register(self.on_receive_message)
@@ -43,7 +45,7 @@ class Scheduler:
             await self._worker_manager.on_heartbeat(source, message)
             return
 
-        if message_type ==  MessageType.MonitorRequest:
+        if message_type == MessageType.MonitorRequest:
             await self.statistics(source, message)
             return
 
@@ -51,15 +53,15 @@ class Scheduler:
             await self._task_manager.on_task_new(source, message)
             return
 
-        if message_type ==  MessageType.TaskCancel:
+        if message_type == MessageType.TaskCancel:
             await self._task_manager.on_task_cancel(source, message.task_id)
             return
 
-        if message_type ==  MessageType.TaskResult:
+        if message_type == MessageType.TaskResult:
             await self._worker_manager.on_task_done(message)
             return
 
-        if message_type ==  MessageType.FunctionRequest:
+        if message_type == MessageType.FunctionRequest:
             await self._function_manager.on_function(source, message)
             return
 

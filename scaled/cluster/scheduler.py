@@ -15,7 +15,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self,
         address: ZMQConfig,
         stop_event: threading.Event,
-        allocator_type: AllocatorType,
+        per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_timeout_seconds: int,
         event_loop: Literal["builtin", "uvloop"] = "builtin",
@@ -23,7 +23,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         multiprocessing.Process.__init__(self, name="Scheduler")
         self._address = address
         self._stop_event = stop_event
-        self._allocator_type = allocator_type
+        self._per_worker_queue_size = per_worker_queue_size
         self._worker_timeout_seconds = worker_timeout_seconds
         self._function_timeout_seconds = function_timeout_seconds
         self._scheduler: Optional[Scheduler] = None
@@ -35,7 +35,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self._scheduler = Scheduler(
             address=self._address,
             stop_event=self._stop_event,
-            allocator_type=self._allocator_type,
+            per_worker_queue_size=self._per_worker_queue_size,
             worker_timeout_seconds=self._worker_timeout_seconds,
             function_timeout_seconds=self._function_timeout_seconds,
         )

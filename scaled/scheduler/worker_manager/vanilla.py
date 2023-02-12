@@ -6,7 +6,6 @@ from typing import Dict, Optional
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.scheduler.mixins import TaskManager, WorkerManager
-from scaled.scheduler.worker_manager.allocators.one_to_one import OneToOneAllocator
 from scaled.protocol.python.message import Heartbeat, MessageType, Task, TaskResult, TaskCancel
 from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 
@@ -22,7 +21,7 @@ class AllocatorType(enum.Enum):
 
 
 class VanillaWorkerManager(WorkerManager):
-    def __init__(self, stop_event: threading.Event, allocator_type: AllocatorType, timeout_seconds: int):
+    def __init__(self, stop_event: threading.Event, per_worker_queue_size: int, timeout_seconds: int):
         self._stop_event = stop_event
         self._timeout_seconds = timeout_seconds
 
@@ -30,13 +29,7 @@ class VanillaWorkerManager(WorkerManager):
         self._task_manager: Optional[TaskManager] = None
 
         self._worker_alive_since = {}
-
-        if allocator_type == AllocatorType.OneToOne:
-            self._allocator = OneToOneAllocator()
-        elif allocator_type == AllocatorType.Queued:
-            self._allocator = QueuedAllocator(1000)
-        else:
-            raise TypeError(f"received invalid allocator type: {allocator_type}")
+        self._allocator = QueuedAllocator(per_worker_queue_size)
 
     def hook(self, binder: AsyncBinder, task_manager: TaskManager):
         self._binder = binder

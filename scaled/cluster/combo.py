@@ -4,7 +4,6 @@ import multiprocessing
 from scaled.cluster.scheduler import SchedulerProcess
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.serializer.mixins import Serializer
-from scaled.scheduler.worker_manager.vanilla import AllocatorType
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.cluster.cluster import ClusterProcess
 
@@ -18,7 +17,7 @@ class SchedulerClusterCombo:
         event_loop: str = "builtin",
         worker_timeout_seconds: int = 10,
         function_timeout_seconds: int = 60,
-        allocator_type: AllocatorType = AllocatorType.Queued,
+        per_worker_queue_size: int = 1000,
         serializer: Serializer = DefaultSerializer(),
     ):
         self._stop_event = multiprocessing.get_context("spawn").Event()
@@ -33,7 +32,7 @@ class SchedulerClusterCombo:
         self._scheduler = SchedulerProcess(
             address=ZMQConfig.from_string(address),
             stop_event=self._stop_event,
-            allocator_type=allocator_type,
+            per_worker_queue_size=per_worker_queue_size,
             worker_timeout_seconds=worker_timeout_seconds,
             function_timeout_seconds=function_timeout_seconds,
         )

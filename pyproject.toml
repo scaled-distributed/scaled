@@ -20,7 +20,7 @@ scaled_cluster = "scaled.entry_points.cluster:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-exclude = ["tests"]
+exclude = ["tests", "benchmarks"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = "requirements.txt"}

@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import multiprocessing
+import queue
 import signal
 import threading
-import time
 from queue import Queue
 from typing import Callable, Dict, Optional
 
@@ -129,11 +129,11 @@ class Worker(multiprocessing.get_context("spawn").Process):
         signal.signal(signal.SIGTERM, self.shutdown)
 
     def __process_queued_tasks(self):
-        if self._task_queue.empty():
-            time.sleep(0.1)
+        try:
+            task = self._task_queue.get(timeout=1)
+        except queue.Empty:
             return
 
-        task = self._task_queue.get()
         try:
             if task.function_id not in self._cached_functions:
                 self._cached_functions[task.function_id] = self._serializer.deserialize_function(task.function_content)
@@ -142,6 +142,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             args, kwargs = self._serializer.deserialize_arguments(task.function_args)
             result = self._serializer.serialize_result(function(*args, **kwargs))
             self._agent_connector.send(MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Success, result))
+
         except Exception as e:
             logging.exception(f"{self.get_prefix()} error when processing {task=}:")
             self._agent_connector.send(

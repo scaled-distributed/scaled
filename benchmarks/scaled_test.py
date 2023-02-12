@@ -16,15 +16,17 @@ def main():
 
     address = "tcp://127.0.0.1:2345"
 
-    cluster = SchedulerClusterCombo(address=address, n_workers=10, event_loop="uvloop")
+    cluster = SchedulerClusterCombo(
+        address=address, n_workers=10, per_worker_queue_size=2, event_loop="uvloop"
+    )
     client = Client(address=address)
 
-    tasks = [random.randint(0, 100) for _ in range(100000)]
+    tasks = [random.randint(0, 101) for _ in range(10000)]
 
-    with ScopedLogger(f"submit {len(tasks)} tasks"):
+    with ScopedLogger(f"scaled submit {len(tasks)} tasks"):
         futures = [client.submit(sleep_print, i) for i in tasks]
 
-    with ScopedLogger(f"gather {len(futures)} results"):
+    with ScopedLogger(f"scaled gather {len(futures)} results"):
         results = [future.result() for future in futures]
 
     assert results == tasks

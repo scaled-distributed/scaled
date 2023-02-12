@@ -14,7 +14,7 @@ def main():
     setup_logger()
     tasks = [random.randint(0, 100) for _ in range(10000)]
 
-    cluster = DaskLocalCluster(n_workers=1, threads_per_worker=2, memory_limit="100GB")
+    cluster = DaskLocalCluster(n_workers=10, threads_per_worker=2, memory_limit="100GB")
     client = DaskClient(cluster)
     executor = client.get_executor()
 
