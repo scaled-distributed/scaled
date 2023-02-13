@@ -16,3 +16,4 @@ def main():
     args = get_args()
     client = Client(address=args.address)
     print(json.dumps(client.statistics(), indent=4))
+    client.disconnect()
