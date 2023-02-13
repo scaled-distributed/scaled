@@ -19,9 +19,8 @@ scaled_scheduler = "scaled.entry_points.scheduler:main"
 scaled_cluster = "scaled.entry_points.cluster:main"
 scaled_poke = "scaled.entry_points.poke:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-exclude = ["tests", "benchmarks"]
+[tool.setuptools]
+packages = ["scaled"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = "requirements.txt"}

@@ -23,7 +23,8 @@ from scaled.protocol.python.message import (
     Task,
     TaskEcho,
     TaskEchoStatus,
-    TaskResult, TaskStatus,
+    TaskResult,
+    TaskStatus,
 )
 
 
