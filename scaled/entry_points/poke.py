@@ -12,6 +12,7 @@ def get_args():
     return parser.parse_args()
 
 
-def main(args):
+def main():
+    args = get_args()
     client = Client(address=args.address)
     print(json.dumps(client.statistics(), indent=4))
