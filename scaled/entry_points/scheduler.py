@@ -23,13 +23,7 @@ def get_args():
         default=60,
         help="discard function in scheduler when timeout seconds " "reached",
     )
-    parser.add_argument(
-        "--per-worker-queue-size",
-        "-qs",
-        type=int,
-        default=2,
-        help="specify per worker queue size",
-    )
+    parser.add_argument("--per-worker-queue-size", "-qs", type=int, default=2, help="specify per worker queue size")
     parser.add_argument(
         "--event-loop", "-e", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
     )

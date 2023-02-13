@@ -17,6 +17,7 @@ Home = "https://github.com/yzard/scaled"
 [project.scripts]
 scaled_scheduler = "scaled.entry_points.scheduler:main"
 scaled_cluster = "scaled.entry_points.cluster:main"
+scaled_poke = "scaled.entry_points.poke:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
