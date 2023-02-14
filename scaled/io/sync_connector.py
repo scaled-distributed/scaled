@@ -24,9 +24,9 @@ class SyncConnector(threading.Thread):
         bind_or_connect: Literal["bind", "connect"],
         address: ZMQConfig,
         callback: Callable[[MessageType, MessageVariant], None],
+        daemonic: bool
     ):
         threading.Thread.__init__(self)
-
         self._prefix = prefix
         self._address = address
 
@@ -34,6 +34,9 @@ class SyncConnector(threading.Thread):
         self._socket = self._context.socket(socket_type)
         self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
         self.__set_socket_options()
+
+        if daemonic:
+            self.daemon = True
 
         if bind_or_connect == "bind":
             self._socket.bind(self._address.to_address())

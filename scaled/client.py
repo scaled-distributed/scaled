@@ -43,6 +43,7 @@ class Client:
             bind_or_connect="connect",
             address=ZMQConfig.from_string(address),
             callback=self.__on_receive,
+            daemonic=True,
         )
         logging.info(f"ScaledClient: connect to {address}")
 
@@ -54,6 +55,7 @@ class Client:
         self._statistics_future: Optional[Future] = None
 
     def __del__(self):
+        logging.info(f"ScaledClient: disconnect from {self._address}")
         self.disconnect()
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
@@ -71,18 +73,11 @@ class Client:
     def scheduler_status(self):
         self._statistics_future = Future()
         self._connector.send(MessageType.MonitorRequest, MonitorRequest())
-
-        try:
-            statistics = self._statistics_future.result()
-        except BaseException as e:
-            self.disconnect()
-            raise e
-
+        statistics = self._statistics_future.result()
         return statistics
 
     def disconnect(self):
         self._stop_event.set()
-        logging.info(f"ScaledClient: disconnect from {self._address}")
 
     def __on_receive(self, message_type: MessageType, message: MessageVariant):
         if message_type == MessageType.FunctionResponse:

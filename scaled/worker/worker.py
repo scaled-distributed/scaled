@@ -104,6 +104,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             bind_or_connect="connect",
             address=internal_channel,
             callback=self.__on_connector_receive,
+            daemonic=False,
         )
         self._agent = Agent(
             stop_event=self._stop_event,

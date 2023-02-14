@@ -79,10 +79,5 @@ def foobar(foo: int):
 client = Client(address="tcp://127.0.0.1:2345")
 future = client.submit(foobar, 1)
 
-try:
-    print(future.result())
-except BaseException as e:
-    # make sure disconnect client while waiting for futures
-    client.disconnect()
-
+print(future.result())
 ```
