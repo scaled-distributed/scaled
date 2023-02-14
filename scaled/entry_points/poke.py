@@ -15,5 +15,5 @@ def get_args():
 def main():
     args = get_args()
     client = Client(address=args.address)
-    print(json.dumps(client.statistics(), indent=4))
+    print(json.dumps(client.scheduler_status(), indent=4))
     client.disconnect()

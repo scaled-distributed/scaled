@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import threading
 import uuid
 from concurrent.futures import Future
@@ -30,6 +31,9 @@ from scaled.protocol.python.message import (
 
 class Client:
     def __init__(self, address: str, serializer: FunctionSerializerType = DefaultSerializer()):
+        self._address = address
+        self._serializer = serializer
+
         self._stop_event = threading.Event()
         self._connector = SyncConnector(
             stop_event=self._stop_event,
@@ -40,10 +44,11 @@ class Client:
             address=ZMQConfig.from_string(address),
             callback=self.__on_receive,
         )
-        self._serializer = serializer
+        logging.info(f"ScaledClient: connect to {address}")
 
         self._function_to_function_id_cache: dict[Callable, bytes] = dict()
         self._ready_function_ids: Set[bytes] = set()
+
         self._task_id_to_futures: Dict[bytes, Future] = dict()
 
         self._statistics_future: Optional[Future] = None
@@ -56,19 +61,28 @@ class Client:
 
         task_id = uuid.uuid1().bytes
         task = Task(task_id, function_id, b"", self._serializer.serialize_arguments(args, kwargs))
-        self._connector.send(MessageType.Task, task)
 
         future = Future()
         self._task_id_to_futures[task_id] = future
+        self._connector.send(MessageType.Task, task)
+
         return future
 
-    def statistics(self):
+    def scheduler_status(self):
         self._statistics_future = Future()
         self._connector.send(MessageType.MonitorRequest, MonitorRequest())
-        return self._statistics_future.result()
+
+        try:
+            statistics = self._statistics_future.result()
+        except BaseException as e:
+            self.disconnect()
+            raise e
+
+        return statistics
 
     def disconnect(self):
         self._stop_event.set()
+        logging.info(f"ScaledClient: disconnect from {self._address}")
 
     def __on_receive(self, message_type: MessageType, message: MessageVariant):
         if message_type == MessageType.FunctionResponse:

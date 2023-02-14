@@ -9,7 +9,6 @@ from scaled.utility.logging.utility import setup_logger
 
 
 def sleep_print(sec: int):
-    # time.sleep(sec)
     return sec * 1
 
 
@@ -33,5 +32,5 @@ class TestClient(unittest.TestCase):
 
     def test_monitor(self):
         client = Client(address="tcp://127.0.0.1:2345")
-        print(json.dumps(client.statistics(), indent=4))
+        print(json.dumps(client.scheduler_status(), indent=4))
         client.disconnect()

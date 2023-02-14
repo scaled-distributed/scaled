@@ -125,14 +125,15 @@ class TaskCancelEcho(_Message):
 class TaskResult(_Message):
     task_id: bytes
     status: TaskStatus
+    duration: float
     result: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id, self.status.value, self.result
+        return self.task_id, self.status.value, struct.pack("f", self.duration), self.result
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return TaskResult(data[0], TaskStatus(data[1]), data[2])
+        return TaskResult(data[0], TaskStatus(data[1]), struct.unpack("f", data[2])[0], data[3])
 
 
 @attrs.define
