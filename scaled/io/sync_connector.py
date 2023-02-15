@@ -3,6 +3,7 @@ import logging
 import os
 import socket
 import threading
+import uuid
 from queue import Queue
 from collections import defaultdict
 from typing import Callable, Literal
@@ -24,7 +25,7 @@ class SyncConnector(threading.Thread):
         bind_or_connect: Literal["bind", "connect"],
         address: ZMQConfig,
         callback: Callable[[MessageType, MessageVariant], None],
-        daemonic: bool
+        daemonic: bool,
     ):
         threading.Thread.__init__(self)
         self._prefix = prefix
@@ -32,7 +33,9 @@ class SyncConnector(threading.Thread):
 
         self._context = context
         self._socket = self._context.socket(socket_type)
-        self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
+        self._identity: bytes = (
+            f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
+        )
         self.__set_socket_options()
 
         if daemonic:

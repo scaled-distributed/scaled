@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+import uuid
 from collections import defaultdict
 from typing import Awaitable, Callable, List, Literal
 
@@ -26,7 +27,9 @@ class AsyncConnector:
 
         self._context = context
         self._socket = self._context.socket(socket_type)
-        self._identity: bytes = f"{self._prefix}|{socket.gethostname()}|{os.getpid()}".encode()
+        self._identity: bytes = (
+            f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
+        )
         self.__set_socket_options()
 
         if bind_or_connect == "bind":

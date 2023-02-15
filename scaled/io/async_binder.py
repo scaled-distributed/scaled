@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+import uuid
 from collections import defaultdict
 from typing import Awaitable, Callable, Dict, List, Literal, Optional
 
@@ -14,7 +15,7 @@ from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 class AsyncBinder:
     def __init__(self, prefix: str, address: ZMQConfig):
         self._address = address
-        self._identity: bytes = f"{prefix}|{socket.gethostname()}|{os.getpid()}".encode()
+        self._identity: bytes = f"{prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
 
         self._context = zmq.asyncio.Context.instance()
         self._socket = self._context.socket(zmq.ROUTER)

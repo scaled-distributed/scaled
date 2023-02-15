@@ -88,11 +88,12 @@ class VanillaFunctionManager(FunctionManager):
 
     async def __on_function_add(self, client: bytes, function_id: bytes, function: bytes):
         self._function_id_to_alive_since[function_id] = time.time()
-        self._function_id_to_function[function_id] = function
 
         if function_id in self._function_id_to_function:
             await self.__send_function_response(client, function_id, FunctionResponseType.Duplicated)
+            return
 
+        self._function_id_to_function[function_id] = function
         await self.__send_function_response(client, function_id, FunctionResponseType.OK)
 
     async def __on_function_scheduler_delete(self, client: bytes, function_id: bytes):

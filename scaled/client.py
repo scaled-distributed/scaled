@@ -99,12 +99,18 @@ class Client:
         raise TypeError(f"Unknown {message_type=}")
 
     def __on_task_echo(self, task_echo: TaskEcho):
+        if task_echo.task_id not in self._task_id_to_futures:
+            return
+
+        if task_echo.status == TaskEchoStatus.Duplicated:
+            return
+
+        if task_echo.status == TaskEchoStatus.FunctionNotExists:
+            raise NotImplementedError(f"TODO please handle this, for now, just increase function retention time")
+
         assert task_echo.status in {TaskEchoStatus.SubmitOK, TaskEchoStatus.CancelOK}, (
             f"Unknown task status: " f"{task_echo=}"
         )
-
-        if task_echo.task_id not in self._task_id_to_futures:
-            return
 
         future = self._task_id_to_futures[task_echo.task_id]
         future.set_running_or_notify_cancel()
