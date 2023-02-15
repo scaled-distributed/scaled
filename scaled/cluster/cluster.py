@@ -19,6 +19,8 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         n_workers: int,
         heartbeat_interval_seconds: int,
         function_retention_seconds: int,
+        garbage_collect_interval_seconds: int,
+        trim_memory_threshold_bytes: int,
         event_loop: str,
         serializer: Serializer,
     ):
@@ -30,6 +32,8 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         self._n_workers = n_workers
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._function_retention_seconds = function_retention_seconds
+        self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
+        self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
         self._event_loop = event_loop
         self._serializer = serializer
 
@@ -61,6 +65,8 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
                 stop_event=self._stop_event,
                 heartbeat_interval_seconds=self._heartbeat_interval_seconds,
                 function_retention_seconds=self._function_retention_seconds,
+                garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
+                trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
                 event_loop=self._event_loop,
                 serializer=self._serializer,
             )

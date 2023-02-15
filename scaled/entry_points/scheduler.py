@@ -3,6 +3,11 @@ import asyncio
 import signal
 import threading
 
+from scaled.io.config import (
+    DEFAULT_FUNCTION_RETENTION_SECONDS,
+    DEFAULT_PER_WORKER_QUEUE_SIZE,
+    DEFAULT_WORKER_TIMEOUT_SECONDS,
+)
 from scaled.scheduler.main import Scheduler
 from scaled.utility.event_loop import EventLoopType, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
@@ -14,16 +19,26 @@ stop_event = threading.Event()
 def get_args():
     parser = argparse.ArgumentParser("scaled scheduler", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "--worker-timeout-seconds", "-wt", type=int, default=60, help="discard worker when timeout seconds reached"
+        "--worker-timeout-seconds",
+        "-wt",
+        type=int,
+        default=DEFAULT_WORKER_TIMEOUT_SECONDS,
+        help="discard worker when timeout seconds reached",
     )
     parser.add_argument(
         "--function-retention-seconds",
         "-ft",
         type=int,
-        default=60,
+        default=DEFAULT_FUNCTION_RETENTION_SECONDS,
         help="discard function in scheduler when timeout seconds " "reached",
     )
-    parser.add_argument("--per-worker-queue-size", "-qs", type=int, default=2, help="specify per worker queue size")
+    parser.add_argument(
+        "--per-worker-queue-size",
+        "-qs",
+        type=int,
+        default=DEFAULT_PER_WORKER_QUEUE_SIZE,
+        help="specify per worker queue size",
+    )
     parser.add_argument(
         "--event-loop", "-e", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
     )

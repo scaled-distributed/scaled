@@ -2,6 +2,14 @@ import logging
 import multiprocessing
 
 from scaled.cluster.scheduler import SchedulerProcess
+from scaled.io.config import (
+    DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
+    DEFAULT_FUNCTION_RETENTION_SECONDS,
+    DEFAULT_WORKER_TIMEOUT_SECONDS,
+    DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
+    DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
+    DEFAULT_PER_WORKER_QUEUE_SIZE,
+)
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.serializer.mixins import Serializer
 from scaled.utility.zmq_config import ZMQConfig
@@ -13,11 +21,13 @@ class SchedulerClusterCombo:
         self,
         address: str,
         n_workers: int,
-        heartbeat_interval_seconds: int = 1,
+        heartbeat_interval_seconds: int = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
         event_loop: str = "builtin",
-        worker_timeout_seconds: int = 10,
-        function_retention_seconds: int = 60,
-        per_worker_queue_size: int = 1000,
+        worker_timeout_seconds: int = DEFAULT_WORKER_TIMEOUT_SECONDS,
+        function_retention_seconds: int = DEFAULT_FUNCTION_RETENTION_SECONDS,
+        garbage_collect_interval_seconds: int = DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
+        trim_memory_threshold_bytes: int = DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
+        per_worker_queue_size: int = DEFAULT_PER_WORKER_QUEUE_SIZE,
         serializer: Serializer = DefaultSerializer(),
     ):
         self._stop_event = multiprocessing.get_context("spawn").Event()
@@ -27,6 +37,8 @@ class SchedulerClusterCombo:
             n_workers=n_workers,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             function_retention_seconds=function_retention_seconds,
+            garbage_collect_interval_seconds=garbage_collect_interval_seconds,
+            trim_memory_threshold_bytes=trim_memory_threshold_bytes,
             event_loop=event_loop,
             serializer=serializer,
         )

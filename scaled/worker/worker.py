@@ -1,4 +1,6 @@
 import asyncio
+import ctypes
+import gc
 import logging
 import multiprocessing
 import queue
@@ -8,6 +10,7 @@ import time
 from queue import Queue
 from typing import Callable, Dict, Optional
 
+import psutil
 import zmq
 import zmq.asyncio
 
@@ -47,6 +50,34 @@ class Agent(threading.Thread):
         asyncio.run(self._agent.loop())
 
 
+class Cleaner(threading.Thread):
+    def __init__(
+        self, stop_event: threading.Event, garbage_collect_interval_seconds: int, trim_memory_threshold_bytes: int
+    ):
+        threading.Thread.__init__(self)
+
+        self._stop_event = stop_event
+        self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
+        self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
+        self._process = psutil.Process(multiprocessing.current_process().pid)
+
+        gc.disable()
+
+    def run(self) -> None:
+        while not self._stop_event.is_set():
+            time.sleep(self._garbage_collect_interval_seconds)
+            self.clean()
+
+    def clean(self):
+        gc.collect()
+
+        if self._process.memory_info().rss < self._trim_memory_threshold_bytes:
+            return
+
+        libc = ctypes.CDLL("libc.so.6")
+        libc.malloc_trim(0)
+
+
 class Worker(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
@@ -54,6 +85,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
         stop_event: multiprocessing.Event,
         heartbeat_interval_seconds: int,
         function_retention_seconds: int,
+        garbage_collect_interval_seconds: int,
+        trim_memory_threshold_bytes: int,
         event_loop: str,
         serializer: FunctionSerializerType,
     ):
@@ -62,6 +95,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._address = address
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._function_retention_seconds = function_retention_seconds
+        self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
+        self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
         self._event_loop = event_loop
         self._stop_event = stop_event
         self._serializer = serializer
@@ -69,6 +104,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._task_queue: Optional[Queue] = None
         self._agent_connector: Optional[SyncConnector] = None
         self._agent: Optional[Agent] = None
+        self._cleaner: Optional[Cleaner] = None
         self._ready_event = multiprocessing.get_context("spawn").Event()
 
         self._cached_functions: Dict[bytes, Callable] = {}
@@ -117,6 +153,13 @@ class Worker(multiprocessing.get_context("spawn").Process):
         )
         self._agent.start()
 
+        self._cleaner = Cleaner(
+            stop_event=self._stop_event,
+            garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
+            trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
+        )
+        self._cleaner.start()
+
         # worker is ready
         self._ready_event.set()
 
@@ -134,26 +177,28 @@ class Worker(multiprocessing.get_context("spawn").Process):
         except queue.Empty:
             return
 
+        begin = time.monotonic()
         try:
+
             if task.function_id not in self._cached_functions:
                 self._cached_functions[task.function_id] = self._serializer.deserialize_function(task.function_content)
 
             function = self._cached_functions[task.function_id]
             args, kwargs = self._serializer.deserialize_arguments(task.function_args)
 
-            begin = time.monotonic()
             result = function(*args, **kwargs)
-            duration = time.monotonic() - begin
 
             result_bytes = self._serializer.serialize_result(result)
             self._agent_connector.send(
-                MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Success, duration, result_bytes)
+                MessageType.TaskResult,
+                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes),
             )
 
         except Exception as e:
             logging.exception(f"{self.get_prefix()} error when processing {task=}:")
             self._agent_connector.send(
-                MessageType.TaskResult, TaskResult(task.task_id, TaskStatus.Failed, str(e).encode())
+                MessageType.TaskResult,
+                TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode()),
             )
 
     def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
