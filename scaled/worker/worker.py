@@ -1,86 +1,25 @@
-import asyncio
-import ctypes
-import gc
 import logging
 import multiprocessing
 import queue
 import signal
-import threading
 import time
 from queue import Queue
 from typing import Callable, Dict, Optional
 
-import psutil
 import zmq
 import zmq.asyncio
 
-from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
-from scaled.utility.event_loop import register_event_loop
-from scaled.utility.zmq_config import ZMQConfig, ZMQType
-from scaled.protocol.python.message import MessageType, MessageVariant, Task, TaskCancel, TaskResult, TaskStatus
-from scaled.worker.async_agent import AsyncAgent
-
-
-class Agent(threading.Thread):
-    def __init__(
-        self,
-        stop_event: threading.Event,
-        context: zmq.Context,
-        address: ZMQConfig,
-        address_internal: ZMQConfig,
-        heartbeat_interval_seconds: int,
-        function_retention_seconds: int,
-        event_loop: str,
-    ):
-        threading.Thread.__init__(self)
-        self._event_loop = event_loop
-
-        self._agent = AsyncAgent(
-            stop_event=stop_event,
-            context=context,
-            address=address,
-            address_internal=address_internal,
-            heartbeat_interval_seconds=heartbeat_interval_seconds,
-            function_retention_seconds=function_retention_seconds,
-        )
-
-    def run(self) -> None:
-        register_event_loop(self._event_loop)
-        asyncio.run(self._agent.loop())
-
-
-class Cleaner(threading.Thread):
-    def __init__(
-        self, stop_event: threading.Event, garbage_collect_interval_seconds: int, trim_memory_threshold_bytes: int
-    ):
-        threading.Thread.__init__(self)
-
-        self._stop_event = stop_event
-        self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
-        self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
-        self._process = psutil.Process(multiprocessing.current_process().pid)
-
-        gc.disable()
-
-    def run(self) -> None:
-        while not self._stop_event.is_set():
-            time.sleep(self._garbage_collect_interval_seconds)
-            self.clean()
-
-    def clean(self):
-        gc.collect()
-
-        if self._process.memory_info().rss < self._trim_memory_threshold_bytes:
-            return
-
-        libc = ctypes.CDLL("libc.so.6")
-        libc.malloc_trim(0)
+from scaled.utility.zmq_config import ZMQConfig
+from scaled.protocol.python.message import TaskResult, TaskStatus
+from scaled.worker.agent.agent_sync import AgentSync
+from scaled.worker.memory_cleaner import MemoryCleaner
 
 
 class Worker(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
+        index: int,
         address: ZMQConfig,
         stop_event: multiprocessing.Event,
         heartbeat_interval_seconds: int,
@@ -92,6 +31,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
     ):
         multiprocessing.Process.__init__(self, name="Worker")
 
+        self._index = index
         self._address = address
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._function_retention_seconds = function_retention_seconds
@@ -101,10 +41,11 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._stop_event = stop_event
         self._serializer = serializer
 
-        self._task_queue: Optional[Queue] = None
-        self._agent_connector: Optional[SyncConnector] = None
-        self._agent: Optional[Agent] = None
-        self._cleaner: Optional[Cleaner] = None
+        self._receive_task_queue: Optional[Queue] = None
+        self._send_task_queue: Optional[Queue] = None
+
+        self._agent: Optional[AgentSync] = None
+        self._cleaner: Optional[MemoryCleaner] = None
         self._ready_event = multiprocessing.get_context("spawn").Event()
 
         self._cached_functions: Dict[bytes, Callable] = {}
@@ -119,41 +60,31 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def shutdown(self, *args):
         assert args is not None
-        self._agent_connector.join()
         self._agent.join()
 
     def get_prefix(self):
-        return f"{self.__class__.__name__}[{self._agent_connector.identity.decode()}]:"
+        return f"{self.__class__.__name__}[{self._index}]:"
 
     def __initialize(self):
         self.__register_signal()
 
-        self._task_queue = Queue()
+        self._receive_task_queue = Queue()
+        self._send_task_queue = Queue()
 
         context = zmq.Context.instance()
-        internal_channel = ZMQConfig(type=ZMQType.inproc, host="memory")
-        self._agent_connector = SyncConnector(
-            stop_event=self._stop_event,
-            prefix="A",
-            context=context,
-            socket_type=zmq.PAIR,
-            bind_or_connect="connect",
-            address=internal_channel,
-            callback=self.__on_connector_receive,
-            daemonic=False,
-        )
-        self._agent = Agent(
+        self._agent = AgentSync(
             stop_event=self._stop_event,
             context=zmq.asyncio.Context.shadow(context.underlying),
             address=self._address,
-            address_internal=internal_channel,
+            receive_task_queue=self._receive_task_queue,
+            send_task_queue=self._send_task_queue,
             heartbeat_interval_seconds=self._heartbeat_interval_seconds,
             function_retention_seconds=self._function_retention_seconds,
             event_loop=self._event_loop,
         )
         self._agent.start()
 
-        self._cleaner = Cleaner(
+        self._cleaner = MemoryCleaner(
             stop_event=self._stop_event,
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
             trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
@@ -173,13 +104,12 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def __process_queued_tasks(self):
         try:
-            task = self._task_queue.get(timeout=1)
+            task = self._receive_task_queue.get(timeout=1)
         except queue.Empty:
             return
 
         begin = time.monotonic()
         try:
-
             if task.function_id not in self._cached_functions:
                 self._cached_functions[task.function_id] = self._serializer.deserialize_function(task.function_content)
 
@@ -189,32 +119,12 @@ class Worker(multiprocessing.get_context("spawn").Process):
             result = function(*args, **kwargs)
 
             result_bytes = self._serializer.serialize_result(result)
-            self._agent_connector.send(
-                MessageType.TaskResult,
-                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes),
+            self._send_task_queue.put(
+                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes)
             )
 
         except Exception as e:
             logging.exception(f"{self.get_prefix()} error when processing {task=}:")
-            self._agent_connector.send(
-                MessageType.TaskResult,
-                TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode()),
+            self._send_task_queue.put(
+                TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode())
             )
-
-    def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.Task:
-            self.__connector_process_task(message)
-            return
-
-        if message_type == MessageType.TaskCancel:
-            self.__connector_process_task_cancel(message)
-            return
-
-        logging.error(f"{self.get_prefix()} unsupported {message_type=} {message=}")
-
-    def __connector_process_task(self, task: Task):
-        self._task_queue.put(task)
-
-    def __connector_process_task_cancel(self, task_cancel: TaskCancel):
-        # TODO: implement this
-        raise NotImplementedError()

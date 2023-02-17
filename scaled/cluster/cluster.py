@@ -61,6 +61,7 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
 
         self._workers = [
             Worker(
+                index=i,
                 address=self._address,
                 stop_event=self._stop_event,
                 heartbeat_interval_seconds=self._heartbeat_interval_seconds,
@@ -70,7 +71,7 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
                 event_loop=self._event_loop,
                 serializer=self._serializer,
             )
-            for _ in range(self._n_workers)
+            for i in range(self._n_workers)
         ]
 
         if self._n_workers == 1:
