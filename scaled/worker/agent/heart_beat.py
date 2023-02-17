@@ -6,7 +6,7 @@ from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import Heartbeat, MessageType
 
 
-class _WorkerHeartbeat:
+class WorkerHeartbeat:
     def __init__(self, connector: AsyncConnector, heartbeat_interval_seconds: int):
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._connector: AsyncConnector = connector

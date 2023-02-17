@@ -19,7 +19,6 @@ from scaled.worker.memory_cleaner import MemoryCleaner
 class Worker(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
-        index: int,
         address: ZMQConfig,
         stop_event: multiprocessing.Event,
         heartbeat_interval_seconds: int,
@@ -31,7 +30,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
     ):
         multiprocessing.Process.__init__(self, name="Worker")
 
-        self._index = index
         self._address = address
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._function_retention_seconds = function_retention_seconds
@@ -61,9 +59,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
     def shutdown(self, *args):
         assert args is not None
         self._agent.join()
-
-    def get_prefix(self):
-        return f"{self.__class__.__name__}[{self._index}]:"
 
     def __initialize(self):
         self.__register_signal()
@@ -124,7 +119,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             )
 
         except Exception as e:
-            logging.exception(f"{self.get_prefix()} error when processing {task=}:")
+            logging.exception(f"error when processing {task=}:")
             self._send_task_queue.put(
                 TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode())
             )

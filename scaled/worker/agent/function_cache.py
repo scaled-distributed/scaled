@@ -12,14 +12,13 @@ from scaled.protocol.python.message import (
     MessageType,
     Task,
 )
+from scaled.worker.agent.task_queue import TaskQueue
 
 
-class _FunctionCache:
-    def __init__(
-        self, connector_external: AsyncConnector, receive_task_queue: queue.Queue, function_retention_seconds: int
-    ):
+class FunctionCache:
+    def __init__(self, connector_external: AsyncConnector, task_cache: TaskQueue, function_retention_seconds: int):
         self._connector_external = connector_external
-        self._receive_task_queue = receive_task_queue
+        self._task_cache = task_cache
         self._function_retention_seconds = function_retention_seconds
 
         self._cached_functions: Dict[bytes, bytes] = dict()
@@ -30,7 +29,7 @@ class _FunctionCache:
         if task.function_id in self._cached_functions:
             task.function_content = self._cached_functions[task.function_id]
             self._cached_functions_alive_since[task.function_id] = time.time()
-            self._receive_task_queue.put(task)
+            await self._task_cache.on_receive_task(task)
             return
 
         self._pending_tasks[task.function_id].append(task)
@@ -50,7 +49,7 @@ class _FunctionCache:
 
         for task in self._pending_tasks.pop(response.function_id):
             task.function_content = function_content
-            self._receive_task_queue.put(task)
+            await self._task_cache.on_receive_task(task)
 
     async def routine(self):
         now = time.time()

@@ -7,9 +7,9 @@ import zmq.asyncio
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import MessageType, MessageVariant
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.agent.function_cache import _FunctionCache
-from scaled.worker.agent.heart_beat import _WorkerHeartbeat
-from scaled.worker.agent.queue_sender import QueueSender
+from scaled.worker.agent.function_cache import FunctionCache
+from scaled.worker.agent.heart_beat import WorkerHeartbeat
+from scaled.worker.agent.task_queue import TaskQueue
 
 
 class AgentAsync:
@@ -33,16 +33,17 @@ class AgentAsync:
             bind_or_connect="connect",
             callback=self.on_receive_external,
         )
-
-        self._function_cache = _FunctionCache(
-            connector_external=self._connector_external,
+        self._task_cache = TaskQueue(
             receive_task_queue=receive_task_queue,
+            send_task_queue=send_task_queue,
+            connector_external=self._connector_external,
+        )
+        self._function_cache = FunctionCache(
+            connector_external=self._connector_external,
+            task_cache=self._task_cache,
             function_retention_seconds=function_retention_seconds,
         )
-
-        self._queue_sender = QueueSender(send_task_queue=send_task_queue, connector_external=self._connector_external)
-
-        self._heartbeat = _WorkerHeartbeat(
+        self._heartbeat = WorkerHeartbeat(
             connector=self._connector_external, heartbeat_interval_seconds=heartbeat_interval_seconds
         )
 
@@ -70,5 +71,5 @@ class AgentAsync:
                 self._heartbeat.routine(),
                 self._connector_external.routine(),
                 self._function_cache.routine(),
-                self._queue_sender.routine(),
+                self._task_cache.routine(),
             )
