@@ -19,6 +19,7 @@ from scaled.worker.memory_cleaner import MemoryCleaner
 class Worker(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
+        index: int,
         address: ZMQConfig,
         stop_event: multiprocessing.Event,
         heartbeat_interval_seconds: int,
@@ -30,6 +31,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
     ):
         multiprocessing.Process.__init__(self, name="Worker")
 
+        self._index = index
         self._address = address
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._function_retention_seconds = function_retention_seconds

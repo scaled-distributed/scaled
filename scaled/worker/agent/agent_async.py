@@ -33,14 +33,14 @@ class AgentAsync:
             bind_or_connect="connect",
             callback=self.on_receive_external,
         )
-        self._task_cache = TaskQueue(
+        self._task_queue = TaskQueue(
             receive_task_queue=receive_task_queue,
             send_task_queue=send_task_queue,
             connector_external=self._connector_external,
         )
         self._function_cache = FunctionCache(
             connector_external=self._connector_external,
-            task_cache=self._task_cache,
+            task_queue=self._task_queue,
             function_retention_seconds=function_retention_seconds,
         )
         self._heartbeat = WorkerHeartbeat(
@@ -71,5 +71,5 @@ class AgentAsync:
                 self._heartbeat.routine(),
                 self._connector_external.routine(),
                 self._function_cache.routine(),
-                self._task_cache.routine(),
+                self._task_queue.routine(),
             )
