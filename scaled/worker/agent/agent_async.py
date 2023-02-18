@@ -18,8 +18,8 @@ class AgentAsync:
         stop_event: threading.Event,
         context: zmq.asyncio.Context,
         address: ZMQConfig,
-        receive_task_queue: queue.Queue,
-        send_task_queue: queue.Queue,
+        receive_task_queue: queue.SimpleQueue,
+        send_task_queue: queue.SimpleQueue,
         heartbeat_interval_seconds: int,
         function_retention_seconds: int,
     ):

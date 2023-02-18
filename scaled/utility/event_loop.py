@@ -18,7 +18,7 @@ def register_event_loop(event_loop_type: str):
     event_loop_type = EventLoopType[event_loop_type]
     if event_loop_type == EventLoopType.uvloop:
         try:
-            import uvloop
+            import uvloop  # noqa
         except ImportError:
             raise ImportError(f"please use pip install uvloop if try to use uvloop as event loop")
 

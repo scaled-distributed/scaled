@@ -3,7 +3,7 @@ import multiprocessing
 import queue
 import signal
 import time
-from queue import Queue
+from queue import SimpleQueue
 from typing import Callable, Dict, Optional
 
 import zmq
@@ -41,8 +41,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._stop_event = stop_event
         self._serializer = serializer
 
-        self._receive_task_queue: Optional[Queue] = None
-        self._send_task_queue: Optional[Queue] = None
+        self._receive_task_queue: Optional[SimpleQueue] = None
+        self._send_task_queue: Optional[SimpleQueue] = None
 
         self._agent: Optional[AgentSync] = None
         self._cleaner: Optional[MemoryCleaner] = None
@@ -65,8 +65,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
     def __initialize(self):
         self.__register_signal()
 
-        self._receive_task_queue = Queue()
-        self._send_task_queue = Queue()
+        self._receive_task_queue = SimpleQueue()
+        self._send_task_queue = SimpleQueue()
 
         context = zmq.Context.instance()
         self._agent = AgentSync(

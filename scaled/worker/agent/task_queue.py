@@ -6,7 +6,10 @@ from scaled.protocol.python.message import MessageType, Task
 
 class TaskQueue:
     def __init__(
-        self, receive_task_queue: queue.Queue, send_task_queue: queue.Queue, connector_external: AsyncConnector
+        self,
+        receive_task_queue: queue.SimpleQueue,
+        send_task_queue: queue.SimpleQueue,
+        connector_external: AsyncConnector,
     ):
         self._receive_task_queue = receive_task_queue
         self._send_task_queue = send_task_queue
