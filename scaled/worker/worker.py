@@ -3,6 +3,7 @@ import multiprocessing
 import queue
 import signal
 import time
+from concurrent.futures import ProcessPoolExecutor
 from queue import SimpleQueue
 from typing import Callable, Dict, Optional
 
@@ -125,3 +126,5 @@ class Worker(multiprocessing.get_context("spawn").Process):
             self._send_task_queue.put(
                 TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode())
             )
+
+        ProcessPoolExecutor
