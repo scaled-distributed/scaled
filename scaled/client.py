@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import threading
 import uuid
@@ -73,7 +74,7 @@ class Client:
     def scheduler_status(self):
         self._statistics_future = Future()
         self._connector.send(MessageType.MonitorRequest, MonitorRequest())
-        statistics = self._statistics_future.result()
+        statistics = json.loads(self._statistics_future.result())
         return statistics
 
     def disconnect(self):

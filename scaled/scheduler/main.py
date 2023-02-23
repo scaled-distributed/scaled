@@ -1,4 +1,5 @@
 import asyncio
+import json
 import threading
 import logging
 
@@ -81,11 +82,13 @@ class Scheduler:
     async def statistics(self, source: bytes, request: MonitorRequest):
         assert isinstance(request, MonitorRequest)
         stats = MonitorResponse(
-            {
-                "binder": await self._binder.statistics(),
-                "task_manager": await self._task_manager.statistics(),
-                "function_manager": await self._function_manager.statistics(),
-                "worker_manager": await self._worker_manager.statistics(),
-            }
+            json.dumps(
+                {
+                    "binder": await self._binder.statistics(),
+                    "task_manager": await self._task_manager.statistics(),
+                    "function_manager": await self._function_manager.statistics(),
+                    "worker_manager": await self._worker_manager.statistics(),
+                }
+            ).encode()
         )
         await self._binder.send(source, MessageType.MonitorResponse, stats)

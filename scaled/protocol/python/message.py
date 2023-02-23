@@ -1,8 +1,7 @@
 import abc
 import enum
-import pickle
 import struct
-from typing import Dict, List, Tuple, TypeVar
+from typing import List, Tuple, TypeVar
 
 import attrs
 
@@ -161,14 +160,14 @@ class MonitorRequest(_Message):
 
 @attrs.define
 class MonitorResponse(_Message):
-    data: Dict
+    data: bytes  # json content represent in bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (pickle.dumps(self.data),)
+        return (self.data,)
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return MonitorResponse(pickle.loads(data[0]))
+        return MonitorResponse(data[0])
 
 
 @attrs.define
