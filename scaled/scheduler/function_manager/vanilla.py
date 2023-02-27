@@ -1,9 +1,11 @@
+import asyncio
 import logging
 from collections import defaultdict
 import time
 from typing import Dict, Optional, Set
 
 from scaled.io.async_binder import AsyncBinder
+from scaled.io.config import CLEANUP_INTERVAL_SECONDS
 from scaled.protocol.python.message import (
     FunctionRequest,
     FunctionRequestType,
@@ -11,10 +13,10 @@ from scaled.protocol.python.message import (
     FunctionResponseType,
     MessageType,
 )
-from scaled.scheduler.mixins import FunctionManager
+from scaled.scheduler.mixins import FunctionManager, Looper
 
 
-class VanillaFunctionManager(FunctionManager):
+class VanillaFunctionManager(FunctionManager, Looper):
     def __init__(self, function_retention_seconds: int):
         self._function_id_to_function: Dict[bytes, bytes] = dict()
         self._function_id_to_alive_since: Dict[bytes, float] = dict()
@@ -79,6 +81,28 @@ class VanillaFunctionManager(FunctionManager):
         if not task_ids:
             self._function_id_to_task_ids.pop(function_id)
 
+    async def loop(self):
+        logging.info(f"{self.__class__.__name__}: started")
+        while True:
+            await self.__routine()
+            await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+
+    async def statistics(self) -> Dict:
+        return {"function_id_to_tasks": {k.decode(): len(v) for k, v in self._function_id_to_task_ids.items()}}
+
+    async def __routine(self):
+        now = time.time()
+        dead_functions = [
+            function_id
+            for function_id, alive_since in self._function_id_to_alive_since.items()
+            if now - alive_since > self._function_retention_seconds and function_id not in self._function_id_to_task_ids
+        ]
+
+        for function_id in dead_functions:
+            logging.info(f"remove function cache {function_id=}")
+            self._function_id_to_function.pop(function_id)
+            self._function_id_to_alive_since.pop(function_id)
+
     async def __on_function_check(self, client: bytes, function_id: bytes):
         if function_id in self._function_id_to_function:
             await self.__send_function_response(client, function_id, FunctionResponseType.OK)
@@ -114,19 +138,3 @@ class VanillaFunctionManager(FunctionManager):
 
     async def __send_function_response(self, client: bytes, function_id: bytes, response_type: FunctionResponseType):
         await self._binder.send(client, MessageType.FunctionResponse, FunctionResponse(response_type, function_id, b""))
-
-    async def routine(self):
-        now = time.time()
-        dead_functions = [
-            function_id
-            for function_id, alive_since in self._function_id_to_alive_since.items()
-            if now - alive_since > self._function_retention_seconds and function_id not in self._function_id_to_task_ids
-        ]
-
-        for function_id in dead_functions:
-            logging.info(f"remove function cache {function_id=}")
-            self._function_id_to_function.pop(function_id)
-            self._function_id_to_alive_since.pop(function_id)
-
-    async def statistics(self) -> Dict:
-        return {"function_id_to_tasks": {k.decode(): len(v) for k, v in self._function_id_to_task_ids.items()}}

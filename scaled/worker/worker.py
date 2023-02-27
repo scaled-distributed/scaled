@@ -1,19 +1,17 @@
 import logging
 import multiprocessing
-import queue
 import signal
 import time
-from concurrent.futures import ProcessPoolExecutor
-from queue import SimpleQueue
 from typing import Callable, Dict, Optional
 
 import zmq
 import zmq.asyncio
 
+from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
-from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import TaskResult, TaskStatus
-from scaled.worker.agent.agent_sync import AgentSync
+from scaled.utility.zmq_config import ZMQConfig, ZMQType
+from scaled.protocol.python.message import MessageType, MessageVariant, Task, TaskResult, TaskStatus
+from scaled.worker.agent.agent_thread import AgentThread
 from scaled.worker.memory_cleaner import MemoryCleaner
 
 
@@ -42,10 +40,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._stop_event = stop_event
         self._serializer = serializer
 
-        self._receive_task_queue: Optional[SimpleQueue] = None
-        self._send_task_queue: Optional[SimpleQueue] = None
-
-        self._agent: Optional[AgentSync] = None
+        self._agent: Optional[AgentThread] = None
+        self._internal_connector: Optional[SyncConnector] = None
         self._cleaner: Optional[MemoryCleaner] = None
         self._ready_event = multiprocessing.get_context("spawn").Event()
 
@@ -61,21 +57,30 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def shutdown(self, *args):
         assert args is not None
-        self._agent.join()
+        self._stop_event.set()
+        self._agent.terminate()
 
     def __initialize(self):
         self.__register_signal()
 
-        self._receive_task_queue = SimpleQueue()
-        self._send_task_queue = SimpleQueue()
+        context = zmq.Context()
+        internal_address = ZMQConfig(type=ZMQType.inproc, host="memory")
 
-        context = zmq.Context.instance()
-        self._agent = AgentSync(
+        self._internal_connector = SyncConnector(
             stop_event=self._stop_event,
-            context=zmq.asyncio.Context.shadow(context.underlying),
-            address=self._address,
-            receive_task_queue=self._receive_task_queue,
-            send_task_queue=self._send_task_queue,
+            prefix="AW",
+            context=context,
+            socket_type=zmq.PAIR,
+            bind_or_connect="connect",
+            address=internal_address,
+            callback=self.__on_connector_receive,
+            daemonic=False,
+        )
+
+        self._agent = AgentThread(
+            external_address=self._address,
+            internal_context=zmq.asyncio.Context.shadow(context.underlying),
+            internal_address=internal_address,
             heartbeat_interval_seconds=self._heartbeat_interval_seconds,
             function_retention_seconds=self._function_retention_seconds,
             event_loop=self._event_loop,
@@ -94,17 +99,15 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def __run_forever(self):
         while not self._stop_event.is_set():
-            self.__process_queued_tasks()
+            time.sleep(0.1)
 
     def __register_signal(self):
         signal.signal(signal.SIGINT, self.shutdown)
         signal.signal(signal.SIGTERM, self.shutdown)
 
-    def __process_queued_tasks(self):
-        try:
-            task = self._receive_task_queue.get(timeout=1)
-        except queue.Empty:
-            return
+    def __on_connector_receive(self, message_type: MessageType, task: MessageVariant):
+        assert message_type == MessageType.Task
+        assert isinstance(task, Task)
 
         begin = time.monotonic()
         try:
@@ -117,14 +120,14 @@ class Worker(multiprocessing.get_context("spawn").Process):
             result = function(*args, **kwargs)
 
             result_bytes = self._serializer.serialize_result(result)
-            self._send_task_queue.put(
-                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes)
+            self._internal_connector.send(
+                MessageType.TaskResult,
+                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes),
             )
 
         except Exception as e:
             logging.exception(f"error when processing {task=}:")
-            self._send_task_queue.put(
-                TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode())
+            self._internal_connector.send(
+                MessageType.TaskResult,
+                TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode()),
             )
-
-        ProcessPoolExecutor

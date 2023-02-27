@@ -1,7 +1,7 @@
-import threading
+import asyncio
+from asyncio import Queue
 import logging
-from collections import deque
-from typing import Deque, Dict, Literal, Optional, Set, Tuple
+from typing import Dict, Literal, Optional, Set, Tuple
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import (
@@ -13,13 +13,11 @@ from scaled.protocol.python.message import (
     TaskResult,
     TaskStatus,
 )
-from scaled.scheduler.mixins import FunctionManager, TaskManager, WorkerManager
+from scaled.scheduler.mixins import FunctionManager, Looper, TaskManager, WorkerManager
 
 
-class VanillaTaskManager(TaskManager):
-    def __init__(self, stop_event: threading.Event):
-        self._stop_event = stop_event
-
+class VanillaTaskManager(TaskManager, Looper):
+    def __init__(self):
         self._binder: Optional[AsyncBinder] = None
         self._function_manager: Optional[FunctionManager] = None
         self._worker_manager: Optional[WorkerManager] = None
@@ -29,7 +27,7 @@ class VanillaTaskManager(TaskManager):
 
         self._running: Set[bytes] = set()
         self._canceling: Set[bytes] = set()
-        self._unassigned: Deque[Tuple[bytes, Task]] = deque()
+        self._unassigned: Queue[Tuple[bytes, Task]] = Queue()
 
         self._failed_count: int = 0
         self._canceled_count: int = 0
@@ -39,14 +37,17 @@ class VanillaTaskManager(TaskManager):
         self._function_manager = function_manager
         self._worker_manager = worker_manager
 
-    async def routine(self):
-        await self.__on_assign_tasks()
+    async def loop(self):
+        logging.info(f"{self.__class__.__name__}: started")
+        while True:
+            await self.__routine()
+            await asyncio.sleep(0)
 
     async def statistics(self) -> Dict:
         return {
             "running": len(self._running),
             "canceling": len(self._canceling),
-            "unassigned": len(self._unassigned),
+            "unassigned": self._unassigned.qsize(),
             "failed": self._failed_count,
             "canceled": self._canceled_count,
         }
@@ -60,7 +61,7 @@ class VanillaTaskManager(TaskManager):
 
         await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.SubmitOK))
         await self._function_manager.on_task_use_function(task.task_id, task.function_id)
-        self._unassigned.append((client, task))
+        await self._unassigned.put((client, task))
 
     async def on_task_reroute(self, task_id: bytes):
         assert task_id in self._task_id_to_client
@@ -69,7 +70,7 @@ class VanillaTaskManager(TaskManager):
         task = self._task_id_to_task.pop(task_id)
         self._running.remove(task_id)
 
-        self._unassigned.append((client, task))
+        await self._unassigned.put((client, task))
 
     async def on_task_cancel(self, client: bytes, task_id: bytes):
         if task_id in self._canceling:
@@ -107,15 +108,13 @@ class VanillaTaskManager(TaskManager):
 
         raise ValueError(f"unknown TaskResult status: {result.status}")
 
-    async def __on_assign_tasks(self):
-        if not self._unassigned:
-            return
+    async def __routine(self):
+        client, task = await self._unassigned.get()
 
-        client, task = self._unassigned[0]
         if not await self._worker_manager.assign_task_to_worker(task):
+            await self._unassigned.put((client, task))
             return
 
-        self._unassigned.popleft()
         self._task_id_to_client[task.task_id] = client
         self._task_id_to_task[task.task_id] = task
         self._running.add(task.task_id)

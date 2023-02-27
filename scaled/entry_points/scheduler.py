@@ -1,9 +1,11 @@
 import argparse
 import asyncio
+import functools
 import signal
 import threading
 
 from scaled.io.config import (
+    DEFAULT_IO_THREADS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_PER_WORKER_QUEUE_SIZE,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
@@ -18,6 +20,7 @@ stop_event = threading.Event()
 
 def get_args():
     parser = argparse.ArgumentParser("scaled scheduler", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--io-threads", type=int, default=DEFAULT_IO_THREADS, help="number of io threads for zmq")
     parser.add_argument(
         "--worker-timeout-seconds",
         "-wt",
@@ -51,24 +54,29 @@ def main():
     args = get_args()
     setup_logger()
 
-    __register_signal()
-
     scheduler = Scheduler(
         address=args.address,
-        stop_event=stop_event,
+        io_threads=args.io_threads,
         per_worker_queue_size=args.per_worker_queue_size,
         worker_timeout_seconds=args.worker_timeout_seconds,
         function_retention_seconds=args.function_retention_seconds,
     )
     register_event_loop(args.event_loop)
-    asyncio.run(scheduler.loop())
+
+    loop = asyncio.get_event_loop()
+    __register_signal(loop)
+    for coroutine in scheduler.get_loops():
+        loop.create_task(coroutine())
+    loop.run_forever()
 
 
-def __register_signal():
-    signal.signal(signal.SIGINT, __handle_signal)
-    signal.signal(signal.SIGTERM, __handle_signal)
+def __register_signal(loop):
+    loop.add_signal_handler(signal.SIGINT, functools.partial(__handle_signal, loop))
+    loop.add_signal_handler(signal.SIGHUP, functools.partial(__handle_signal, loop))
+    loop.add_signal_handler(signal.SIGTERM, functools.partial(__handle_signal, loop))
 
 
-def __handle_signal(*args):
-    assert args is not None
-    stop_event.set()
+def __handle_signal(loop):
+    for task in asyncio.all_tasks():
+        task.cancel()
+    loop.stop()

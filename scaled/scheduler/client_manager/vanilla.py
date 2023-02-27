@@ -1,10 +1,10 @@
 from typing import Dict
 
 from scaled.protocol.python.message import Task, TaskResult
-from scaled.scheduler.mixins import ClientManager
+from scaled.scheduler.mixins import ClientManager, Looper
 
 
-class VanillaClientManager(ClientManager):
+class VanillaClientManager(ClientManager, Looper):
     def __init__(self):
         pass
 
@@ -17,7 +17,7 @@ class VanillaClientManager(ClientManager):
     async def on_task_done(self, result: TaskResult):
         pass
 
-    async def routine(self):
+    async def loop(self):
         pass
 
     async def statistics(self) -> Dict:

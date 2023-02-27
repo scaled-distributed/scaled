@@ -1,11 +1,12 @@
+import asyncio
 import enum
-import threading
 import logging
 import time
 from typing import Dict, Optional
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.scheduler.mixins import TaskManager, WorkerManager
+from scaled.io.config import CLEANUP_INTERVAL_SECONDS
+from scaled.scheduler.mixins import Looper, TaskManager, WorkerManager
 from scaled.protocol.python.message import Heartbeat, MessageType, Task, TaskResult, TaskCancel
 from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 
@@ -20,9 +21,8 @@ class AllocatorType(enum.Enum):
         return self.value
 
 
-class VanillaWorkerManager(WorkerManager):
-    def __init__(self, stop_event: threading.Event, per_worker_queue_size: int, timeout_seconds: int):
-        self._stop_event = stop_event
+class VanillaWorkerManager(WorkerManager, Looper):
+    def __init__(self, per_worker_queue_size: int, timeout_seconds: int):
         self._timeout_seconds = timeout_seconds
 
         self._binder: Optional[AsyncBinder] = None
@@ -68,11 +68,17 @@ class VanillaWorkerManager(WorkerManager):
 
         await self._task_manager.on_task_done(task_result)
 
-    async def routine(self):
-        await self.__clean_workers()
+    async def loop(self):
+        logging.info(f"{self.__class__.__name__}: started")
+        while True:
+            await self.__routine()
+            await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
     async def statistics(self) -> Dict:
         return self._allocator.statistics()
+
+    async def __routine(self):
+        await self.__clean_workers()
 
     async def __clean_workers(self):
         now = time.time()

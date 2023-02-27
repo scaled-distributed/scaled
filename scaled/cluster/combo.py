@@ -5,6 +5,7 @@ from scaled.cluster.scheduler import SchedulerProcess
 from scaled.io.config import (
     DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
+    DEFAULT_IO_THREADS,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
     DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
     DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
@@ -21,6 +22,7 @@ class SchedulerClusterCombo:
         self,
         address: str,
         n_workers: int,
+        io_threads: int = DEFAULT_IO_THREADS,
         heartbeat_interval_seconds: int = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
         event_loop: str = "builtin",
         worker_timeout_seconds: int = DEFAULT_WORKER_TIMEOUT_SECONDS,
@@ -44,7 +46,7 @@ class SchedulerClusterCombo:
         )
         self._scheduler = SchedulerProcess(
             address=ZMQConfig.from_string(address),
-            stop_event=self._stop_event,
+            io_threads=io_threads,
             per_worker_queue_size=per_worker_queue_size,
             worker_timeout_seconds=worker_timeout_seconds,
             function_retention_seconds=function_retention_seconds,
@@ -61,7 +63,7 @@ class SchedulerClusterCombo:
     def shutdown(self):
         self._stop_event.set()
         self._cluster.join()
-        self._scheduler.join()
+        self._scheduler.terminate()
 
     def __get_prefix(self):
         return f"{self.__class__.__name__}:"

@@ -1,6 +1,4 @@
-import asyncio
 import json
-import threading
 import logging
 
 from scaled.scheduler.client_manager.vanilla import VanillaClientManager
@@ -11,29 +9,24 @@ from scaled.protocol.python.message import MessageType, MessageVariant, MonitorR
 from scaled.scheduler.task_manager.vanilla import VanillaTaskManager
 from scaled.scheduler.worker_manager.vanilla import VanillaWorkerManager
 
-PREFIX = "Scheduler:"
-
 
 class Scheduler:
     def __init__(
         self,
         address: ZMQConfig,
-        stop_event: threading.Event,
+        io_threads: int,
         per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_retention_seconds: int,
     ):
         self._address = address
-        self._stop_event = stop_event
 
-        self._binder = AsyncBinder(prefix="S", address=self._address)
+        self._binder = AsyncBinder(prefix="S", address=self._address, io_threads=io_threads)
         self._client_manager = VanillaClientManager()
         self._function_manager = VanillaFunctionManager(function_retention_seconds=function_retention_seconds)
-        self._task_manager = VanillaTaskManager(stop_event=self._stop_event)
+        self._task_manager = VanillaTaskManager()
         self._worker_manager = VanillaWorkerManager(
-            stop_event=self._stop_event,
-            per_worker_queue_size=per_worker_queue_size,
-            timeout_seconds=worker_timeout_seconds,
+            per_worker_queue_size=per_worker_queue_size, timeout_seconds=worker_timeout_seconds
         )
 
         self._binder.register(self.on_receive_message)
@@ -66,18 +59,10 @@ class Scheduler:
             await self._function_manager.on_function(source, message)
             return
 
-        logging.error(f"{PREFIX} unknown {message_type} from {source=}: {message}")
+        logging.error(f"{self.__class__.__name__}: unknown {message_type} from {source=}: {message}")
 
-    async def loop(self):
-        logging.info("Scheduler started")
-        while not self._stop_event.is_set():
-            await asyncio.gather(
-                self._binder.routine(),
-                self._task_manager.routine(),
-                self._function_manager.routine(),
-                self._worker_manager.routine(),
-            )
-        logging.info("Scheduler quited")
+    def get_loops(self):
+        return [self._binder.loop, self._task_manager.loop, self._function_manager.loop, self._worker_manager.loop]
 
     async def statistics(self, source: bytes, request: MonitorRequest):
         assert isinstance(request, MonitorRequest)

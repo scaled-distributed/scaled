@@ -68,7 +68,7 @@ class SyncConnector(threading.Thread):
     def run(self) -> None:
         while not self._stop_event.is_set():
             self.__routine_send()
-            self.__routine_receive()
+            self.__routine_polling()
 
     def send(self, message_type: MessageType, message: MessageVariant):
         self._send_queue.put((message_type, message))
@@ -87,28 +87,30 @@ class SyncConnector(threading.Thread):
             message_type, message = self._send_queue.get()
             self._socket.send_multipart([message_type.value, *message.serialize()])
 
-    def __routine_receive(self):
+    def __routine_polling(self):
         count = self._socket.poll(POLLING_TIME_MILLISECONDS)
         if not count:
             return
 
         for _ in range(count):
-            frames = self._socket.recv_multipart()
+            self.__routine_receive()
 
-            if len(frames) < 2:
-                logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
-                return
+    def __routine_receive(self):
+        frames = self._socket.recv_multipart()
+        if len(frames) < 2:
+            logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
+            return
 
-            if frames[0] not in {member.value for member in MessageType}:
-                logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
-                return
+        if frames[0] not in {member.value for member in MessageType}:
+            logging.error(f"{self.__get_prefix()} received unexpected message type: {frames[0]}")
+            return
 
-            message_type_bytes, *payload = frames
-            message_type = MessageType(message_type_bytes)
-            message = PROTOCOL[message_type_bytes].deserialize(payload)
+        message_type_bytes, *payload = frames
+        message_type = MessageType(message_type_bytes)
+        message = PROTOCOL[message_type_bytes].deserialize(payload)
 
-            self.__count_one("received", message_type)
-            self._callback(message_type, message)
+        self.__count_one("received", message_type)
+        self._callback(message_type, message)
 
     def __count_one(self, count_type: Literal["sent", "received"], message_type: MessageType):
         with self._statistics_mutex:

@@ -6,7 +6,7 @@ from scaled.protocol.python.message import FunctionRequest, Heartbeat, Task, Tas
 
 class Looper(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def routine(self):
+    async def loop(self):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -14,7 +14,7 @@ class Looper(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-class FunctionManager(Looper):
+class FunctionManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def on_function(self, source: bytes, request: FunctionRequest):
         raise NotImplementedError()
@@ -31,16 +31,8 @@ class FunctionManager(Looper):
     async def has_function(self, function_id: bytes) -> bool:
         raise NotImplementedError()
 
-    @abc.abstractmethod
-    async def routine(self):
-        raise NotImplementedError()
 
-    @abc.abstractmethod
-    async def statistics(self) -> Dict:
-        raise NotImplementedError()
-
-
-class ClientManager(Looper):
+class ClientManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def on_task_new(self, client: bytes, task: Task):
         raise NotImplementedError()
@@ -53,16 +45,8 @@ class ClientManager(Looper):
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
-    @abc.abstractmethod
-    async def routine(self):
-        raise NotImplementedError()
 
-    @abc.abstractmethod
-    async def statistics(self) -> Dict:
-        raise NotImplementedError()
-
-
-class TaskManager(Looper):
+class TaskManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def on_task_new(self, client: bytes, task: Task):
         raise NotImplementedError()
@@ -79,16 +63,8 @@ class TaskManager(Looper):
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
-    @abc.abstractmethod
-    async def routine(self):
-        raise NotImplementedError()
 
-    @abc.abstractmethod
-    async def statistics(self) -> Dict:
-        raise NotImplementedError()
-
-
-class WorkerManager(Looper):
+class WorkerManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def assign_task_to_worker(self, task: Task) -> bool:
         raise NotImplementedError()
@@ -103,12 +79,4 @@ class WorkerManager(Looper):
 
     @abc.abstractmethod
     async def on_heartbeat(self, worker: bytes, info: Heartbeat):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def routine(self):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def statistics(self) -> Dict:
         raise NotImplementedError()

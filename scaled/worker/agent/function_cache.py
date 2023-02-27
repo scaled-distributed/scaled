@@ -1,3 +1,4 @@
+import asyncio
 import time
 from collections import defaultdict
 from typing import Dict, List
@@ -11,13 +12,14 @@ from scaled.protocol.python.message import (
     MessageType,
     Task,
 )
-from scaled.worker.agent.task_queue import TaskQueue
 
 
 class FunctionCache:
-    def __init__(self, connector_external: AsyncConnector, task_queue: TaskQueue, function_retention_seconds: int):
+    def __init__(
+        self, connector_external: AsyncConnector, connector_internal: AsyncConnector, function_retention_seconds: int
+    ):
         self._connector_external = connector_external
-        self._task_queue = task_queue
+        self._connector_internal = connector_internal
         self._function_retention_seconds = function_retention_seconds
 
         self._cached_functions: Dict[bytes, bytes] = dict()
@@ -25,16 +27,16 @@ class FunctionCache:
         self._pending_tasks: Dict[bytes, List[Task]] = defaultdict(list)
 
     async def on_new_task(self, task: Task):
-        if task.function_id in self._cached_functions:
-            task.function_content = self._cached_functions[task.function_id]
-            self._cached_functions_alive_since[task.function_id] = time.time()
-            await self._task_queue.on_receive_task(task)
+        if task.function_id not in self._cached_functions:
+            self._pending_tasks[task.function_id].append(task)
+            await self._connector_external.send(
+                MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
+            )
             return
 
-        self._pending_tasks[task.function_id].append(task)
-        await self._connector_external.send(
-            MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
-        )
+        task.function_content = self._cached_functions[task.function_id]
+        self._cached_functions_alive_since[task.function_id] = time.time()
+        await self._connector_internal.send(MessageType.Task, task)
 
     async def on_new_function(self, response: FunctionResponse):
         if response.function_id in self._cached_functions:
@@ -48,7 +50,12 @@ class FunctionCache:
 
         for task in self._pending_tasks.pop(response.function_id):
             task.function_content = function_content
-            await self._task_queue.on_receive_task(task)
+            await self._connector_internal.send(MessageType.Task, task)
+
+    async def loop(self):
+        while True:
+            await self.routine()
+            await asyncio.sleep(self._function_retention_seconds)
 
     async def routine(self):
         now = time.time()

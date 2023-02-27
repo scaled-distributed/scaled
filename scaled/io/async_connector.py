@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import socket
@@ -7,7 +8,6 @@ from typing import Awaitable, Callable, List, Literal
 
 import zmq.asyncio
 
-from scaled.io.config import POLLING_TIME_MILLISECONDS
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
@@ -50,22 +50,22 @@ class AsyncConnector:
     def identity(self) -> bytes:
         return self._identity
 
+    async def loop(self):
+        while True:
+            await self.routine()
+            await asyncio.sleep(0)
+
     async def routine(self):
-        count = await self._socket.poll(POLLING_TIME_MILLISECONDS)
-        if not count:
+        frames = await self._socket.recv_multipart()
+        if not self.__is_valid_message(frames):
             return
 
-        for _ in range(count):
-            frames = await self._socket.recv_multipart()
-            if not self.__is_valid_message(frames):
-                continue
+        message_type_bytes, *payload = frames
+        message_type = MessageType(message_type_bytes)
+        message = PROTOCOL[message_type_bytes].deserialize(payload)
 
-            message_type_bytes, *payload = frames
-            message_type = MessageType(message_type_bytes)
-            message = PROTOCOL[message_type_bytes].deserialize(payload)
-
-            self.__count_one("received", message_type)
-            await self._callback(message_type, message)
+        self.__count_one("received", message_type)
+        await self._callback(message_type, message)
 
     async def send(self, message_type: MessageType, data: MessageVariant):
         self.__count_one("sent", message_type)
@@ -88,7 +88,7 @@ class AsyncConnector:
             return False
 
         if frames[0] not in {member.value for member in MessageType}:
-            logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
+            logging.error(f"{self.__get_prefix()} received unexpected message type: {frames[0]}")
             return False
 
         return True

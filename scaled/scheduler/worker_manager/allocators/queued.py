@@ -32,6 +32,9 @@ class QueuedAllocator(TaskAllocator):
         return list(task_ids)
 
     def assign_task(self, task_id: bytes) -> Optional[bytes]:
+        if not self._capacity.queue_size():
+            return None
+
         count, worker = self._capacity.pop_worker()
         if count == self._max_tasks_per_worker:
             self._capacity.push_worker(count, worker)
