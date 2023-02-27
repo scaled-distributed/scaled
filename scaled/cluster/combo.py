@@ -58,9 +58,9 @@ class SchedulerClusterCombo:
 
     def __del__(self):
         self.shutdown()
-        logging.info(f"{self.__get_prefix()} shutdown")
 
     def shutdown(self):
+        logging.info(f"{self.__get_prefix()} shutdown")
         self._stop_event.set()
         self._cluster.join()
         self._scheduler.terminate()

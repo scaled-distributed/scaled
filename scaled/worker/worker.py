@@ -101,6 +101,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
         while not self._stop_event.is_set():
             time.sleep(0.1)
 
+        self.shutdown()
+
     def __register_signal(self):
         signal.signal(signal.SIGINT, self.shutdown)
         signal.signal(signal.SIGTERM, self.shutdown)

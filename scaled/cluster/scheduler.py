@@ -24,8 +24,9 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self._per_worker_queue_size = per_worker_queue_size
         self._worker_timeout_seconds = worker_timeout_seconds
         self._function_retention_seconds = function_retention_seconds
-        self._scheduler: Optional[Scheduler] = None
         self._event_loop = event_loop
+        self._scheduler: Optional[Scheduler] = None
+        self._loop = None
 
     def run(self) -> None:
         # scheduler have its own single process
@@ -39,4 +40,8 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         )
 
         register_event_loop(self._event_loop)
-        asyncio.run(self._scheduler.get_loops())
+
+        self._loop = asyncio.get_event_loop()
+        for coroutine in self._scheduler.get_loops():
+            self._loop.create_task(coroutine())
+        self._loop.run_forever()
