@@ -12,7 +12,7 @@ authors = [{ name = "Zhuo Yin", email = "zhuoyin@gmail.com" }]
 dynamic = ["dependencies", "version"]
 
 [project.urls]
-Home = "https://github.com/yzard/scaled"
+Home = "https://github.com/scaled-distributed/scaled"
 
 [project.scripts]
 scaled_scheduler = "scaled.entry_points.scheduler:main"
