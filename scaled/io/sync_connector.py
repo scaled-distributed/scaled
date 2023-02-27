@@ -56,8 +56,6 @@ class SyncConnector(threading.Thread):
         self._statistics_mutex = threading.Lock()
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
-        self.start()
-
     def __del__(self):
         self._socket.close()
 

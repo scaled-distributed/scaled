@@ -98,9 +98,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._ready_event.set()
 
     def __run_forever(self):
-        while not self._stop_event.is_set():
-            time.sleep(0.1)
-
+        self._internal_connector.run()
         self.shutdown()
 
     def __register_signal(self):

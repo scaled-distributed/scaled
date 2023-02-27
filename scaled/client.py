@@ -46,6 +46,7 @@ class Client:
             callback=self.__on_receive,
             daemonic=True,
         )
+        self._connector.start()
         logging.info(f"ScaledClient: connect to {address}")
 
         self._function_to_function_id_cache: dict[Callable, bytes] = dict()
