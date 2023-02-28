@@ -172,5 +172,5 @@ class Client:
 
     def __generate_function_id_bytes(self, fn) -> Tuple[bytes, bytes]:
         function_bytes = self._serializer.serialize_function(fn)
-        function_id = hashlib.md5(function_bytes).hexdigest().encode()
+        function_id = hashlib.md5(function_bytes).digest()
         return function_id, function_bytes

@@ -88,7 +88,7 @@ class VanillaFunctionManager(FunctionManager, Looper):
             await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
     async def statistics(self) -> Dict:
-        return {"function_id_to_tasks": {k.decode(): len(v) for k, v in self._function_id_to_task_ids.items()}}
+        return {"function_id_to_tasks": {k.hex(): len(v) for k, v in self._function_id_to_task_ids.items()}}
 
     async def __routine(self):
         now = time.time()
@@ -99,8 +99,10 @@ class VanillaFunctionManager(FunctionManager, Looper):
         ]
 
         for function_id in dead_functions:
-            logging.info(f"remove function cache {function_id=}")
-            self._function_id_to_function.pop(function_id)
+            logging.info(
+                f"remove function cache function_id={function_id.hex()}, "
+                f"size={len(self._function_id_to_function.pop(function_id))}"
+            )
             self._function_id_to_alive_since.pop(function_id)
 
     async def __on_function_check(self, client: bytes, function_id: bytes):
@@ -117,7 +119,7 @@ class VanillaFunctionManager(FunctionManager, Looper):
             await self.__send_function_response(client, function_id, FunctionResponseType.Duplicated)
             return
 
-        logging.info(f"add function cache {function_id=}")
+        logging.info(f"add function cache function_id={function_id.hex()}, size={len(function)}")
         self._function_id_to_function[function_id] = function
         await self.__send_function_response(client, function_id, FunctionResponseType.OK)
 
