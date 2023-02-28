@@ -32,5 +32,10 @@ class TaskAllocator(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def has_available_worker(self) -> bool:
+        """has available worker or not"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def statistics(self) -> Dict:
         raise NotImplementedError()

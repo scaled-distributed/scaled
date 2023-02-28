@@ -65,12 +65,22 @@ class QueuedAllocator(TaskAllocator):
 
         return self._task_id_to_worker[task_id]
 
+    def has_available_worker(self):
+        if not self._capacity.queue_size():
+            return False
+
+        count, worker = self._capacity.pop_worker()
+        self._capacity.push_worker(count, worker)
+
+        if count == self._max_tasks_per_worker:
+            return False
+
+        return True
+
     def statistics(self) -> Dict:
         return {
-            "worker_to_number_of_tasks": {
-                worker.decode(): len(tasks) for worker, tasks in self._workers_to_task_ids.items()
-            },
-            "capacity_priority_queue_size": self._capacity.queue_size(),
+            worker: {"running": len(tasks), "free": self._max_tasks_per_worker - len(tasks)}
+            for worker, tasks in self._workers_to_task_ids.items()
         }
 
 

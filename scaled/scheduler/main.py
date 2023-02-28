@@ -15,6 +15,7 @@ class Scheduler:
         self,
         address: ZMQConfig,
         io_threads: int,
+        max_number_of_tasks_waiting: int,
         per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_retention_seconds: int,
@@ -24,7 +25,7 @@ class Scheduler:
         self._binder = AsyncBinder(prefix="S", address=self._address, io_threads=io_threads)
         self._client_manager = VanillaClientManager()
         self._function_manager = VanillaFunctionManager(function_retention_seconds=function_retention_seconds)
-        self._task_manager = VanillaTaskManager()
+        self._task_manager = VanillaTaskManager(max_number_of_tasks_waiting=max_number_of_tasks_waiting)
         self._worker_manager = VanillaWorkerManager(
             per_worker_queue_size=per_worker_queue_size, timeout_seconds=worker_timeout_seconds
         )

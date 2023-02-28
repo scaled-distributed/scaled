@@ -70,6 +70,10 @@ class WorkerManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    async def has_available_worker(self) -> bool:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     async def on_task_cancel(self, task_id: bytes):
         raise NotImplementedError()
 

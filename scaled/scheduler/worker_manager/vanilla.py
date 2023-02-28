@@ -2,7 +2,7 @@ import asyncio
 import enum
 import logging
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.io.config import CLEANUP_INTERVAL_SECONDS
@@ -28,7 +28,7 @@ class VanillaWorkerManager(WorkerManager, Looper):
         self._binder: Optional[AsyncBinder] = None
         self._task_manager: Optional[TaskManager] = None
 
-        self._worker_alive_since = dict()
+        self._worker_alive_since: Dict[bytes, Tuple[float, Heartbeat]] = dict()
         self._allocator = QueuedAllocator(per_worker_queue_size)
 
     def hook(self, binder: AsyncBinder, task_manager: TaskManager):
@@ -39,7 +39,7 @@ class VanillaWorkerManager(WorkerManager, Looper):
         if self._allocator.add_worker(worker):
             logging.info(f"worker {worker} connected")
 
-        self._worker_alive_since[worker] = time.time()
+        self._worker_alive_since[worker] = (time.time(), info)
 
     async def assign_task_to_worker(self, task: Task) -> bool:
         worker = self._allocator.assign_task(task.task_id)
@@ -68,6 +68,9 @@ class VanillaWorkerManager(WorkerManager, Looper):
 
         await self._task_manager.on_task_done(task_result)
 
+    async def has_available_worker(self) -> bool:
+        return self._allocator.has_available_worker()
+
     async def loop(self):
         logging.info(f"{self.__class__.__name__}: started")
         while True:
@@ -75,7 +78,18 @@ class VanillaWorkerManager(WorkerManager, Looper):
             await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
     async def statistics(self) -> Dict:
-        return self._allocator.statistics()
+        worker_to_task_numbers = self._allocator.statistics()
+        return {
+            "free_slots": sum(worker["free"] for worker in worker_to_task_numbers.values()),
+            "workers": {
+                worker.decode(): {
+                    "cpu": round(info.cpu_usage, 2),
+                    "rss": info.rss_size,
+                    **worker_to_task_numbers[worker],
+                }
+                for worker, (last, info) in self._worker_alive_since.items()
+            }
+        }
 
     async def __routine(self):
         await self.__clean_workers()
@@ -83,7 +97,9 @@ class VanillaWorkerManager(WorkerManager, Looper):
     async def __clean_workers(self):
         now = time.time()
         dead_workers = [
-            w for w, alive_since in self._worker_alive_since.items() if now - alive_since > self._timeout_seconds
+            dead_worker
+            for dead_worker, (alive_since, info) in self._worker_alive_since.items()
+            if now - alive_since > self._timeout_seconds
         ]
         for dead_worker in dead_workers:
             logging.info(f"worker {dead_worker} disconnected")

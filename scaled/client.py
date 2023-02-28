@@ -3,9 +3,10 @@ import json
 import logging
 import threading
 import uuid
+from collections import defaultdict
 from concurrent.futures import Future
 
-from typing import Callable, Dict, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import zmq
 
@@ -49,11 +50,12 @@ class Client:
         self._connector.start()
         logging.info(f"ScaledClient: connect to {address}")
 
-        self._function_to_function_id_cache: dict[Callable, bytes] = dict()
-        self._ready_function_ids: Set[bytes] = set()
+        self._function_to_function_id_cache: Dict[Callable, Tuple[bytes, bytes]] = dict()
 
-        self._task_id_to_futures: Dict[bytes, Future] = dict()
+        self._task_id_to_task_function: Dict[bytes, Tuple[Task, bytes]] = dict()
+        self._task_id_to_future: Dict[bytes, Future] = dict()
 
+        self._function_id_to_not_ready_tasks: Dict[bytes, List[Task]] = defaultdict(list)
         self._statistics_future: Optional[Future] = None
 
     def __del__(self):
@@ -61,15 +63,16 @@ class Client:
         self.disconnect()
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
-        function_id = self.__get_function_id(fn)
+        function_id, function_bytes = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
         task = Task(task_id, function_id, b"", self._serializer.serialize_arguments(args, kwargs))
+        self._task_id_to_task_function[task_id] = (task, function_bytes)
+
+        self.__on_buffer_task_send(task)
 
         future = Future()
-        self._task_id_to_futures[task_id] = future
-        self._connector.send(MessageType.Task, task)
-
+        self._task_id_to_future[task_id] = future
         return future
 
     def scheduler_status(self):
@@ -82,12 +85,12 @@ class Client:
         self._stop_event.set()
 
     def __on_receive(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.FunctionResponse:
-            self.__on_function_response(message)
-            return
-
         if message_type == MessageType.TaskEcho:
             self.__on_task_echo(message)
+            return
+
+        if message_type == MessageType.FunctionResponse:
+            self.__on_function_response(message)
             return
 
         if message_type == MessageType.TaskResult:
@@ -101,31 +104,49 @@ class Client:
         raise TypeError(f"Unknown {message_type=}")
 
     def __on_task_echo(self, task_echo: TaskEcho):
-        if task_echo.task_id not in self._task_id_to_futures:
+        if task_echo.task_id not in self._task_id_to_future:
             return
 
         if task_echo.status == TaskEchoStatus.Duplicated:
             return
 
         if task_echo.status == TaskEchoStatus.FunctionNotExists:
-            raise NotImplementedError(f"TODO please handle this, for now, just increase function retention time")
+            task, _ = self._task_id_to_task_function[task_echo.task_id]
+            self.__on_buffer_task_send(task)
+            return
 
-        assert task_echo.status in {TaskEchoStatus.SubmitOK, TaskEchoStatus.CancelOK}, (
-            f"Unknown task status: " f"{task_echo=}"
-        )
+        if task_echo.status == TaskEchoStatus.NoWorker:
+            raise NotImplementedError(f"please implement that handles no worker error")
 
-        future = self._task_id_to_futures[task_echo.task_id]
+        assert task_echo.status == TaskEchoStatus.SubmitOK, f"Unknown task status: " f"{task_echo=}"
+
+        future = self._task_id_to_future[task_echo.task_id]
         future.set_running_or_notify_cancel()
+
+    def __on_buffer_task_send(self, task):
+        if task.function_id not in self._function_id_to_not_ready_tasks:
+            _, function_bytes = self._task_id_to_task_function[task.task_id]
+            self._connector.send(
+                MessageType.FunctionRequest,
+                FunctionRequest(FunctionRequestType.Add, function_id=task.function_id, content=function_bytes),
+            )
+
+        self._function_id_to_not_ready_tasks[task.function_id].append(task)
 
     def __on_function_response(self, response: FunctionResponse):
         assert response.status in {FunctionResponseType.OK, FunctionResponseType.Duplicated}
-        self._ready_function_ids.add(response.function_id)
-
-    def __on_task_result(self, result: TaskResult):
-        if result.task_id not in self._task_id_to_futures:
+        if response.function_id not in self._function_id_to_not_ready_tasks:
             return
 
-        future = self._task_id_to_futures.pop(result.task_id)
+        for task in self._function_id_to_not_ready_tasks.pop(response.function_id):
+            self._connector.send(MessageType.Task, task)
+
+    def __on_task_result(self, result: TaskResult):
+        if result.task_id not in self._task_id_to_future:
+            return
+
+        self._task_id_to_task_function.pop(result.task_id)
+        future = self._task_id_to_future.pop(result.task_id)
 
         if result.status == TaskStatus.Success:
             future.set_result(self._serializer.deserialize_result(result.result))
@@ -141,20 +162,13 @@ class Client:
     def __on_statistics_response(self, monitor_response: MonitorResponse):
         self._statistics_future.set_result(monitor_response.data)
 
-    def __get_function_id(self, fn: Callable) -> bytes:
+    def __get_function_id(self, fn: Callable) -> Tuple[bytes, bytes]:
         if fn in self._function_to_function_id_cache:
             return self._function_to_function_id_cache[fn]
 
         function_id, function_bytes = self.__generate_function_id_bytes(fn)
-        self._connector.send(
-            MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Add, function_id, function_bytes)
-        )
-
-        while function_id not in self._ready_function_ids:
-            continue
-
-        self._function_to_function_id_cache[fn] = function_id
-        return function_id
+        self._function_to_function_id_cache[fn] = (function_id, function_bytes)
+        return function_id, function_bytes
 
     def __generate_function_id_bytes(self, fn) -> Tuple[bytes, bytes]:
         function_bytes = self._serializer.serialize_function(fn)

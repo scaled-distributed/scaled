@@ -17,7 +17,8 @@ from scaled.scheduler.mixins import FunctionManager, Looper, TaskManager, Worker
 
 
 class VanillaTaskManager(TaskManager, Looper):
-    def __init__(self):
+    def __init__(self, max_number_of_tasks_waiting: int):
+        self._max_number_of_tasks_waiting = max_number_of_tasks_waiting
         self._binder: Optional[AsyncBinder] = None
         self._function_manager: Optional[FunctionManager] = None
         self._worker_manager: Optional[WorkerManager] = None
@@ -57,6 +58,13 @@ class VanillaTaskManager(TaskManager, Looper):
             await self._binder.send(
                 client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.FunctionNotExists)
             )
+            return
+
+        if (
+            not await self._worker_manager.has_available_worker()
+            and 0 <= self._max_number_of_tasks_waiting <= self._unassigned.qsize()
+        ):
+            await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.NoWorker))
             return
 
         await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.SubmitOK))

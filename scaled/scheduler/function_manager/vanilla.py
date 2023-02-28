@@ -117,6 +117,7 @@ class VanillaFunctionManager(FunctionManager, Looper):
             await self.__send_function_response(client, function_id, FunctionResponseType.Duplicated)
             return
 
+        logging.info(f"add function cache {function_id=}")
         self._function_id_to_function[function_id] = function
         await self.__send_function_response(client, function_id, FunctionResponseType.OK)
 

@@ -7,6 +7,7 @@ import threading
 from scaled.io.config import (
     DEFAULT_IO_THREADS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
+    DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
     DEFAULT_PER_WORKER_QUEUE_SIZE,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
 )
@@ -21,6 +22,13 @@ stop_event = threading.Event()
 def get_args():
     parser = argparse.ArgumentParser("scaled scheduler", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--io-threads", type=int, default=DEFAULT_IO_THREADS, help="number of io threads for zmq")
+    parser.add_argument(
+        "--max-number-of-tasks-waiting",
+        "-mt",
+        type=int,
+        default=DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
+        help="max number of tasks can wait in scheduler " "while all workers are full",
+    )
     parser.add_argument(
         "--worker-timeout-seconds",
         "-wt",
@@ -57,6 +65,7 @@ def main():
     scheduler = Scheduler(
         address=args.address,
         io_threads=args.io_threads,
+        max_number_of_tasks_waiting=args.max_number_of_tasks_waiting,
         per_worker_queue_size=args.per_worker_queue_size,
         worker_timeout_seconds=args.worker_timeout_seconds,
         function_retention_seconds=args.function_retention_seconds,

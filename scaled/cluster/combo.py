@@ -6,6 +6,7 @@ from scaled.io.config import (
     DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_IO_THREADS,
+    DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
     DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
     DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
@@ -23,6 +24,7 @@ class SchedulerClusterCombo:
         address: str,
         n_workers: int,
         io_threads: int = DEFAULT_IO_THREADS,
+        max_number_of_tasks_waiting: int = DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
         heartbeat_interval_seconds: int = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
         event_loop: str = "builtin",
         worker_timeout_seconds: int = DEFAULT_WORKER_TIMEOUT_SECONDS,
@@ -47,6 +49,7 @@ class SchedulerClusterCombo:
         self._scheduler = SchedulerProcess(
             address=ZMQConfig.from_string(address),
             io_threads=io_threads,
+            max_number_of_tasks_waiting=max_number_of_tasks_waiting,
             per_worker_queue_size=per_worker_queue_size,
             worker_timeout_seconds=worker_timeout_seconds,
             function_retention_seconds=function_retention_seconds,

@@ -13,6 +13,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self,
         address: ZMQConfig,
         io_threads: int,
+        max_number_of_tasks_waiting: int,
         per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_retention_seconds: int,
@@ -21,6 +22,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         multiprocessing.Process.__init__(self, name="Scheduler")
         self._address = address
         self._io_threads = io_threads
+        self._max_number_of_tasks_waiting = max_number_of_tasks_waiting
         self._per_worker_queue_size = per_worker_queue_size
         self._worker_timeout_seconds = worker_timeout_seconds
         self._function_retention_seconds = function_retention_seconds
@@ -34,6 +36,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self._scheduler = Scheduler(
             address=self._address,
             io_threads=self._io_threads,
+            max_number_of_tasks_waiting=self._max_number_of_tasks_waiting,
             per_worker_queue_size=self._per_worker_queue_size,
             worker_timeout_seconds=self._worker_timeout_seconds,
             function_retention_seconds=self._function_retention_seconds,

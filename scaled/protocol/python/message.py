@@ -36,6 +36,7 @@ class TaskEchoStatus(enum.Enum):
     SubmitOK = b"SK"
     CancelOK = b"CK"
     Duplicated = b"DC"
+    NoWorker = b"NW"
     FunctionNotExists = b"FN"
 
 
