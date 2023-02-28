@@ -13,14 +13,6 @@ from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 POLLING_TIME = 1
 
 
-class AllocatorType(enum.Enum):
-    OneToOne = "one_to_one"
-    Queued = "queued"
-
-    def __repr__(self):
-        return self.value
-
-
 class VanillaWorkerManager(WorkerManager, Looper):
     def __init__(self, per_worker_queue_size: int, timeout_seconds: int):
         self._timeout_seconds = timeout_seconds
