@@ -82,14 +82,14 @@ class VanillaTaskManager(TaskManager, Looper):
 
     async def on_task_cancel(self, client: bytes, task_id: bytes):
         if task_id in self._canceling:
-            logging.warning(f"already canceling: {task_id=}")
+            logging.warning(f"already canceling: task_id={task_id.hex()}")
             await self._binder.send(
                 client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.Duplicated)
             )
             return
 
         if task_id not in self._running:
-            logging.warning(f"cannot cancel task is not running: {task_id=}")
+            logging.warning(f"cannot cancel task is not running: task_id={task_id.hex()}")
             await self._binder.send(
                 client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.Duplicated)
             )

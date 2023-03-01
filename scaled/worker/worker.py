@@ -1,9 +1,11 @@
 import logging
 import multiprocessing
+import pickle
 import signal
 import time
 from typing import Callable, Dict, Optional
 
+import tblib.pickling_support
 import zmq
 import zmq.asyncio
 
@@ -62,6 +64,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def __initialize(self):
         self.__register_signal()
+        tblib.pickling_support.install()
 
         context = zmq.Context()
         internal_address = ZMQConfig(type=ZMQType.inproc, host="memory")
@@ -126,8 +129,13 @@ class Worker(multiprocessing.get_context("spawn").Process):
             )
 
         except Exception as e:
-            logging.exception(f"error when processing {task=}:")
+            logging.exception(f"exception when processing task_id={task.task_id.hex()}:")
             self._internal_connector.send(
                 MessageType.TaskResult,
-                TaskResult(task.task_id, TaskStatus.Failed, time.monotonic() - begin, str(e).encode()),
+                TaskResult(
+                    task.task_id,
+                    TaskStatus.Failed,
+                    time.monotonic() - begin,
+                    pickle.dumps(e, protocol=pickle.HIGHEST_PROTOCOL),
+                ),
             )

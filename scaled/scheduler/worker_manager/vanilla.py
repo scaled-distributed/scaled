@@ -45,7 +45,7 @@ class VanillaWorkerManager(WorkerManager, Looper):
     async def on_task_cancel(self, task_id: bytes):
         worker = self._allocator.get_assigned_worker(task_id)
         if worker is None:
-            logging.error(f"cannot find {task_id=} in task workers")
+            logging.error(f"cannot find task_id={task_id.hex()} in task workers")
             return
 
         await self._binder.send(worker, MessageType.TaskCancel, TaskCancel(task_id))
@@ -54,7 +54,8 @@ class VanillaWorkerManager(WorkerManager, Looper):
         worker = self._allocator.remove_task(task_result.task_id)
         if worker is None:
             logging.error(
-                f"received task_id={task_result.task_id} not known to any worker, might due to worker get disconnected"
+                f"received task_id={task_result.task_id.hex()} not known to any worker, might due to worker get "
+                f"disconnected"
             )
             return
 

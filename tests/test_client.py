@@ -8,8 +8,12 @@ from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
 
-def sleep_print(sec: int):
+def noop(sec: int):
     return sec * 1
+
+def raise_exception(foo: int):
+    if foo == 11:
+        raise ValueError(f"foo cannot be 100")
 
 
 class TestClient(unittest.TestCase):
@@ -22,12 +26,24 @@ class TestClient(unittest.TestCase):
 
         tasks = [random.randint(0, 100) for _ in range(100000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
-            futures = [client.submit(sleep_print, i) for i in tasks]
+            futures = [client.submit(noop, i) for i in tasks]
 
         with ScopedLogger(f"gather {len(futures)} results"):
             results = [future.result() for future in futures]
 
         self.assertEqual(results, tasks)
+
+
+    def test_raise_exception(self):
+        client = Client(address="tcp://127.0.0.1:2345")
+
+        tasks = [i for i in range(100)]
+        with ScopedLogger(f"submit {len(tasks)} tasks"):
+            futures = [client.submit(raise_exception, i) for i in tasks]
+
+        with self.assertRaises(ValueError), ScopedLogger(f"gather {len(futures)} results"):
+            _ = [future.result() for future in futures]
+
         client.disconnect()
 
     def test_monitor(self):

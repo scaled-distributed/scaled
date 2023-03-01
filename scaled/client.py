@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import pickle
 import threading
 import uuid
 from collections import defaultdict
@@ -153,7 +154,7 @@ class Client:
             return
 
         if result.status == TaskStatus.Failed:
-            future.set_result(result.result.decode())
+            future.set_exception(pickle.loads(result.result))
             return
 
         if result.status == TaskStatus.Canceled:
