@@ -130,12 +130,10 @@ class Worker(multiprocessing.get_context("spawn").Process):
     def __on_receive_function_request(self, request: FunctionRequest):
         if request.type == FunctionRequestType.Add:
             self._cached_functions[request.function_id] = self._serializer.deserialize_function(request.content)
-            print(f"add function cache function_id={request.function_id.hex()}")
             return
 
         if request.type == FunctionRequestType.Delete:
             self._cached_functions.pop(request.function_id)
-            print(f"delete function cache function_id={request.function_id.hex()}")
             return
 
         raise TypeError(f"unknown request {request=}")
