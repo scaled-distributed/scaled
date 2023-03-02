@@ -12,7 +12,15 @@ import zmq.asyncio
 from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
-from scaled.protocol.python.message import MessageType, MessageVariant, Task, TaskResult, TaskStatus
+from scaled.protocol.python.message import (
+    FunctionRequest,
+    FunctionRequestType,
+    MessageType,
+    MessageVariant,
+    Task,
+    TaskResult,
+    TaskStatus,
+)
 from scaled.worker.agent.agent_thread import AgentThread
 from scaled.worker.memory_cleaner import MemoryCleaner
 
@@ -108,15 +116,33 @@ class Worker(multiprocessing.get_context("spawn").Process):
         signal.signal(signal.SIGINT, self.shutdown)
         signal.signal(signal.SIGTERM, self.shutdown)
 
-    def __on_connector_receive(self, message_type: MessageType, task: MessageVariant):
-        assert message_type == MessageType.Task
-        assert isinstance(task, Task)
+    def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
+        if message_type == MessageType.FunctionRequest:
+            self.__on_receive_function_request(message)
+            return
 
+        if message_type == MessageType.Task:
+            self.__on_received_task(message)
+            return
+
+        raise TypeError(f"unknown {message_type=}")
+
+    def __on_receive_function_request(self, request: FunctionRequest):
+        if request.type == FunctionRequestType.Add:
+            self._cached_functions[request.function_id] = self._serializer.deserialize_function(request.content)
+            print(f"add function cache function_id={request.function_id.hex()}")
+            return
+
+        if request.type == FunctionRequestType.Delete:
+            self._cached_functions.pop(request.function_id)
+            print(f"delete function cache function_id={request.function_id.hex()}")
+            return
+
+        raise TypeError(f"unknown request {request=}")
+
+    def __on_received_task(self, task: Task):
         begin = time.monotonic()
         try:
-            if task.function_id not in self._cached_functions:
-                self._cached_functions[task.function_id] = self._serializer.deserialize_function(task.function_content)
-
             function = self._cached_functions[task.function_id]
             args, kwargs = self._serializer.deserialize_arguments(task.function_args)
 

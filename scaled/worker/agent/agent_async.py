@@ -3,7 +3,7 @@ import zmq.asyncio
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import MessageType, MessageVariant
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.agent.function_cache import FunctionCache
+from scaled.worker.agent.function_cache import FunctionRecorder
 from scaled.worker.agent.heart_beat import WorkerHeartbeat
 
 
@@ -34,7 +34,7 @@ class AgentAsync:
             callback=self.on_receive_internal,
         )
 
-        self._function_cache = FunctionCache(
+        self._function_cache = FunctionRecorder(
             connector_external=self._connector_external,
             connector_internal=self._connector_internal,
             function_retention_seconds=function_retention_seconds,

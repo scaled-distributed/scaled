@@ -25,30 +25,34 @@ def get_args():
     )
     parser.add_argument(
         "--heartbeat-interval",
+        "-hi",
         type=int,
         default=DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
         help="number of seconds to send heartbeat interval",
     )
     parser.add_argument(
         "--function-retention-seconds",
+        "-ft",
         type=int,
         default=DEFAULT_FUNCTION_RETENTION_SECONDS,
         help="number of seconds function cached in worker process",
     )
     parser.add_argument(
         "--garbage-collect-interval-seconds",
+        "-gc",
         type=int,
         default=DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
         help="garbage collect interval seconds",
     )
     parser.add_argument(
         "--trim-memory-threshold-bytes",
+        "-tm",
         type=int,
         default=DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
         help="number of bytes threshold to enable libc to trim memory",
     )
     parser.add_argument(
-        "--event-loop", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
+        "--event-loop", "-el", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
     )
     parser.add_argument("address", type=ZMQConfig.from_string, help="scheduler address to connect to")
     return parser.parse_args()
