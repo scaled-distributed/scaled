@@ -72,8 +72,8 @@ class Scheduler:
                 {
                     "binder": await self._binder.statistics(),
                     "task_manager": await self._task_manager.statistics(),
-                    "function_manager": await self._function_manager.statistics(),
                     "worker_manager": await self._worker_manager.statistics(),
+                    "function_manager": await self._function_manager.statistics(),
                 }
             ).encode()
         )

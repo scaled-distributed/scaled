@@ -4,13 +4,19 @@ import psutil
 
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import Heartbeat, MessageType
+from scaled.worker.agent.worker_task_manager import WorkerTaskManager
 
 
 class WorkerHeartbeat:
-    def __init__(self, connector: AsyncConnector, heartbeat_interval_seconds: int):
-        self._heartbeat_interval_seconds = heartbeat_interval_seconds
-        self._connector: AsyncConnector = connector
+    def __init__(
+        self, connector_external: AsyncConnector, task_manager: WorkerTaskManager, heartbeat_interval_seconds: int
+    ):
+        self._connector_external: AsyncConnector = connector_external
+        self._task_manager = task_manager
+
         self._process = psutil.Process()
+
+        self._heartbeat_interval_seconds = heartbeat_interval_seconds
 
     async def loop(self):
         while True:
@@ -18,6 +24,9 @@ class WorkerHeartbeat:
             await asyncio.sleep(self._heartbeat_interval_seconds)
 
     async def routine(self):
-        await self._connector.send(
-            MessageType.Heartbeat, Heartbeat(self._process.cpu_percent() / 100, self._process.memory_info().rss)
+        await self._connector_external.send(
+            MessageType.Heartbeat,
+            Heartbeat(
+                self._process.cpu_percent() / 100, self._process.memory_info().rss, self._task_manager.get_queue_size()
+            ),
         )

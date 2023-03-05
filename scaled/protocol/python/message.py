@@ -13,6 +13,9 @@ class MessageType(enum.Enum):
     TaskCancelEcho = b"TX"
     TaskResult = b"TR"
 
+    BalanceRequest = b"BQ"
+    BalanceResponse = b"BR"
+
     Heartbeat = b"HB"
 
     FunctionRequest = b"FR"
@@ -35,6 +38,7 @@ class TaskStatus(enum.Enum):
 class TaskEchoStatus(enum.Enum):
     SubmitOK = b"SK"
     CancelOK = b"CK"
+    CancelFailed = b"CF"
     Duplicated = b"DC"
     NoWorker = b"NW"
     FunctionNotExists = b"FN"
@@ -72,15 +76,14 @@ MessageVariant = TypeVar("MessageVariant", bound=_Message)
 class Task(_Message):
     task_id: bytes
     function_id: bytes
-    function_content: bytes
     function_args: bytes
 
-    def serialize(self) -> Tuple[bytes, bytes, bytes, bytes]:
-        return self.task_id, self.function_id, self.function_content, self.function_args
+    def serialize(self) -> Tuple[bytes, bytes, bytes]:
+        return self.task_id, self.function_id, self.function_args
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Task(data[0], data[1], data[2], data[3])
+        return Task(data[0], data[1], data[2])
 
 
 @attrs.define
@@ -137,16 +140,41 @@ class TaskResult(_Message):
 
 
 @attrs.define
-class Heartbeat(_Message):
-    cpu_usage: float
-    rss_size: int
+class BalanceRequest(_Message):
+    number_of_tasks: int
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (struct.pack("fQ", self.cpu_usage, self.rss_size),)
+        return (struct.pack("I", self.number_of_tasks),)
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(*struct.unpack("fQ", data[0]))
+        return BalanceRequest(*struct.unpack("I", data[0]))
+
+
+@attrs.define
+class BalanceResponse(_Message):
+    task_ids: List[bytes]
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return tuple(self.task_ids)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return BalanceResponse(data)
+
+
+@attrs.define
+class Heartbeat(_Message):
+    cpu_usage: float
+    rss_size: int
+    queued_tasks: int
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (struct.pack("fQI", self.cpu_usage, self.rss_size, self.queued_tasks),)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return Heartbeat(*struct.unpack("fQI", data[0]))
 
 
 @attrs.define
@@ -206,6 +234,8 @@ PROTOCOL = {
     MessageType.TaskCancel.value: TaskCancel,
     MessageType.TaskCancelEcho.value: TaskCancelEcho,
     MessageType.TaskResult.value: TaskResult,
+    MessageType.BalanceRequest.value: BalanceRequest,
+    MessageType.BalanceResponse.value: BalanceResponse,
     MessageType.MonitorRequest.value: MonitorRequest,
     MessageType.MonitorResponse.value: MonitorResponse,
     MessageType.FunctionRequest.value: FunctionRequest,

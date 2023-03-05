@@ -7,6 +7,7 @@ from scaled.io.config import (
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_IO_THREADS,
     DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
+    DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
     DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
     DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
@@ -31,6 +32,7 @@ class SchedulerClusterCombo:
         function_retention_seconds: int = DEFAULT_FUNCTION_RETENTION_SECONDS,
         garbage_collect_interval_seconds: int = DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
         trim_memory_threshold_bytes: int = DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
+        processing_queue_size: int = DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
         per_worker_queue_size: int = DEFAULT_PER_WORKER_QUEUE_SIZE,
         serializer: Serializer = DefaultSerializer(),
     ):
@@ -43,6 +45,7 @@ class SchedulerClusterCombo:
             function_retention_seconds=function_retention_seconds,
             garbage_collect_interval_seconds=garbage_collect_interval_seconds,
             trim_memory_threshold_bytes=trim_memory_threshold_bytes,
+            processing_queue_size=processing_queue_size,
             event_loop=event_loop,
             serializer=serializer,
         )

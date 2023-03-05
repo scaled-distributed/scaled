@@ -5,7 +5,7 @@ import zmq
 
 from scaled.utility.event_loop import register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.agent.agent_async import AgentAsync
+from scaled.worker.agent.agent import Agent
 
 
 class AgentThread(threading.Thread):
@@ -16,18 +16,20 @@ class AgentThread(threading.Thread):
         internal_address: ZMQConfig,
         heartbeat_interval_seconds: int,
         function_retention_seconds: int,
+        per_worker_processing_queue_size: int,
         event_loop: str,
     ):
         threading.Thread.__init__(self)
         self._event_loop = event_loop
         self._loop = None
 
-        self._agent = AgentAsync(
+        self._agent = Agent(
             external_address=external_address,
             internal_context=internal_context,
             internal_address=internal_address,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             function_retention_seconds=function_retention_seconds,
+            per_worker_processing_queue_size=per_worker_processing_queue_size,
         )
 
     def run(self) -> None:

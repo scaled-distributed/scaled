@@ -1,17 +1,46 @@
 import os
 
-POLLING_TIME_MILLISECONDS = 1000
-CLEANUP_INTERVAL_SECONDS = 1
+# ==============
+# SYSTEM OPTIONS
+POLLING_TIME_MILLISECONDS = 50
 
-# scheduler
+# ==========================
+# SCHEDULER SPECIFIC OPTIONS
+
+# number of threads for zmq socket to handle
 DEFAULT_IO_THREADS = 1
-DEFAULT_MAX_NUMBER_OF_TASKS_WAITING = -1  # -1 means no limits
+
+# if all workers are full and busy working, this option determine how many additional tasks scheduler can receive and
+# queued, if additional number of tasks received exceeded this number, scheduler will reject tasks
+DEFAULT_MAX_NUMBER_OF_TASKS_WAITING = -1
+
+# if didn't receive heartbeat for following seconds, then scheduler will treat worker as dead and reschedule unfinished
+# tasks for this worker
 DEFAULT_WORKER_TIMEOUT_SECONDS = 60
 
-# worker
-DEFAULT_NUMBER_OF_WORKER = os.cpu_count() - 1
-DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 2
-DEFAULT_FUNCTION_RETENTION_SECONDS = 3600
-DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS = 30
-DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES = 1024 * 1024 * 1024
+# function clean up time interval
+CLEANUP_INTERVAL_SECONDS = 1
+
+# number of tasks can be queued to each worker on scheduler side
 DEFAULT_PER_WORKER_QUEUE_SIZE = 1000
+
+# =======================
+# WORKER SPECIFIC OPTIONS
+
+# number of workers, echo worker use 1 process
+DEFAULT_NUMBER_OF_WORKER = os.cpu_count() - 1
+
+# number of seconds that worker agent send heartbeat to scheduler
+DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 2
+
+# number of seconds the function cache kept in worker's memory
+DEFAULT_FUNCTION_RETENTION_SECONDS = 3600
+
+# number of seconds worker doing garbage collection
+DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS = 30
+
+# number of bytes threshold for worker process that trigger deep garbage collection
+DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES = 1024 * 1024 * 1024
+
+# number of tasks that will be processed on worker and cannot be canceled
+DEFAULT_WORKER_PROCESSING_QUEUE_SIZE = 2

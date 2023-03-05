@@ -1,5 +1,4 @@
 import asyncio
-import enum
 import logging
 import time
 from typing import Dict, Optional, Tuple
@@ -73,15 +72,18 @@ class VanillaWorkerManager(WorkerManager, Looper):
     async def statistics(self) -> Dict:
         worker_to_task_numbers = self._allocator.statistics()
         return {
-            "free_slots": sum(worker["free"] for worker in worker_to_task_numbers.values()),
+            "scheduler_total_free": sum(worker["scheduler_free"] for worker in worker_to_task_numbers.values()),
+            "scheduler_total_running": sum(worker["scheduler_running"] for worker in worker_to_task_numbers.values()),
+            "worker_total_queued_tasks": sum(info.queued_tasks for _, (_, info) in self._worker_alive_since.items()),
             "workers": {
                 worker.decode(): {
-                    "cpu": round(info.cpu_usage, 2),
-                    "rss": info.rss_size,
+                    "worker_cpu": round(info.cpu_usage, 2),
+                    "worker_rss": info.rss_size,
+                    "worker_queued_tasks": info.queued_tasks,
                     **worker_to_task_numbers[worker],
                 }
                 for worker, (last, info) in self._worker_alive_since.items()
-            }
+            },
         }
 
     async def __routine(self):

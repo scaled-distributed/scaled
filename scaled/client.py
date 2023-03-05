@@ -67,7 +67,7 @@ class Client:
         function_id, function_bytes = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
-        task = Task(task_id, function_id, b"", self._serializer.serialize_arguments(args, kwargs))
+        task = Task(task_id, function_id, self._serializer.serialize_arguments(args, kwargs))
         self._task_id_to_task_function[task_id] = (task, function_bytes)
 
         self.__on_buffer_task_send(task)

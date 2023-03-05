@@ -26,6 +26,8 @@ class SyncConnector(threading.Thread):
         address: ZMQConfig,
         callback: Callable[[MessageType, MessageVariant], None],
         daemonic: bool,
+        send_high_watermark: int = 0,
+        receive_high_watermark: int = 0,
     ):
         threading.Thread.__init__(self)
         self._prefix = prefix
@@ -36,7 +38,11 @@ class SyncConnector(threading.Thread):
         self._identity: bytes = (
             f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
         )
-        self.__set_socket_options()
+
+        # set socket option
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.SNDHWM, send_high_watermark)
+        self._socket.setsockopt(zmq.RCVHWM, receive_high_watermark)
 
         if daemonic:
             self.daemon = True
@@ -71,14 +77,12 @@ class SyncConnector(threading.Thread):
     def send(self, message_type: MessageType, message: MessageVariant):
         self._send_queue.put((message_type, message))
 
+    def send_immediately(self, message_type: MessageType, message: MessageVariant):
+        self._socket.send_multipart([message_type.value, *message.serialize()])
+
     def monitor(self):
         with self._statistics_mutex:
             return copy.copy(self._statistics)
-
-    def __set_socket_options(self):
-        self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.setsockopt(zmq.SNDHWM, 0)
-        self._socket.setsockopt(zmq.RCVHWM, 0)
 
     def __routine_send(self):
         while not self._send_queue.empty():

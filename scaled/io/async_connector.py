@@ -21,6 +21,8 @@ class AsyncConnector:
         address: ZMQConfig,
         bind_or_connect: Literal["bind", "connect"],
         callback: Callable[[MessageType, MessageVariant], Awaitable[None]],
+        send_high_watermark: int = 0,
+        receive_high_watermark: int = 0,
     ):
         self._prefix = prefix
         self._address = address
@@ -30,7 +32,11 @@ class AsyncConnector:
         self._identity: bytes = (
             f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
         )
-        self.__set_socket_options()
+
+        # set socket option
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.SNDHWM, send_high_watermark)
+        self._socket.setsockopt(zmq.RCVHWM, receive_high_watermark)
 
         if bind_or_connect == "bind":
             self._socket.bind(self._address.to_address())
@@ -73,11 +79,6 @@ class AsyncConnector:
 
     async def statistics(self):
         return self._statistics
-
-    def __set_socket_options(self):
-        self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.setsockopt(zmq.SNDHWM, 0)
-        self._socket.setsockopt(zmq.RCVHWM, 0)
 
     def __count_one(self, count_type: Literal["sent", "received"], message_type: MessageType):
         self._statistics[count_type][message_type.name] += 1

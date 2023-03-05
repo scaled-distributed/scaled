@@ -9,6 +9,7 @@ import tblib.pickling_support
 import zmq
 import zmq.asyncio
 
+from scaled.io.config import DEFAULT_WORKER_PROCESSING_QUEUE_SIZE
 from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
@@ -35,6 +36,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         function_retention_seconds: int,
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
+        processing_queue_size: int,
         event_loop: str,
         serializer: FunctionSerializerType,
     ):
@@ -46,6 +48,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._function_retention_seconds = function_retention_seconds
         self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
         self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
+        self._processing_queue_size = processing_queue_size
         self._event_loop = event_loop
         self._stop_event = stop_event
         self._serializer = serializer
@@ -86,6 +89,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             address=internal_address,
             callback=self.__on_connector_receive,
             daemonic=False,
+            receive_high_watermark=self._processing_queue_size,
         )
 
         self._agent = AgentThread(
@@ -94,6 +98,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             internal_address=internal_address,
             heartbeat_interval_seconds=self._heartbeat_interval_seconds,
             function_retention_seconds=self._function_retention_seconds,
+            per_worker_processing_queue_size=self._processing_queue_size,
             event_loop=self._event_loop,
         )
         self._agent.start()
@@ -147,14 +152,14 @@ class Worker(multiprocessing.get_context("spawn").Process):
             result = function(*args, **kwargs)
 
             result_bytes = self._serializer.serialize_result(result)
-            self._internal_connector.send(
+            self._internal_connector.send_immediately(
                 MessageType.TaskResult,
                 TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes),
             )
 
         except Exception as e:
             logging.exception(f"exception when processing task_id={task.task_id.hex()}:")
-            self._internal_connector.send(
+            self._internal_connector.send_immediately(
                 MessageType.TaskResult,
                 TaskResult(
                     task.task_id,
