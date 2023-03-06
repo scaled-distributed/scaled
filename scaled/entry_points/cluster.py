@@ -57,7 +57,7 @@ def get_args():
         "-pq",
         type=int,
         default=DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
-        help="number of tasks in each worker that cannot be canceled or rebalanced"
+        help="number of tasks in each worker that cannot be canceled or rebalanced",
     )
     parser.add_argument(
         "--event-loop", "-el", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"

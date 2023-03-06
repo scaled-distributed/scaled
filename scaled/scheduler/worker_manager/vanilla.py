@@ -1,26 +1,37 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.io.config import CLEANUP_INTERVAL_SECONDS
 from scaled.scheduler.mixins import Looper, TaskManager, WorkerManager
-from scaled.protocol.python.message import Heartbeat, MessageType, Task, TaskResult, TaskCancel
+from scaled.protocol.python.message import (
+    BalanceRequest,
+    BalanceResponse,
+    Heartbeat,
+    MessageType,
+    Task,
+    TaskResult,
+    TaskCancel,
+)
 from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 
 POLLING_TIME = 1
 
 
 class VanillaWorkerManager(WorkerManager, Looper):
-    def __init__(self, per_worker_queue_size: int, timeout_seconds: int):
+    def __init__(self, per_worker_queue_size: int, timeout_seconds: int, load_balance_seconds: int):
         self._timeout_seconds = timeout_seconds
+        self._load_balance_seconds = load_balance_seconds
 
         self._binder: Optional[AsyncBinder] = None
         self._task_manager: Optional[TaskManager] = None
 
         self._worker_alive_since: Dict[bytes, Tuple[float, Heartbeat]] = dict()
         self._allocator = QueuedAllocator(per_worker_queue_size)
+
+        self._last_balance_advice = None
 
     def hook(self, binder: AsyncBinder, task_manager: TaskManager):
         self._binder = binder
@@ -60,13 +71,25 @@ class VanillaWorkerManager(WorkerManager, Looper):
 
         await self._task_manager.on_task_done(task_result)
 
+    async def on_balance_response(self, response: BalanceResponse):
+        task_ids = []
+        for task_id in response.task_ids:
+            worker = self._allocator.remove_task(task_id)
+            if worker is None:
+                continue
+
+            task_ids.append(task_id)
+
+        await self.__reroute_tasks(task_ids=task_ids)
+
     async def has_available_worker(self) -> bool:
         return self._allocator.has_available_worker()
 
     async def loop(self):
         logging.info(f"{self.__class__.__name__}: started")
         while True:
-            await self.__routine()
+            await self.__balance_request()
+            await self.__clean_workers()
             await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
     async def statistics(self) -> Dict:
@@ -86,8 +109,21 @@ class VanillaWorkerManager(WorkerManager, Looper):
             },
         }
 
-    async def __routine(self):
-        await self.__clean_workers()
+    async def __balance_request(self):
+        if self._load_balance_seconds <= 0:
+            return
+
+        if self._last_balance_advice is None:
+            self._last_balance_advice = self._allocator.balance()
+            return
+
+        current_advice = self._allocator.balance()
+        if current_advice != self._last_balance_advice:
+            self._last_balance_advice = current_advice
+            return
+
+        for worker, number_of_tasks in current_advice.items():
+            await self._binder.send(worker, MessageType.BalanceRequest, BalanceRequest(number_of_tasks))
 
     async def __clean_workers(self):
         now = time.time()
@@ -105,5 +141,8 @@ class VanillaWorkerManager(WorkerManager, Looper):
                 continue
 
             logging.info(f"rerouting {len(task_ids)} tasks")
-            for task_id in task_ids:
-                await self._task_manager.on_task_reroute(task_id)
+            await self.__reroute_tasks(task_ids)
+
+    async def __reroute_tasks(self, task_ids: List[bytes]):
+        for task_id in task_ids:
+            await self._task_manager.on_task_reroute(task_id)

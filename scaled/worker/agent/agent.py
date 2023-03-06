@@ -16,7 +16,7 @@ class Agent:
         internal_address: ZMQConfig,
         heartbeat_interval_seconds: int,
         function_retention_seconds: int,
-        per_worker_processing_queue_size: int,
+        processing_queue_size: int,
     ):
         self._connector_external = AsyncConnector(
             prefix="W",
@@ -34,13 +34,15 @@ class Agent:
             address=internal_address,
             bind_or_connect="bind",
             callback=self.on_receive_internal,
-            send_high_watermark=per_worker_processing_queue_size,
         )
 
-        self._task_manager = WorkerTaskManager(connector_internal=self._connector_internal)
+        self._task_manager = WorkerTaskManager(
+            connector_internal=self._connector_internal, processing_queue_size=processing_queue_size
+        )
 
         self._function_cache = FunctionCache(
             connector_external=self._connector_external,
+            connector_internal=self._connector_internal,
             task_manager=self._task_manager,
             function_retention_seconds=function_retention_seconds,
         )

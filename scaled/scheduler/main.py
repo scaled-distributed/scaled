@@ -19,6 +19,7 @@ class Scheduler:
         per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_retention_seconds: int,
+        load_balance_seconds: int,
     ):
         self._address = address
 
@@ -27,7 +28,9 @@ class Scheduler:
         self._function_manager = VanillaFunctionManager(function_retention_seconds=function_retention_seconds)
         self._task_manager = VanillaTaskManager(max_number_of_tasks_waiting=max_number_of_tasks_waiting)
         self._worker_manager = VanillaWorkerManager(
-            per_worker_queue_size=per_worker_queue_size, timeout_seconds=worker_timeout_seconds
+            per_worker_queue_size=per_worker_queue_size,
+            timeout_seconds=worker_timeout_seconds,
+            load_balance_seconds=load_balance_seconds,
         )
 
         self._binder.register(self.on_receive_message)
@@ -38,6 +41,10 @@ class Scheduler:
     async def on_receive_message(self, source: bytes, message_type: MessageType, message: MessageVariant):
         if message_type == MessageType.Heartbeat:
             await self._worker_manager.on_heartbeat(source, message)
+            return
+
+        if message_type == MessageType.BalanceResponse:
+            await self._worker_manager.on_balance_response(message)
             return
 
         if message_type == MessageType.MonitorRequest:

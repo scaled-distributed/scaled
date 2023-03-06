@@ -14,7 +14,7 @@ def noop(sec: int):
 
 
 def noop_sleep(sec: int):
-    time.sleep(5)
+    time.sleep(sec)
     return sec
 
 
@@ -43,7 +43,8 @@ class TestClient(unittest.TestCase):
     def test_sleep(self):
         client = Client(address="tcp://127.0.0.1:2345")
 
-        tasks = [random.randint(0, 100) for _ in range(10)]
+        # tasks = [10, 1, 1] * 10
+        tasks = [10] * 10
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(noop_sleep, i) for i in tasks]
 

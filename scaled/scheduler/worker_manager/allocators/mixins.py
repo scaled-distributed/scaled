@@ -14,6 +14,12 @@ class TaskAllocator(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def balance(self) -> Dict[bytes, int]:
+        """balance worker, it should return the number of tasks for over burdened worker, represented as worker
+        identity to number of tasks dictionary"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def assign_task(self, task_id: bytes) -> Optional[bytes]:
         """assign task_id in allocator, return None means no available worker, otherwise will return worker been
         assigned to"""

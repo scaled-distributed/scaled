@@ -16,7 +16,7 @@ class AgentThread(threading.Thread):
         internal_address: ZMQConfig,
         heartbeat_interval_seconds: int,
         function_retention_seconds: int,
-        per_worker_processing_queue_size: int,
+        processing_queue_size: int,
         event_loop: str,
     ):
         threading.Thread.__init__(self)
@@ -29,7 +29,7 @@ class AgentThread(threading.Thread):
             internal_address=internal_address,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             function_retention_seconds=function_retention_seconds,
-            per_worker_processing_queue_size=per_worker_processing_queue_size,
+            processing_queue_size=processing_queue_size,
         )
 
     def run(self) -> None:

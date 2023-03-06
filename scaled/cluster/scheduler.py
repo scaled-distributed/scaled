@@ -17,6 +17,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         per_worker_queue_size: int,
         worker_timeout_seconds: int,
         function_retention_seconds: int,
+        load_balance_seconds: int,
         event_loop: Literal["builtin", "uvloop"] = "builtin",
     ):
         multiprocessing.Process.__init__(self, name="Scheduler")
@@ -26,6 +27,8 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self._per_worker_queue_size = per_worker_queue_size
         self._worker_timeout_seconds = worker_timeout_seconds
         self._function_retention_seconds = function_retention_seconds
+        self._load_balance_seconds = load_balance_seconds
+
         self._event_loop = event_loop
         self._scheduler: Optional[Scheduler] = None
         self._loop = None
@@ -40,6 +43,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
             per_worker_queue_size=self._per_worker_queue_size,
             worker_timeout_seconds=self._worker_timeout_seconds,
             function_retention_seconds=self._function_retention_seconds,
+            load_balance_seconds=self._load_balance_seconds,
         )
 
         register_event_loop(self._event_loop)

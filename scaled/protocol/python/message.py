@@ -156,11 +156,14 @@ class BalanceResponse(_Message):
     task_ids: List[bytes]
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return tuple(self.task_ids)
+        return struct.pack("I", len(self.task_ids)), *self.task_ids
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return BalanceResponse(data)
+        length = struct.unpack("I", data[0])[0]
+        task_ids = list(data[1:])
+        assert length == len(task_ids)
+        return BalanceResponse(task_ids)
 
 
 @attrs.define

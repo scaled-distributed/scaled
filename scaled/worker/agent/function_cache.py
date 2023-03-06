@@ -12,16 +12,22 @@ from scaled.protocol.python.message import (
     FunctionResponse,
     FunctionResponseType,
     MessageType,
-    Task, TaskResult,
+    Task,
+    TaskResult,
 )
 from scaled.worker.agent.worker_task_manager import WorkerTaskManager
 
 
 class FunctionCache:
     def __init__(
-        self, connector_external: AsyncConnector, task_manager: WorkerTaskManager, function_retention_seconds: int
+        self,
+        connector_external: AsyncConnector,
+        connector_internal: AsyncConnector,
+        task_manager: WorkerTaskManager,
+        function_retention_seconds: int,
     ):
         self._connector_external = connector_external
+        self._connector_internal = connector_internal
         self._task_manager = task_manager
         self._function_retention_seconds = function_retention_seconds
 
@@ -42,6 +48,7 @@ class FunctionCache:
         await self.__queue_new_task(task)
 
     async def on_task_result(self, task: TaskResult):
+        self._task_manager.on_task_result()
         function_id = self._task_id_to_function_id.pop(task.task_id)
         self._function_id_to_task_ids[function_id].remove(task.task_id)
         await self._connector_external.send(MessageType.TaskResult, task)
@@ -57,7 +64,6 @@ class FunctionCache:
 
         await self._connector_external.send(MessageType.BalanceResponse, BalanceResponse(task_ids))
 
-
     async def on_new_function(self, response: FunctionResponse):
         if response.function_id in self._cached_functions_alive_since:
             return
@@ -66,7 +72,7 @@ class FunctionCache:
         function_content = response.content
 
         self._cached_functions_alive_since[response.function_id] = time.time()
-        await self._task_manager.on_queue_message(
+        await self._connector_internal.send(
             MessageType.FunctionRequest,
             FunctionRequest(FunctionRequestType.Add, response.function_id, function_content),
         )
@@ -89,7 +95,7 @@ class FunctionCache:
         for function_id in idle_functions:
             self._function_id_to_task_ids.pop(function_id)
             self._cached_functions_alive_since.pop(function_id)
-            await self._task_manager.on_queue_message(
+            await self._connector_internal.send(
                 MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Delete, function_id, b"")
             )
 
@@ -97,4 +103,4 @@ class FunctionCache:
         self._task_id_to_function_id[task.task_id] = task.function_id
         self._function_id_to_task_ids[task.function_id].add(task.task_id)
         self._cached_functions_alive_since[task.function_id] = time.time()
-        await self._task_manager.on_queue_message(MessageType.Task, task)
+        await self._task_manager.on_queue_message(task)

@@ -1,4 +1,5 @@
 import heapq
+import math
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from scaled.scheduler.worker_manager.allocators.mixins import TaskAllocator
@@ -30,6 +31,22 @@ class QueuedAllocator(TaskAllocator):
         for task_id in task_ids:
             self._task_id_to_worker.pop(task_id)
         return list(task_ids)
+
+    def balance(self) -> Dict[bytes, int]:
+        balance_result = dict()
+
+        worker_task_count = {worker: len(tasks) for worker, tasks in self._workers_to_task_ids.items()}
+        any_worker_has_task = any(worker_task_count.values())
+        has_idle_workers = not all(worker_task_count.values())
+
+        if not any_worker_has_task:
+            return balance_result
+
+        if not has_idle_workers:
+            return balance_result
+
+        mean = sum(worker_task_count.values()) / len(worker_task_count)
+        return {worker: math.ceil(count - mean) for worker, count in worker_task_count.items() if count > mean}
 
     def assign_task(self, task_id: bytes) -> Optional[bytes]:
         if not self._capacity.queue_size():

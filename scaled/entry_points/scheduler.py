@@ -7,6 +7,7 @@ import threading
 from scaled.io.config import (
     DEFAULT_IO_THREADS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
+    DEFAULT_LOAD_BALANCE_SECONDS,
     DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
     DEFAULT_PER_WORKER_QUEUE_SIZE,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
@@ -41,7 +42,14 @@ def get_args():
         "-ft",
         type=int,
         default=DEFAULT_FUNCTION_RETENTION_SECONDS,
-        help="discard function in scheduler when timeout seconds " "reached",
+        help="discard function in scheduler when timeout seconds reached",
+    )
+    parser.add_argument(
+        "--load-balance-seconds",
+        "-ls",
+        type=int,
+        default=DEFAULT_LOAD_BALANCE_SECONDS,
+        help="number of seconds for load balance operation in scheduler",
     )
     parser.add_argument(
         "--per-worker-queue-size",
@@ -69,6 +77,7 @@ def main():
         per_worker_queue_size=args.per_worker_queue_size,
         worker_timeout_seconds=args.worker_timeout_seconds,
         function_retention_seconds=args.function_retention_seconds,
+        load_balance_seconds=args.load_balance_seconds,
     )
     register_event_loop(args.event_loop)
 

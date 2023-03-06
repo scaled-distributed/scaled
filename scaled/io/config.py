@@ -21,6 +21,9 @@ DEFAULT_WORKER_TIMEOUT_SECONDS = 60
 # function clean up time interval
 CLEANUP_INTERVAL_SECONDS = 1
 
+# number of seconds for load balance, if value is 0 means disable load balance
+DEFAULT_LOAD_BALANCE_SECONDS = 0
+
 # number of tasks can be queued to each worker on scheduler side
 DEFAULT_PER_WORKER_QUEUE_SIZE = 1000
 
@@ -43,4 +46,4 @@ DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS = 30
 DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES = 1024 * 1024 * 1024
 
 # number of tasks that will be processed on worker and cannot be canceled
-DEFAULT_WORKER_PROCESSING_QUEUE_SIZE = 2
+DEFAULT_WORKER_PROCESSING_QUEUE_SIZE = 1

@@ -9,7 +9,6 @@ import tblib.pickling_support
 import zmq
 import zmq.asyncio
 
-from scaled.io.config import DEFAULT_WORKER_PROCESSING_QUEUE_SIZE
 from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
@@ -89,7 +88,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
             address=internal_address,
             callback=self.__on_connector_receive,
             daemonic=False,
-            receive_high_watermark=self._processing_queue_size,
         )
 
         self._agent = AgentThread(
@@ -98,7 +96,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             internal_address=internal_address,
             heartbeat_interval_seconds=self._heartbeat_interval_seconds,
             function_retention_seconds=self._function_retention_seconds,
-            per_worker_processing_queue_size=self._processing_queue_size,
+            processing_queue_size=self._processing_queue_size,
             event_loop=self._event_loop,
         )
         self._agent.start()
@@ -130,7 +128,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             self.__on_received_task(message)
             return
 
-        raise TypeError(f"unknown {message_type=}")
+        logging.error(f"unknown {message_type=}")
 
     def __on_receive_function_request(self, request: FunctionRequest):
         if request.type == FunctionRequestType.Add:
@@ -141,7 +139,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             self._cached_functions.pop(request.function_id)
             return
 
-        raise TypeError(f"unknown request {request=}")
+        logging.error(f"unknown request function request type {request=}")
 
     def __on_received_task(self, task: Task):
         begin = time.monotonic()
