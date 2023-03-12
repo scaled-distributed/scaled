@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Tuple
 
 import cloudpickle
 
@@ -16,12 +16,12 @@ class DefaultSerializer(Serializer):
         return cloudpickle.loads(payload)
 
     @staticmethod
-    def serialize_arguments(args: Tuple[Any, ...], kwargs: Dict) -> bytes:
-        return pickle.dumps((args, kwargs), protocol=pickle.HIGHEST_PROTOCOL)
+    def serialize_arguments(args: Tuple[Any, ...]) -> Tuple[bytes, ...]:
+        return tuple(pickle.dumps(arg, protocol=pickle.HIGHEST_PROTOCOL) for arg in args)
 
     @staticmethod
-    def deserialize_arguments(payload: bytes) -> Tuple[Tuple[Any, ...], Dict]:
-        return pickle.loads(payload)
+    def deserialize_arguments(payload: Tuple[bytes, ...]) -> Tuple[Any, ...]:
+        return tuple(pickle.loads(arg) for arg in payload)
 
     @staticmethod
     def serialize_result(result: Any) -> bytes:

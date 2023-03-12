@@ -75,14 +75,14 @@ MessageVariant = TypeVar("MessageVariant", bound=_Message)
 class Task(_Message):
     task_id: bytes
     function_id: bytes
-    function_args: bytes
+    function_args: Tuple[bytes, ...]
 
     def serialize(self) -> Tuple[bytes, bytes, bytes]:
-        return self.task_id, self.function_id, self.function_args
+        return self.task_id, self.function_id, *self.function_args
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Task(data[0], data[1], data[2])
+        return Task(data[0], data[1], tuple(data[2:]))
 
 
 @attrs.define

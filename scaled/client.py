@@ -64,11 +64,11 @@ class Client:
         logging.info(f"ScaledClient: disconnect from {self._address}")
         self.disconnect()
 
-    def submit(self, fn: Callable, *args, **kwargs) -> Future:
+    def submit(self, fn: Callable, *args) -> Future:
         function_id, function_bytes = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
-        task = Task(task_id, function_id, self._serializer.serialize_arguments(args, kwargs))
+        task = Task(task_id, function_id, self._serializer.serialize_arguments(args))
         self._task_id_to_task_function[task_id] = (task, function_bytes)
 
         self.__on_buffer_task_send(task)

@@ -146,10 +146,8 @@ class Worker(multiprocessing.get_context("spawn").Process):
         begin = time.monotonic()
         try:
             function = self._cached_functions[task.function_id]
-            args, kwargs = self._serializer.deserialize_arguments(task.function_args)
-
-            result = function(*args, **kwargs)
-
+            args = self._serializer.deserialize_arguments(task.function_args)
+            result = function(*args)
             result_bytes = self._serializer.serialize_result(result)
             self._internal_connector.send_immediately(
                 MessageType.TaskResult,
