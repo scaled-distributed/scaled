@@ -1,46 +1,55 @@
 import asyncio
-from asyncio import Queue
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import MessageType, Task
+from scaled.utility.queues.async_indexed_queue import IndexedQueue
 
 
 class WorkerTaskManager:
     def __init__(self, connector_internal: AsyncConnector, processing_queue_size: int):
-        self._queued_tasks = Queue()
+        self._connector_internal: Optional[AsyncConnector] = connector_internal
         self._processing_lock = asyncio.Semaphore(processing_queue_size)
 
-        # the reason use this instead of len(self._queued_tasks) is because some message types can be FunctionRequest
-        self._queue_tasks_size = 0
-        self._connector_internal: Optional[AsyncConnector] = connector_internal
+        self._queued_task_id_to_task: Dict[bytes, Task] = dict()
+        self._queued_task_ids = IndexedQueue()
 
-    def get_queue_size(self):
-        return self._queue_tasks_size
-
-    async def on_queue_message(self, task: Task):
-        await self._queued_tasks.put(task)
-        self._queue_tasks_size += 1
-
-    def on_task_result(self):
-        self._processing_lock.release()
-
-    async def balance_remove_tasks(self, number_of_tasks: int) -> List[Task]:
-        removed_tasks = []
-        while not self._queued_tasks.empty() or number_of_tasks > 0:
-            message = await self._queued_tasks.get()
-            removed_tasks.append(message)
-            number_of_tasks -= 1
-
-        return removed_tasks
+    async def on_queue_task(self, task: Task):
+        self._queued_task_id_to_task[task.task_id] = task
+        self._queued_task_ids.put_nowait(task.task_id)
 
     async def loop(self):
         while True:
             await self.__processing_task()
             await asyncio.sleep(0)
 
+    def on_task_result(self):
+        self._processing_lock.release()
+
+    def remove_one_queued_task(self, task_id: bytes) -> bool:
+        if task_id not in self._queued_task_id_to_task:
+            return False
+
+        self._queued_task_id_to_task.pop(task_id)
+        self._queued_task_ids.remove(task_id)
+        return True
+
+    def on_balance_remove_tasks(self, number_of_tasks: int) -> List[bytes]:
+        number_of_tasks = min(number_of_tasks, self._queued_task_ids.qsize())
+        removed_tasks = []
+        while number_of_tasks:
+            task_id = self._queued_task_ids.get_nowait()
+            removed_tasks.append(task_id)
+            self._queued_task_id_to_task.pop(task_id)
+            number_of_tasks -= 1
+
+        return removed_tasks
+
+    def get_queue_size(self):
+        return self._queued_task_ids.qsize()
+
     async def __processing_task(self):
         await self._processing_lock.acquire()
-        message = await self._queued_tasks.get()
-        self._queue_tasks_size -= 1
-        await self._connector_internal.send(MessageType.Task, message)
+        task_id = await self._queued_task_ids.get()
+        task = self._queued_task_id_to_task.pop(task_id)
+        await self._connector_internal.send(MessageType.Task, task)

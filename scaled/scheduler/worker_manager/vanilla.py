@@ -12,6 +12,8 @@ from scaled.protocol.python.message import (
     Heartbeat,
     MessageType,
     Task,
+    TaskCancelEcho,
+    TaskEchoStatus,
     TaskResult,
     TaskCancel,
 )
@@ -52,20 +54,35 @@ class VanillaWorkerManager(WorkerManager, Looper):
         await self._binder.send(worker, MessageType.Task, task)
         return True
 
-    async def on_task_cancel(self, task_id: bytes):
-        worker = self._allocator.get_assigned_worker(task_id)
+    async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
+        worker = self._allocator.get_assigned_worker(task_cancel.task_id)
         if worker is None:
-            logging.error(f"cannot find task_id={task_id.hex()} in task workers")
+            logging.error(f"cannot find task_id={task_cancel.task_id.hex()} in task workers")
             return
 
-        await self._binder.send(worker, MessageType.TaskCancel, TaskCancel(task_id))
+        await self._binder.send(worker, MessageType.TaskCancel, TaskCancel(task_cancel.task_id))
+
+    async def on_task_cancel_echo(self, worker: bytes, task_cancel_echo: TaskCancelEcho):
+        if task_cancel_echo.status == TaskEchoStatus.CancelFailed:
+            logging.warning(f"cancel task task_id={task_cancel_echo.task_id.hex()} failed")
+            return
+
+        assert task_cancel_echo.status == TaskEchoStatus.CancelOK
+        worker = self._allocator.remove_task(task_cancel_echo.task_id)
+        if worker is None:
+            logging.error(
+                f"received TaskCancelEcho for task_id={task_cancel_echo.task_id.hex()} not known to any worker"
+            )
+            return
+
+        await self._task_manager.on_task_cancel_echo(worker, task_cancel_echo)
 
     async def on_task_done(self, task_result: TaskResult):
         worker = self._allocator.remove_task(task_result.task_id)
         if worker is None:
             logging.error(
                 f"received task_id={task_result.task_id.hex()} not known to any worker, might due to worker get "
-                f"disconnected"
+                f"disconnected or canceled"
             )
             return
 

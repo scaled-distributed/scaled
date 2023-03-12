@@ -40,11 +40,22 @@ class TestClient(unittest.TestCase):
 
         self.assertEqual(results, tasks)
 
+    def test_noop_cancel(self):
+        client = Client(address="tcp://127.0.0.1:2345")
+
+        tasks = [10, 1, 1] * 10
+        with ScopedLogger(f"submit {len(tasks)} tasks"):
+            futures = [client.submit(noop_sleep, i) for i in tasks]
+
+        time.sleep(2)
+        client.disconnect()
+        time.sleep(5)
+
     def test_sleep(self):
         client = Client(address="tcp://127.0.0.1:2345")
 
-        # tasks = [10, 1, 1] * 10
-        tasks = [10] * 10
+        tasks = [10, 1, 1] * 10
+        # tasks = [10] * 10
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(noop_sleep, i) for i in tasks]
 

@@ -62,6 +62,10 @@ class Agent:
             await self._function_cache.on_new_task(message)
             return
 
+        if message_type == MessageType.TaskCancel:
+            await self._function_cache.on_cancel_task(message)
+            return
+
         if message_type == MessageType.BalanceRequest:
             await self._function_cache.on_balance_request(message)
             return

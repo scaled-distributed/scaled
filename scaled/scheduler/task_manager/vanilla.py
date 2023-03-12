@@ -1,12 +1,13 @@
 import asyncio
 from asyncio import Queue
 import logging
-from typing import Dict, Literal, Optional, Set, Tuple
+from typing import Dict, Optional, Set, Tuple
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import (
     MessageType,
     Task,
+    TaskCancel,
     TaskCancelEcho,
     TaskEcho,
     TaskEchoStatus,
@@ -26,10 +27,10 @@ class VanillaTaskManager(TaskManager, Looper):
         self._task_id_to_client: Dict[bytes, bytes] = dict()
         self._task_id_to_task: Dict[bytes, Task] = dict()
 
-        self._running: Set[bytes] = set()
-        self._canceling: Set[bytes] = set()
         self._unassigned: Queue[Tuple[bytes, Task]] = Queue()
+        self._running: Set[bytes] = set()
 
+        self._success_count: int = 0
         self._failed_count: int = 0
         self._canceled_count: int = 0
 
@@ -46,9 +47,9 @@ class VanillaTaskManager(TaskManager, Looper):
 
     async def statistics(self) -> Dict:
         return {
-            "running": len(self._running),
-            "canceling": len(self._canceling),
             "unassigned": self._unassigned.qsize(),
+            "running": len(self._running),
+            "success": self._success_count,
             "failed": self._failed_count,
             "canceled": self._canceled_count,
         }
@@ -80,38 +81,34 @@ class VanillaTaskManager(TaskManager, Looper):
 
         await self._unassigned.put((client, task))
 
-    async def on_task_cancel(self, client: bytes, task_id: bytes):
-        if task_id in self._canceling:
-            logging.warning(f"already canceling: task_id={task_id.hex()}")
-            await self._binder.send(
-                client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.Duplicated)
-            )
+    async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
+        if task_cancel.task_id not in self._running:
+            logging.warning(f"cannot cancel task is not running: task_id={task_cancel.task_id.hex()}")
             return
 
-        if task_id not in self._running:
-            logging.warning(f"cannot cancel task is not running: task_id={task_id.hex()}")
-            await self._binder.send(
-                client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.Duplicated)
-            )
+        await self._worker_manager.on_task_cancel(client, task_cancel)
+
+    async def on_task_cancel_echo(self, worker: bytes, task_cancel_echo: TaskCancelEcho):
+        if task_cancel_echo.task_id not in self._running:
+            logging.warning(f"received cancel echo that is not canceling state: task_id={task_cancel_echo.task_id}")
             return
 
-        self._running.remove(task_id)
-        self._canceling.add(task_id)
-        await self._binder.send(client, MessageType.TaskCancelEcho, TaskCancelEcho(task_id, TaskEchoStatus.CancelOK))
-        await self._worker_manager.on_task_cancel(task_id)
+        self._running.remove(task_cancel_echo.task_id)
+        task = self._task_id_to_task.pop(task_cancel_echo.task_id)
+        self._task_id_to_client.pop(task_cancel_echo.task_id)
+        await self._function_manager.on_task_done_function(task.task_id, task.function_id)
+        self._canceled_count += 1
 
     async def on_task_done(self, result: TaskResult):
         """job done can be success or failed"""
         if result.status == TaskStatus.Success:
-            await self.__on_task_success(result)
+            await self.__on_task_done(result)
+            self._success_count += 1
             return
 
         if result.status == TaskStatus.Failed:
-            await self.__on_task_failed(self._running, "fail", result)
-            return
-
-        if result.status == TaskStatus.Canceled:
-            await self.__on_task_failed(self._canceling, "cancel", result)
+            await self.__on_task_done(result)
+            self._failed_count += 1
             return
 
         raise ValueError(f"unknown TaskResult status: {result.status}")
@@ -127,31 +124,13 @@ class VanillaTaskManager(TaskManager, Looper):
         self._task_id_to_task[task.task_id] = task
         self._running.add(task.task_id)
 
-    async def __on_task_success(self, result: TaskResult):
+    async def __on_task_done(self, result: TaskResult):
         if result.task_id not in self._running:
             return
 
         self._running.remove(result.task_id)
         task = self._task_id_to_task.pop(result.task_id)
         client = self._task_id_to_client.pop(result.task_id)
-
-        await self._binder.send(client, MessageType.TaskResult, result)
-        await self._function_manager.on_task_done_function(task.task_id, task.function_id)
-
-    async def __on_task_failed(
-        self, processing_set: Set[bytes], fail_type: Literal["cancel", "fail"], result: TaskResult
-    ):
-        if result.task_id not in processing_set:
-            return
-
-        processing_set.remove(result.task_id)
-        task = self._task_id_to_task.pop(result.task_id)
-        client = self._task_id_to_client.pop(result.task_id)
-
-        if fail_type == "cancel":
-            self._canceled_count += 1
-        elif fail_type == "fail":
-            self._failed_count += 1
 
         await self._binder.send(client, MessageType.TaskResult, result)
         await self._function_manager.on_task_done_function(task.task_id, task.function_id)

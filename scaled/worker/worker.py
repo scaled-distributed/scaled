@@ -87,6 +87,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             bind_or_connect="connect",
             address=internal_address,
             callback=self.__on_connector_receive,
+            exit_callback=None,
             daemonic=False,
         )
 

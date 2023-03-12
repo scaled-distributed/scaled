@@ -21,8 +21,6 @@ class AsyncConnector:
         address: ZMQConfig,
         bind_or_connect: Literal["bind", "connect"],
         callback: Callable[[MessageType, MessageVariant], Awaitable[None]],
-        send_high_watermark: int = 0,
-        receive_high_watermark: int = 0,
     ):
         self._prefix = prefix
         self._address = address
@@ -35,8 +33,8 @@ class AsyncConnector:
 
         # set socket option
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.setsockopt(zmq.SNDHWM, send_high_watermark)
-        self._socket.setsockopt(zmq.RCVHWM, receive_high_watermark)
+        self._socket.setsockopt(zmq.SNDHWM, 0)
+        self._socket.setsockopt(zmq.RCVHWM, 0)
 
         if bind_or_connect == "bind":
             self._socket.bind(self._address.to_address())

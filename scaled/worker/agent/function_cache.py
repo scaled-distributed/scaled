@@ -13,6 +13,9 @@ from scaled.protocol.python.message import (
     FunctionResponseType,
     MessageType,
     Task,
+    TaskCancel,
+    TaskCancelEcho,
+    TaskEchoStatus,
     TaskResult,
 )
 from scaled.worker.agent.worker_task_manager import WorkerTaskManager
@@ -45,22 +48,35 @@ class FunctionCache:
             )
             return
 
-        await self.__queue_new_task(task)
+        await self.__queue_task(task)
 
-    async def on_task_result(self, task: TaskResult):
+    async def on_cancel_task(self, task_cancel: TaskCancel):
+        if task_cancel.task_id not in self._task_id_to_function_id:
+            await self._connector_external.send(
+                MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelFailed)
+            )
+            return
+
+        if not self._task_manager.remove_one_queued_task(task_cancel.task_id):
+            await self._connector_external.send(
+                MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelFailed)
+            )
+            return
+
+        self.__remove_one_task_id(task_cancel.task_id)
+        await self._connector_external.send(
+            MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelOK)
+        )
+
+    async def on_task_result(self, result: TaskResult):
         self._task_manager.on_task_result()
-        function_id = self._task_id_to_function_id.pop(task.task_id)
-        self._function_id_to_task_ids[function_id].remove(task.task_id)
-        await self._connector_external.send(MessageType.TaskResult, task)
+        self.__remove_one_task_id(result.task_id)
+        await self._connector_external.send(MessageType.TaskResult, result)
 
     async def on_balance_request(self, request: BalanceRequest):
-        tasks = await self._task_manager.balance_remove_tasks(request.number_of_tasks)
-
-        task_ids = []
-        for task in tasks:
-            function_id = self._task_id_to_function_id.pop(task.task_id)
-            self._function_id_to_task_ids[function_id].remove(task.task_id)
-            task_ids.append(task.task_id)
+        task_ids = self._task_manager.on_balance_remove_tasks(request.number_of_tasks)
+        for task_id in task_ids:
+            self.__remove_one_task_id(task_id)
 
         await self._connector_external.send(MessageType.BalanceResponse, BalanceResponse(task_ids))
 
@@ -78,7 +94,7 @@ class FunctionCache:
         )
 
         for task in self._pending_tasks.pop(response.function_id):
-            await self.__queue_new_task(task)
+            await self.__queue_task(task)
 
     async def loop(self):
         while True:
@@ -99,8 +115,15 @@ class FunctionCache:
                 MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Delete, function_id, b"")
             )
 
-    async def __queue_new_task(self, task):
+    async def __queue_task(self, task: Task):
+        self.__add_one_task(task)
+        await self._task_manager.on_queue_task(task)
+
+    def __add_one_task(self, task: Task):
         self._task_id_to_function_id[task.task_id] = task.function_id
         self._function_id_to_task_ids[task.function_id].add(task.task_id)
         self._cached_functions_alive_since[task.function_id] = time.time()
-        await self._task_manager.on_queue_message(task)
+
+    def __remove_one_task_id(self, task_id: bytes):
+        function_id = self._task_id_to_function_id.pop(task_id)
+        self._function_id_to_task_ids[function_id].remove(task_id)

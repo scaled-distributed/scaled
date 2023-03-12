@@ -25,7 +25,7 @@ from scaled.protocol.python.message import (
     MonitorRequest,
     MonitorResponse,
     Task,
-    TaskEcho,
+    TaskCancel, TaskEcho,
     TaskEchoStatus,
     TaskResult,
     TaskStatus,
@@ -46,6 +46,7 @@ class Client:
             bind_or_connect="connect",
             address=ZMQConfig.from_string(address),
             callback=self.__on_receive,
+            exit_callback=self.__on_exit,
             daemonic=True,
         )
         self._connector.start()
@@ -105,7 +106,7 @@ class Client:
         raise TypeError(f"Unknown {message_type=}")
 
     def __on_task_echo(self, task_echo: TaskEcho):
-        if task_echo.task_id not in self._task_id_to_future:
+        if task_echo.task_id not in self._task_id_to_task_function:
             return
 
         if task_echo.status == TaskEchoStatus.Duplicated:
@@ -121,8 +122,8 @@ class Client:
 
         assert task_echo.status == TaskEchoStatus.SubmitOK, f"Unknown task status: " f"{task_echo=}"
 
-        future = self._task_id_to_future[task_echo.task_id]
-        future.set_running_or_notify_cancel()
+        self._task_id_to_task_function.pop(task_echo.task_id)
+        self._task_id_to_future[task_echo.task_id].set_running_or_notify_cancel()
 
     def __on_buffer_task_send(self, task):
         if task.function_id not in self._function_id_to_not_ready_tasks:
@@ -146,9 +147,7 @@ class Client:
         if result.task_id not in self._task_id_to_future:
             return
 
-        self._task_id_to_task_function.pop(result.task_id)
         future = self._task_id_to_future.pop(result.task_id)
-
         if result.status == TaskStatus.Success:
             future.set_result(self._serializer.deserialize_result(result.result))
             return
@@ -157,11 +156,13 @@ class Client:
             future.set_exception(pickle.loads(result.result))
             return
 
-        if result.status == TaskStatus.Canceled:
-            return
-
     def __on_statistics_response(self, monitor_response: MonitorResponse):
         self._statistics_future.set_result(monitor_response.data)
+
+    def __on_exit(self):
+        logging.info(f"canceling {len(self._task_id_to_future)} tasks")
+        for task_id in self._task_id_to_future.keys():
+            self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
 
     def __get_function_id(self, fn: Callable) -> Tuple[bytes, bytes]:
         if fn in self._function_to_function_id_cache:

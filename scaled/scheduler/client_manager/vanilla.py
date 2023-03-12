@@ -1,24 +1,31 @@
-from typing import Dict
+import asyncio
+from collections import defaultdict
+from typing import Dict, Set
 
-from scaled.protocol.python.message import Task, TaskResult
 from scaled.scheduler.mixins import ClientManager, Looper
 
 
 class VanillaClientManager(ClientManager, Looper):
     def __init__(self):
-        pass
+        self._task_id_to_client: Dict[bytes, bytes] = dict()
+        self._client_to_task_ids: Dict[bytes, Set[bytes]] = defaultdict(set)
 
-    async def on_task_new(self, client: bytes, task: Task):
-        pass
+    async def on_task_new(self, client: bytes, task_id: bytes):
+        self._task_id_to_client[task_id] = client
+        self._client_to_task_ids[client].add(task_id)
 
     async def on_task_cancel(self, client: bytes, task_id: bytes):
         pass
 
-    async def on_task_done(self, result: TaskResult):
-        pass
+    async def on_task_done(self, task_id: bytes):
+        client_id = self._task_id_to_client.pop(task_id)
+        self._client_to_task_ids[client_id].remove(task_id)
 
     async def loop(self):
-        pass
+        while True:
+            await asyncio.sleep(0)
 
     async def statistics(self) -> Dict:
-        pass
+        return {
+            client.hex(): len(task_ids) for client, task_ids in self._client_to_task_ids.items()
+        }

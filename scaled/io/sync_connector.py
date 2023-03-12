@@ -6,7 +6,7 @@ import threading
 import uuid
 from queue import Queue
 from collections import defaultdict
-from typing import Callable, Literal
+from typing import Callable, Literal, Optional
 
 import zmq
 
@@ -25,9 +25,8 @@ class SyncConnector(threading.Thread):
         bind_or_connect: Literal["bind", "connect"],
         address: ZMQConfig,
         callback: Callable[[MessageType, MessageVariant], None],
+        exit_callback: Optional[Callable[[], None]],
         daemonic: bool,
-        send_high_watermark: int = 0,
-        receive_high_watermark: int = 0,
     ):
         threading.Thread.__init__(self)
         self._prefix = prefix
@@ -41,8 +40,8 @@ class SyncConnector(threading.Thread):
 
         # set socket option
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
-        self._socket.setsockopt(zmq.SNDHWM, send_high_watermark)
-        self._socket.setsockopt(zmq.RCVHWM, receive_high_watermark)
+        self._socket.setsockopt(zmq.SNDHWM, 0)
+        self._socket.setsockopt(zmq.RCVHWM, 0)
 
         if daemonic:
             self.daemon = True
@@ -55,6 +54,7 @@ class SyncConnector(threading.Thread):
             raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
 
         self._callback = callback
+        self._exit_callback = exit_callback
         self._stop_event = stop_event
 
         self._send_queue = Queue()
@@ -73,6 +73,9 @@ class SyncConnector(threading.Thread):
         while not self._stop_event.is_set():
             self.__routine_send()
             self.__routine_polling()
+
+        if self._exit_callback is not None:
+            self._exit_callback()
 
     def send(self, message_type: MessageType, message: MessageVariant):
         self._send_queue.put((message_type, message))

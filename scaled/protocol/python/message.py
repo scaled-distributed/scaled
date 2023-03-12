@@ -32,7 +32,6 @@ class MessageType(enum.Enum):
 class TaskStatus(enum.Enum):
     Success = b"S"
     Failed = b"F"
-    Canceled = b"C"
 
 
 class TaskEchoStatus(enum.Enum):

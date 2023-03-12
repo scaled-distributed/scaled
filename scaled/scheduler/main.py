@@ -56,7 +56,11 @@ class Scheduler:
             return
 
         if message_type == MessageType.TaskCancel:
-            await self._task_manager.on_task_cancel(source, message.task_id)
+            await self._task_manager.on_task_cancel(source, message)
+            return
+
+        if message_type == MessageType.TaskCancelEcho:
+            await self._worker_manager.on_task_cancel_echo(source, message)
             return
 
         if message_type == MessageType.TaskResult:

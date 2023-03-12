@@ -22,7 +22,7 @@ DEFAULT_WORKER_TIMEOUT_SECONDS = 60
 CLEANUP_INTERVAL_SECONDS = 1
 
 # number of seconds for load balance, if value is 0 means disable load balance
-DEFAULT_LOAD_BALANCE_SECONDS = 0
+DEFAULT_LOAD_BALANCE_SECONDS = 1
 
 # number of tasks can be queued to each worker on scheduler side
 DEFAULT_PER_WORKER_QUEUE_SIZE = 1000
