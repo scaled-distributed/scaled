@@ -1,5 +1,3 @@
-import asyncio
-
 import psutil
 
 from scaled.io.async_connector import AsyncConnector
@@ -8,20 +6,11 @@ from scaled.worker.agent.worker_task_manager import WorkerTaskManager
 
 
 class WorkerHeartbeat:
-    def __init__(
-        self, connector_external: AsyncConnector, task_manager: WorkerTaskManager, heartbeat_interval_seconds: int
-    ):
+    def __init__(self, connector_external: AsyncConnector, task_manager: WorkerTaskManager):
         self._connector_external: AsyncConnector = connector_external
         self._task_manager = task_manager
 
         self._process = psutil.Process()
-
-        self._heartbeat_interval_seconds = heartbeat_interval_seconds
-
-    async def loop(self):
-        while True:
-            await self.routine()
-            await asyncio.sleep(self._heartbeat_interval_seconds)
 
     async def routine(self):
         await self._connector_external.send(

@@ -18,10 +18,8 @@ class WorkerTaskManager:
         self._queued_task_id_to_task[task.task_id] = task
         self._queued_task_ids.put_nowait(task.task_id)
 
-    async def loop(self):
-        while True:
-            await self.__processing_task()
-            await asyncio.sleep(0)
+    async def routine(self):
+        await self.__processing_task()
 
     def on_task_result(self):
         self._processing_lock.release()

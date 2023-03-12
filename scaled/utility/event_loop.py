@@ -1,5 +1,7 @@
+import asyncio
 import enum
 import logging
+from typing import Awaitable, Callable, Coroutine
 
 
 class EventLoopType(enum.Enum):
@@ -25,3 +27,18 @@ def register_event_loop(event_loop_type: str):
         uvloop.install()
 
     logging.info(f"use event loop: {event_loop_type.value}")
+
+
+def create_async_loop_routine(routine: Callable[[], Awaitable], seconds: int):
+    async def loop():
+        logging.info(f"{routine.__self__.__class__.__name__}: started")
+        try:
+            while True:
+                await routine()
+                await asyncio.sleep(seconds)
+        except asyncio.CancelledError:
+            pass
+
+        logging.info(f"{routine.__self__.__class__.__name__}: exited")
+
+    return loop()

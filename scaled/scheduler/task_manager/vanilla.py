@@ -39,11 +39,16 @@ class VanillaTaskManager(TaskManager, Looper):
         self._function_manager = function_manager
         self._worker_manager = worker_manager
 
-    async def loop(self):
-        logging.info(f"{self.__class__.__name__}: started")
-        while True:
-            await self.__routine()
-            await asyncio.sleep(0)
+    async def routine(self):
+        client, task = await self._unassigned.get()
+
+        if not await self._worker_manager.assign_task_to_worker(task):
+            await self._unassigned.put((client, task))
+            return
+
+        self._task_id_to_client[task.task_id] = client
+        self._task_id_to_task[task.task_id] = task
+        self._running.add(task.task_id)
 
     async def statistics(self) -> Dict:
         return {
@@ -112,17 +117,6 @@ class VanillaTaskManager(TaskManager, Looper):
             return
 
         raise ValueError(f"unknown TaskResult status: {result.status}")
-
-    async def __routine(self):
-        client, task = await self._unassigned.get()
-
-        if not await self._worker_manager.assign_task_to_worker(task):
-            await self._unassigned.put((client, task))
-            return
-
-        self._task_id_to_client[task.task_id] = client
-        self._task_id_to_task[task.task_id] = task
-        self._running.add(task.task_id)
 
     async def __on_task_done(self, result: TaskResult):
         if result.task_id not in self._running:

@@ -1,5 +1,6 @@
 import asyncio
 import multiprocessing
+import threading
 from typing import Literal, Optional
 
 from scaled.utility.event_loop import register_event_loop
@@ -32,6 +33,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self._event_loop = event_loop
         self._scheduler: Optional[Scheduler] = None
         self._loop = None
+        self._task = None
 
     def run(self) -> None:
         # scheduler have its own single process
@@ -49,6 +51,5 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         register_event_loop(self._event_loop)
 
         self._loop = asyncio.get_event_loop()
-        for coroutine in self._scheduler.get_loops():
-            self._loop.create_task(coroutine())
-        self._loop.run_forever()
+        self._task = self._loop.create_task(self._scheduler.get_loops())
+        self._loop.run_until_complete(self._scheduler.get_loops())

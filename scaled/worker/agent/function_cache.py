@@ -96,12 +96,7 @@ class FunctionCache:
         for task in self._pending_tasks.pop(response.function_id):
             await self.__queue_task(task)
 
-    async def loop(self):
-        while True:
-            await self.__routine()
-            await asyncio.sleep(self._function_retention_seconds)
-
-    async def __routine(self):
+    async def routine(self):
         now = time.time()
         idle_functions = [
             function_id

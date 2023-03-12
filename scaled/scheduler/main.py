@@ -1,8 +1,11 @@
+import asyncio
 import json
 import logging
 
+from scaled.io.config import CLEANUP_INTERVAL_SECONDS
 from scaled.scheduler.client_manager.vanilla import VanillaClientManager
 from scaled.scheduler.function_manager.vanilla import VanillaFunctionManager
+from scaled.utility.event_loop import create_async_loop_routine
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import MessageType, MessageVariant, MonitorRequest, MonitorResponse
@@ -73,8 +76,17 @@ class Scheduler:
 
         logging.error(f"{self.__class__.__name__}: unknown {message_type} from {source=}: {message}")
 
-    def get_loops(self):
-        return [self._binder.loop, self._task_manager.loop, self._function_manager.loop, self._worker_manager.loop]
+    async def get_loops(self):
+        try:
+            await asyncio.gather(
+                create_async_loop_routine(self._binder.routine, 0),
+                create_async_loop_routine(self._task_manager.routine, 0),
+                create_async_loop_routine(self._function_manager.routine, CLEANUP_INTERVAL_SECONDS),
+                create_async_loop_routine(self._worker_manager.routine, CLEANUP_INTERVAL_SECONDS),
+                return_exceptions=True,
+            )
+        except asyncio.CancelledError:
+            pass
 
     async def statistics(self, source: bytes, request: MonitorRequest):
         assert isinstance(request, MonitorRequest)

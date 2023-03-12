@@ -160,10 +160,12 @@ class Client:
         self._statistics_future.set_result(monitor_response.data)
 
     def __on_exit(self):
-        pass
-        # logging.info(f"canceling {len(self._task_id_to_future)} tasks")
-        # for task_id in self._task_id_to_future.keys():
-        #     self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
+        if not self._task_id_to_future:
+            return
+
+        logging.info(f"canceling {len(self._task_id_to_future)} tasks")
+        for task_id in self._task_id_to_future.keys():
+            self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
 
     def __get_function_id(self, fn: Callable) -> Tuple[bytes, bytes]:
         if fn in self._function_to_function_id_cache:

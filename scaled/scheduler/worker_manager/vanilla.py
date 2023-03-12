@@ -102,12 +102,9 @@ class VanillaWorkerManager(WorkerManager, Looper):
     async def has_available_worker(self) -> bool:
         return self._allocator.has_available_worker()
 
-    async def loop(self):
-        logging.info(f"{self.__class__.__name__}: started")
-        while True:
-            await self.__balance_request()
-            await self.__clean_workers()
-            await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+    async def routine(self):
+        await self.__balance_request()
+        await self.__clean_workers()
 
     async def statistics(self) -> Dict:
         worker_to_task_numbers = self._allocator.statistics()

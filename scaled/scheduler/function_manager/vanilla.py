@@ -81,16 +81,7 @@ class VanillaFunctionManager(FunctionManager, Looper):
         if not task_ids:
             self._function_id_to_task_ids.pop(function_id)
 
-    async def loop(self):
-        logging.info(f"{self.__class__.__name__}: started")
-        while True:
-            await self.__routine()
-            await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
-
-    async def statistics(self) -> Dict:
-        return {"function_id_to_tasks": {k.hex(): len(v) for k, v in self._function_id_to_task_ids.items()}}
-
-    async def __routine(self):
+    async def routine(self):
         now = time.time()
         dead_functions = [
             function_id
@@ -104,6 +95,9 @@ class VanillaFunctionManager(FunctionManager, Looper):
                 f"size={len(self._function_id_to_function.pop(function_id))}"
             )
             self._function_id_to_alive_since.pop(function_id)
+
+    async def statistics(self) -> Dict:
+        return {"function_id_to_tasks": {k.hex(): len(v) for k, v in self._function_id_to_task_ids.items()}}
 
     async def __on_function_check(self, client: bytes, function_id: bytes):
         if function_id in self._function_id_to_function:

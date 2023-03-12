@@ -54,11 +54,6 @@ class AsyncConnector:
     def identity(self) -> bytes:
         return self._identity
 
-    async def loop(self):
-        while True:
-            await self.routine()
-            await asyncio.sleep(0)
-
     async def routine(self):
         frames = await self._socket.recv_multipart()
         if not self.__is_valid_message(frames):

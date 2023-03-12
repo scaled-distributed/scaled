@@ -22,6 +22,7 @@ class AgentThread(threading.Thread):
         threading.Thread.__init__(self)
         self._event_loop = event_loop
         self._loop = None
+        self._task = None
 
         self._agent = Agent(
             external_address=external_address,
@@ -34,12 +35,9 @@ class AgentThread(threading.Thread):
 
     def run(self) -> None:
         register_event_loop(self._event_loop)
-
         self._loop = asyncio.new_event_loop()
-        for coroutine in self._agent.get_loops():
-            self._loop.create_task(coroutine())
-
-        self._loop.run_forever()
+        self._task = self._loop.create_task(self._agent.get_loops())
+        self._loop.run_until_complete(self._task)
 
     def terminate(self):
-        self._loop.stop()
+        self._task.cancel()

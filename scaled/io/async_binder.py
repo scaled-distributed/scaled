@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import socket
+import threading
 import uuid
 from collections import defaultdict
 from typing import Awaitable, Callable, Dict, List, Literal, Optional
@@ -30,11 +31,16 @@ class AsyncBinder(Looper):
     def register(self, callback: Callable[[bytes, MessageType, MessageVariant], Awaitable[None]]):
         self._callback = callback
 
-    async def loop(self):
-        logging.info(f"{self.__get_prefix()} bind to {self._address.to_address()}")
-        while True:
-            await self.__routine()
-            await asyncio.sleep(0)
+    async def routine(self):
+        frames = await self._socket.recv_multipart()
+        if not self.__is_valid_message(frames):
+            return
+
+        source, message_type_bytes, payload = frames[0], frames[1], frames[2:]
+        message_type = MessageType(message_type_bytes)
+        self.__count_one("received", message_type)
+        message = PROTOCOL[message_type_bytes].deserialize(payload)
+        await self._callback(source, message_type, message)
 
     async def statistics(self) -> Dict:
         return {
@@ -45,17 +51,6 @@ class AsyncBinder(Looper):
     async def send(self, to: bytes, message_type: MessageType, message: MessageVariant):
         self.__count_one("sent", message_type)
         await self._socket.send_multipart([to, message_type.value, *message.serialize()])
-
-    async def __routine(self):
-        frames = await self._socket.recv_multipart()
-        if not self.__is_valid_message(frames):
-            return
-
-        source, message_type_bytes, payload = frames[0], frames[1], frames[2:]
-        message_type = MessageType(message_type_bytes)
-        self.__count_one("received", message_type)
-        message = PROTOCOL[message_type_bytes].deserialize(payload)
-        await self._callback(source, message_type, message)
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)

@@ -1,7 +1,10 @@
+import asyncio
+
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import MessageType, MessageVariant
+from scaled.utility.event_loop import create_async_loop_routine
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.agent.function_cache import FunctionCache
 from scaled.worker.agent.heart_beat import WorkerHeartbeat
@@ -40,6 +43,7 @@ class Agent:
             connector_internal=self._connector_internal, processing_queue_size=processing_queue_size
         )
 
+        self._function_retention_seconds = function_retention_seconds
         self._function_cache = FunctionCache(
             connector_external=self._connector_external,
             connector_internal=self._connector_internal,
@@ -47,11 +51,8 @@ class Agent:
             function_retention_seconds=function_retention_seconds,
         )
 
-        self._heartbeat = WorkerHeartbeat(
-            connector_external=self._connector_external,
-            task_manager=self._task_manager,
-            heartbeat_interval_seconds=heartbeat_interval_seconds,
-        )
+        self._heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._heartbeat = WorkerHeartbeat(connector_external=self._connector_external, task_manager=self._task_manager)
 
     @property
     def identity(self):
@@ -83,11 +84,15 @@ class Agent:
 
         raise TypeError(f"Unknown {message_type=} {message=}")
 
-    def get_loops(self):
-        return [
-            self._connector_external.loop,
-            self._connector_internal.loop,
-            self._task_manager.loop,
-            self._heartbeat.loop,
-            self._function_cache.loop,
-        ]
+    async def get_loops(self):
+        try:
+            await asyncio.gather(
+                create_async_loop_routine(self._connector_external.routine, 0),
+                create_async_loop_routine(self._connector_internal.routine, 0),
+                create_async_loop_routine(self._task_manager.routine, 0),
+                create_async_loop_routine(self._heartbeat.routine, self._heartbeat_interval_seconds),
+                create_async_loop_routine(self._function_cache.routine, self._function_retention_seconds),
+                return_exceptions=True,
+            )
+        except asyncio.CancelledError:
+            pass

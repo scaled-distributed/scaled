@@ -6,7 +6,7 @@ from scaled.protocol.python.message import FunctionRequest, Heartbeat, Task, Tas
 
 class Looper(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def loop(self):
+    async def routine(self):
         raise NotImplementedError()
 
     @abc.abstractmethod

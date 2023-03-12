@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import functools
 import signal
-import threading
 
 from scaled.io.config import (
     DEFAULT_IO_THREADS,
@@ -16,8 +15,6 @@ from scaled.scheduler.main import Scheduler
 from scaled.utility.event_loop import EventLoopType, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.utility.logging.utility import setup_logger
-
-stop_event = threading.Event()
 
 
 def get_args():
@@ -83,18 +80,15 @@ def main():
 
     loop = asyncio.get_event_loop()
     __register_signal(loop)
-    for coroutine in scheduler.get_loops():
-        loop.create_task(coroutine())
-    loop.run_forever()
+    loop.run_until_complete(scheduler.get_loops())
 
 
 def __register_signal(loop):
-    loop.add_signal_handler(signal.SIGINT, functools.partial(__handle_signal, loop))
-    loop.add_signal_handler(signal.SIGHUP, functools.partial(__handle_signal, loop))
-    loop.add_signal_handler(signal.SIGTERM, functools.partial(__handle_signal, loop))
+    loop.add_signal_handler(signal.SIGINT, functools.partial(__handle_signal))
+    loop.add_signal_handler(signal.SIGHUP, functools.partial(__handle_signal))
+    loop.add_signal_handler(signal.SIGTERM, functools.partial(__handle_signal))
 
 
-def __handle_signal(loop):
+def __handle_signal():
     for task in asyncio.all_tasks():
         task.cancel()
-    loop.stop()

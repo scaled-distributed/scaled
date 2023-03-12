@@ -1,4 +1,3 @@
-import asyncio
 from collections import defaultdict
 from typing import Dict, Set
 
@@ -21,11 +20,8 @@ class VanillaClientManager(ClientManager, Looper):
         client_id = self._task_id_to_client.pop(task_id)
         self._client_to_task_ids[client_id].remove(task_id)
 
-    async def loop(self):
-        while True:
-            await asyncio.sleep(0)
+    async def routine(self):
+        pass
 
     async def statistics(self) -> Dict:
-        return {
-            client.hex(): len(task_ids) for client, task_ids in self._client_to_task_ids.items()
-        }
+        return {client.hex(): len(task_ids) for client, task_ids in self._client_to_task_ids.items()}
