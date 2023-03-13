@@ -7,7 +7,7 @@ from scaled.io.config import (
     DEFAULT_IO_THREADS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_LOAD_BALANCE_SECONDS,
-    DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
+    DEFAULT_LOAD_BALANCE_TRIGGER_TIMES, DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
     DEFAULT_PER_WORKER_QUEUE_SIZE,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
 )
@@ -49,6 +49,13 @@ def get_args():
         help="number of seconds for load balance operation in scheduler",
     )
     parser.add_argument(
+        "--load-balance-trigger-times",
+        "-lbt",
+        type=int,
+        default=DEFAULT_LOAD_BALANCE_TRIGGER_TIMES,
+        help="exact number of repeated load balance advices when trigger load balance operation in scheduler",
+    )
+    parser.add_argument(
         "--per-worker-queue-size",
         "-qs",
         type=int,
@@ -75,6 +82,7 @@ def main():
         worker_timeout_seconds=args.worker_timeout_seconds,
         function_retention_seconds=args.function_retention_seconds,
         load_balance_seconds=args.load_balance_seconds,
+        load_balance_trigger_times=args.load_balance_trigger_times,
     )
     register_event_loop(args.event_loop)
 

@@ -23,6 +23,7 @@ class Scheduler:
         worker_timeout_seconds: int,
         function_retention_seconds: int,
         load_balance_seconds: int,
+        load_balance_trigger_times: int,
     ):
         self._address = address
 
@@ -34,6 +35,7 @@ class Scheduler:
             per_worker_queue_size=per_worker_queue_size,
             timeout_seconds=worker_timeout_seconds,
             load_balance_seconds=load_balance_seconds,
+            load_balance_trigger_times=load_balance_trigger_times,
         )
 
         self._binder.register(self.on_receive_message)

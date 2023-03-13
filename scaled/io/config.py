@@ -24,6 +24,10 @@ CLEANUP_INTERVAL_SECONDS = 1
 # number of seconds for load balance, if value is 0 means disable load balance
 DEFAULT_LOAD_BALANCE_SECONDS = 1
 
+# when load balance advice happened repeatedly and always be the same, we issue load balance request when exact repeated
+# times happened
+DEFAULT_LOAD_BALANCE_TRIGGER_TIMES = 2
+
 # number of tasks can be queued to each worker on scheduler side
 DEFAULT_PER_WORKER_QUEUE_SIZE = 1000
 

@@ -6,8 +6,9 @@ import threading
 import uuid
 from collections import defaultdict
 from concurrent.futures import Future
+from inspect import signature
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import zmq
 
@@ -25,7 +26,8 @@ from scaled.protocol.python.message import (
     MonitorRequest,
     MonitorResponse,
     Task,
-    TaskCancel, TaskEcho,
+    TaskCancel,
+    TaskEcho,
     TaskEchoStatus,
     TaskResult,
     TaskStatus,
@@ -64,11 +66,13 @@ class Client:
         logging.info(f"ScaledClient: disconnect from {self._address}")
         self.disconnect()
 
-    def submit(self, fn: Callable, *args) -> Future:
+    def submit(self, fn: Callable, *args, **kwargs) -> Future:
         function_id, function_bytes = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
-        task = Task(task_id, function_id, self._serializer.serialize_arguments(args))
+        all_args = Client.__convert_kwargs_to_args(fn, args, kwargs)
+
+        task = Task(task_id, function_id, self._serializer.serialize_arguments(all_args))
         self._task_id_to_task_function[task_id] = (task, function_bytes)
 
         self.__on_buffer_task_send(task)
@@ -179,3 +183,33 @@ class Client:
         function_bytes = self._serializer.serialize_function(fn)
         function_id = hashlib.md5(function_bytes).digest()
         return function_id, function_bytes
+
+    @staticmethod
+    def __convert_kwargs_to_args(fn: Callable, args: Tuple[Any], kwargs: Dict[str, Any]) -> Tuple:
+        all_params = [p for p in signature(fn).parameters.values()]
+
+        keyword_only_arguments = tuple(p.name for p in all_params if p.kind == p.KEYWORD_ONLY)
+        if keyword_only_arguments:
+            raise TypeError(f"client doesn't support {fn} has keyword only arguments: {keyword_only_arguments}")
+
+        params = [p for p in all_params if p.kind in {p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD}]
+
+        if len(args) >= len(params):
+            return args
+
+        number_of_required = len([p for p in params if p.default is p.empty])
+
+        args = list(args)
+        kwargs = kwargs.copy()
+
+        for p in params[len(args) : number_of_required]:
+            try:
+                args.append(kwargs.pop(p.name))
+            except KeyError:
+                missing = tuple(p.name for p in params[len(args) : number_of_required])
+                raise TypeError(f"{fn} missing {len(missing)} arguments: {missing}")
+
+        for p in params[len(args) :]:
+            args.append(kwargs.pop(p.name, p.default))
+
+        return tuple(args)

@@ -1,7 +1,5 @@
-import asyncio
-from asyncio import Queue
 import logging
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Optional, Set
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import (
@@ -15,6 +13,7 @@ from scaled.protocol.python.message import (
     TaskStatus,
 )
 from scaled.scheduler.mixins import FunctionManager, Looper, TaskManager, WorkerManager
+from scaled.utility.queues.async_indexed_queue import IndexedQueue
 
 
 class VanillaTaskManager(TaskManager, Looper):
@@ -27,7 +26,7 @@ class VanillaTaskManager(TaskManager, Looper):
         self._task_id_to_client: Dict[bytes, bytes] = dict()
         self._task_id_to_task: Dict[bytes, Task] = dict()
 
-        self._unassigned: Queue[Tuple[bytes, Task]] = Queue()
+        self._unassigned: IndexedQueue[bytes] = IndexedQueue()
         self._running: Set[bytes] = set()
 
         self._success_count: int = 0
@@ -40,15 +39,13 @@ class VanillaTaskManager(TaskManager, Looper):
         self._worker_manager = worker_manager
 
     async def routine(self):
-        client, task = await self._unassigned.get()
+        task_id = await self._unassigned.get()
 
-        if not await self._worker_manager.assign_task_to_worker(task):
-            await self._unassigned.put((client, task))
+        if not await self._worker_manager.assign_task_to_worker(self._task_id_to_task[task_id]):
+            await self._unassigned.put(task_id)
             return
 
-        self._task_id_to_client[task.task_id] = client
-        self._task_id_to_task[task.task_id] = task
-        self._running.add(task.task_id)
+        self._running.add(task_id)
 
     async def statistics(self) -> Dict:
         return {
@@ -75,18 +72,21 @@ class VanillaTaskManager(TaskManager, Looper):
 
         await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.SubmitOK))
         await self._function_manager.on_task_use_function(task.task_id, task.function_id)
-        await self._unassigned.put((client, task))
+        self._task_id_to_client[task.task_id] = client
+        self._task_id_to_task[task.task_id] = task
+        await self._unassigned.put(task.task_id)
 
     async def on_task_reroute(self, task_id: bytes):
         assert task_id in self._task_id_to_client
 
-        client = self._task_id_to_client.pop(task_id)
-        task = self._task_id_to_task.pop(task_id)
         self._running.remove(task_id)
-
-        await self._unassigned.put((client, task))
+        await self._unassigned.put(task_id)
 
     async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
+        if task_cancel.task_id in self._unassigned:
+            self._unassigned.remove(task_cancel.task_id)
+            return
+
         if task_cancel.task_id not in self._running:
             logging.warning(f"cannot cancel task is not running: task_id={task_cancel.task_id.hex()}")
             return

@@ -75,3 +75,27 @@ class TestClient(unittest.TestCase):
             _ = [future.result() for future in futures]
 
         client.disconnect()
+
+    def test_function(self):
+        def func_args(a: int, b: int, c: int, d: int = 0):
+            return a, b, c, d
+
+        def func_args2(a: int, b: int, *, c: int, d: int = 0):
+            return a, b, c, d
+
+        client = Client(address="tcp://127.0.0.1:2345")
+
+        future = client.submit(func_args, 1, c=4, b=2)
+        self.assertEqual(future.result(), (1, 2, 4, 0))
+
+        future = client.submit(func_args, d=5, b=3, c=1, a=4)
+        self.assertEqual(future.result(), (4, 3, 1, 5))
+
+        future = client.submit(func_args, 1, c=4, b=2, d=6)
+        self.assertEqual(future.result(), (1, 2, 4, 6))
+
+        with self.assertRaises(TypeError):
+            client.submit(func_args, 1)
+
+        with self.assertRaises(TypeError):
+            client.submit(func_args2, 1, c=4, b=2, d=6)

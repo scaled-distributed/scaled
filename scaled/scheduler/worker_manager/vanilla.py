@@ -1,10 +1,8 @@
-import asyncio
 import logging
 import time
 from typing import Dict, List, Optional, Tuple
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.io.config import CLEANUP_INTERVAL_SECONDS
 from scaled.scheduler.mixins import Looper, TaskManager, WorkerManager
 from scaled.protocol.python.message import (
     BalanceRequest,
@@ -23,9 +21,16 @@ POLLING_TIME = 1
 
 
 class VanillaWorkerManager(WorkerManager, Looper):
-    def __init__(self, per_worker_queue_size: int, timeout_seconds: int, load_balance_seconds: int):
+    def __init__(
+        self,
+        per_worker_queue_size: int,
+        timeout_seconds: int,
+        load_balance_seconds: int,
+        load_balance_trigger_times: int,
+    ):
         self._timeout_seconds = timeout_seconds
         self._load_balance_seconds = load_balance_seconds
+        self._load_balance_trigger_times = load_balance_trigger_times
 
         self._binder: Optional[AsyncBinder] = None
         self._task_manager: Optional[TaskManager] = None
@@ -34,6 +39,7 @@ class VanillaWorkerManager(WorkerManager, Looper):
         self._allocator = QueuedAllocator(per_worker_queue_size)
 
         self._last_balance_advice = None
+        self._load_balance_advice_same_count = 0
 
     def hook(self, binder: AsyncBinder, task_manager: TaskManager):
         self._binder = binder
@@ -127,15 +133,21 @@ class VanillaWorkerManager(WorkerManager, Looper):
         if self._load_balance_seconds <= 0:
             return
 
-        if self._last_balance_advice is None:
-            self._last_balance_advice = self._allocator.balance()
-            return
-
         current_advice = self._allocator.balance()
-        if current_advice != self._last_balance_advice:
+        if self._last_balance_advice != current_advice:
             self._last_balance_advice = current_advice
+            self._load_balance_advice_same_count = 1
             return
 
+        self._load_balance_advice_same_count += 1
+        if self._load_balance_advice_same_count != self._load_balance_trigger_times:
+            return
+
+        if not current_advice:
+            return
+
+        logging.info(f"balance: {current_advice}")
+        self._last_balance_advice = current_advice
         for worker, number_of_tasks in current_advice.items():
             await self._binder.send(worker, MessageType.BalanceRequest, BalanceRequest(number_of_tasks))
 

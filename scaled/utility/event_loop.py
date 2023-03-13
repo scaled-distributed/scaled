@@ -1,7 +1,7 @@
 import asyncio
 import enum
 import logging
-from typing import Awaitable, Callable, Coroutine
+from typing import Awaitable, Callable
 
 
 class EventLoopType(enum.Enum):

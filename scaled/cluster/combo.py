@@ -7,6 +7,7 @@ from scaled.io.config import (
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_IO_THREADS,
     DEFAULT_LOAD_BALANCE_SECONDS,
+    DEFAULT_LOAD_BALANCE_TRIGGER_TIMES,
     DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
     DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
@@ -32,6 +33,7 @@ class SchedulerClusterCombo:
         worker_timeout_seconds: int = DEFAULT_WORKER_TIMEOUT_SECONDS,
         function_retention_seconds: int = DEFAULT_FUNCTION_RETENTION_SECONDS,
         load_balance_seconds: int = DEFAULT_LOAD_BALANCE_SECONDS,
+        load_balance_trigger_times=DEFAULT_LOAD_BALANCE_TRIGGER_TIMES,
         garbage_collect_interval_seconds: int = DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
         trim_memory_threshold_bytes: int = DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
         processing_queue_size: int = DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
@@ -59,6 +61,7 @@ class SchedulerClusterCombo:
             worker_timeout_seconds=worker_timeout_seconds,
             function_retention_seconds=function_retention_seconds,
             load_balance_seconds=load_balance_seconds,
+            load_balance_trigger_times=load_balance_trigger_times,
         )
 
         self._cluster.start()

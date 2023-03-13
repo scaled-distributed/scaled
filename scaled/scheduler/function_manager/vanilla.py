@@ -1,11 +1,9 @@
-import asyncio
 import logging
 from collections import defaultdict
 import time
 from typing import Dict, Optional, Set
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.io.config import CLEANUP_INTERVAL_SECONDS
 from scaled.protocol.python.message import (
     FunctionRequest,
     FunctionRequestType,

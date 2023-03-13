@@ -1,6 +1,5 @@
 import asyncio
 import multiprocessing
-import threading
 from typing import Literal, Optional
 
 from scaled.utility.event_loop import register_event_loop
@@ -19,6 +18,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         worker_timeout_seconds: int,
         function_retention_seconds: int,
         load_balance_seconds: int,
+        load_balance_trigger_times: int,
         event_loop: Literal["builtin", "uvloop"] = "builtin",
     ):
         multiprocessing.Process.__init__(self, name="Scheduler")
@@ -29,6 +29,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         self._worker_timeout_seconds = worker_timeout_seconds
         self._function_retention_seconds = function_retention_seconds
         self._load_balance_seconds = load_balance_seconds
+        self._load_balance_trigger_times = load_balance_trigger_times
 
         self._event_loop = event_loop
         self._scheduler: Optional[Scheduler] = None
@@ -46,6 +47,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
             worker_timeout_seconds=self._worker_timeout_seconds,
             function_retention_seconds=self._function_retention_seconds,
             load_balance_seconds=self._load_balance_seconds,
+            load_balance_trigger_times=self._load_balance_trigger_times,
         )
 
         register_event_loop(self._event_loop)
