@@ -39,6 +39,13 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
     def run(self) -> None:
         # scheduler have its own single process
         setup_logger()
+        register_event_loop(self._event_loop)
+
+        self._loop = asyncio.new_event_loop()
+        self._task = self._loop.create_task(self._main())
+        self._loop.run_until_complete(self._task)
+
+    async def _main(self):
         self._scheduler = Scheduler(
             address=self._address,
             io_threads=self._io_threads,
@@ -50,8 +57,4 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
             load_balance_trigger_times=self._load_balance_trigger_times,
         )
 
-        register_event_loop(self._event_loop)
-
-        self._loop = asyncio.get_event_loop()
-        self._task = self._loop.create_task(self._scheduler.get_loops())
-        self._loop.run_until_complete(self._scheduler.get_loops())
+        await self._scheduler.get_loops()
