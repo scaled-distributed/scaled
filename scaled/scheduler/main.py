@@ -40,7 +40,7 @@ class Scheduler:
 
         self._binder.register(self.on_receive_message)
         self._function_manager.hook(self._binder)
-        self._task_manager.hook(self._binder, self._function_manager, self._worker_manager)
+        self._task_manager.hook(self._binder, self._client_manager, self._function_manager, self._worker_manager)
         self._worker_manager.hook(self._binder, self._task_manager)
 
     async def on_receive_message(self, source: bytes, message_type: MessageType, message: MessageVariant):

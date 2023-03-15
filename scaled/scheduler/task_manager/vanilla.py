@@ -12,7 +12,7 @@ from scaled.protocol.python.message import (
     TaskResult,
     TaskStatus,
 )
-from scaled.scheduler.mixins import FunctionManager, Looper, TaskManager, WorkerManager
+from scaled.scheduler.mixins import ClientManager, FunctionManager, Looper, TaskManager, WorkerManager
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
 
 
@@ -20,10 +20,11 @@ class VanillaTaskManager(TaskManager, Looper):
     def __init__(self, max_number_of_tasks_waiting: int):
         self._max_number_of_tasks_waiting = max_number_of_tasks_waiting
         self._binder: Optional[AsyncBinder] = None
+
+        self._client_manager: Optional[ClientManager] = None
         self._function_manager: Optional[FunctionManager] = None
         self._worker_manager: Optional[WorkerManager] = None
 
-        self._task_id_to_client: Dict[bytes, bytes] = dict()
         self._task_id_to_task: Dict[bytes, Task] = dict()
 
         self._unassigned: IndexedQueue[bytes] = IndexedQueue()
@@ -33,8 +34,16 @@ class VanillaTaskManager(TaskManager, Looper):
         self._failed_count: int = 0
         self._canceled_count: int = 0
 
-    def hook(self, binder: AsyncBinder, function_manager: FunctionManager, worker_manager: WorkerManager):
+    def hook(
+        self,
+        binder: AsyncBinder,
+        client_manager: ClientManager,
+        function_manager: FunctionManager,
+        worker_manager: WorkerManager,
+    ):
         self._binder = binder
+
+        self._client_manager = client_manager
         self._function_manager = function_manager
         self._worker_manager = worker_manager
 
@@ -72,12 +81,13 @@ class VanillaTaskManager(TaskManager, Looper):
 
         await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.SubmitOK))
         await self._function_manager.on_task_use_function(task.task_id, task.function_id)
-        self._task_id_to_client[task.task_id] = client
+        await self._client_manager.on_task_new(client, task.task_id)
+
         self._task_id_to_task[task.task_id] = task
         await self._unassigned.put(task.task_id)
 
     async def on_task_reroute(self, task_id: bytes):
-        assert task_id in self._task_id_to_client
+        assert self._client_manager.get_client_id(task_id) is not None
 
         self._running.remove(task_id)
         await self._unassigned.put(task_id)
@@ -100,7 +110,8 @@ class VanillaTaskManager(TaskManager, Looper):
 
         self._running.remove(task_cancel_echo.task_id)
         task = self._task_id_to_task.pop(task_cancel_echo.task_id)
-        self._task_id_to_client.pop(task_cancel_echo.task_id)
+
+        await self._client_manager.on_task_done(task_cancel_echo.task_id)
         await self._function_manager.on_task_done_function(task.task_id, task.function_id)
         self._canceled_count += 1
 
@@ -124,7 +135,7 @@ class VanillaTaskManager(TaskManager, Looper):
 
         self._running.remove(result.task_id)
         task = self._task_id_to_task.pop(result.task_id)
-        client = self._task_id_to_client.pop(result.task_id)
+        client = await self._client_manager.on_task_done(result.task_id)
 
         await self._binder.send(client, MessageType.TaskResult, result)
         await self._function_manager.on_task_done_function(task.task_id, task.function_id)

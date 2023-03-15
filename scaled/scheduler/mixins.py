@@ -1,5 +1,5 @@
 import abc
-from typing import Dict
+from typing import Dict, Optional, Set
 
 from scaled.protocol.python.message import FunctionRequest, Heartbeat, Task, TaskCancel, TaskCancelEcho, TaskResult
 
@@ -34,15 +34,19 @@ class FunctionManager(metaclass=abc.ABCMeta):
 
 class ClientManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_task_new(self, client: bytes, task: Task):
+    def get_client_task_ids(self, client: bytes) -> Set[bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_cancel(self, client: bytes, task_id: bytes):
+    def get_client_id(self, task_id: bytes) -> Optional[bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_done(self, result: TaskResult):
+    async def on_task_new(self, client: bytes, task_id: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_task_done(self, task_id: bytes) -> bytes:
         raise NotImplementedError()
 
 
