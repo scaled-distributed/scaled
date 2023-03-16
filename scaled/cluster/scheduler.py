@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from scaled.utility.event_loop import register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.scheduler.main import Scheduler
+from scaled.scheduler.main import Scheduler, scheduler_main
 from scaled.utility.logging.utility import setup_logger
 
 
@@ -42,19 +42,17 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         register_event_loop(self._event_loop)
 
         self._loop = asyncio.new_event_loop()
-        self._task = self._loop.create_task(self._main())
-        self._loop.run_until_complete(self._task)
-
-    async def _main(self):
-        self._scheduler = Scheduler(
-            address=self._address,
-            io_threads=self._io_threads,
-            max_number_of_tasks_waiting=self._max_number_of_tasks_waiting,
-            per_worker_queue_size=self._per_worker_queue_size,
-            worker_timeout_seconds=self._worker_timeout_seconds,
-            function_retention_seconds=self._function_retention_seconds,
-            load_balance_seconds=self._load_balance_seconds,
-            load_balance_trigger_times=self._load_balance_trigger_times,
+        self._task = self._loop.create_task(
+            scheduler_main(
+                address=self._address,
+                io_threads=self._io_threads,
+                max_number_of_tasks_waiting=self._max_number_of_tasks_waiting,
+                per_worker_queue_size=self._per_worker_queue_size,
+                worker_timeout_seconds=self._worker_timeout_seconds,
+                function_retention_seconds=self._function_retention_seconds,
+                load_balance_seconds=self._load_balance_seconds,
+                load_balance_trigger_times=self._load_balance_trigger_times,
+            )
         )
 
-        await self._scheduler.get_loops()
+        self._loop.run_until_complete(self._task)

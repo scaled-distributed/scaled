@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json
 import logging
 
@@ -25,9 +26,7 @@ class Scheduler:
         load_balance_seconds: int,
         load_balance_trigger_times: int,
     ):
-        self._address = address
-
-        self._binder = AsyncBinder(prefix="S", address=self._address, io_threads=io_threads)
+        self._binder = AsyncBinder(prefix="S", address=address, io_threads=io_threads)
         self._client_manager = VanillaClientManager()
         self._function_manager = VanillaFunctionManager(function_retention_seconds=function_retention_seconds)
         self._task_manager = VanillaTaskManager(max_number_of_tasks_waiting=max_number_of_tasks_waiting)
@@ -103,3 +102,9 @@ class Scheduler:
             ).encode()
         )
         await self._binder.send(source, MessageType.MonitorResponse, stats)
+
+
+@functools.wraps(Scheduler)
+async def scheduler_main(*args, **kwargs):
+    scheduler = Scheduler(*args, **kwargs)
+    await scheduler.get_loops()

@@ -1,4 +1,5 @@
 import asyncio
+import functools
 
 import zmq.asyncio
 
@@ -96,3 +97,9 @@ class Agent:
             )
         except asyncio.CancelledError:
             pass
+
+
+@functools.wraps(Agent)
+async def agent_main(*args, **kwargs):
+    agent = Agent(*args, **kwargs)
+    await agent.get_loops()
