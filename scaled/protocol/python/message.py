@@ -24,6 +24,9 @@ class MessageType(enum.Enum):
     MonitorRequest = b"MR"
     MonitorResponse = b"MS"
 
+    DisconnectRequest = b"DR"
+    DisconnectResponse = b"DP"
+
     @staticmethod
     def allowed_values():
         return {member.value for member in MessageType}
@@ -229,6 +232,30 @@ class FunctionResponse(_Message):
         return FunctionResponse(FunctionResponseType(data[0]), data[1], data[2])
 
 
+@attrs.define
+class DisconnectRequest(_Message):
+    worker: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.worker,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return DisconnectRequest(data[0])
+
+
+@attrs.define
+class DisconnectResponse(_Message):
+    worker: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.worker,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return DisconnectResponse(data[0])
+
+
 PROTOCOL = {
     MessageType.Heartbeat.value: Heartbeat,
     MessageType.Task.value: Task,
@@ -242,4 +269,6 @@ PROTOCOL = {
     MessageType.MonitorResponse.value: MonitorResponse,
     MessageType.FunctionRequest.value: FunctionRequest,
     MessageType.FunctionResponse.value: FunctionResponse,
+    MessageType.DisconnectRequest.value: DisconnectRequest,
+    MessageType.DisconnectResponse.value: DisconnectResponse,
 }

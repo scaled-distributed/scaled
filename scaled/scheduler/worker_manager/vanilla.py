@@ -7,6 +7,8 @@ from scaled.scheduler.mixins import Looper, TaskManager, WorkerManager
 from scaled.protocol.python.message import (
     BalanceRequest,
     BalanceResponse,
+    DisconnectRequest,
+    DisconnectResponse,
     Heartbeat,
     MessageType,
     Task,
@@ -45,12 +47,6 @@ class VanillaWorkerManager(WorkerManager, Looper):
         self._binder = binder
         self._task_manager = task_manager
 
-    async def on_heartbeat(self, worker: bytes, info: Heartbeat):
-        if self._allocator.add_worker(worker):
-            logging.info(f"worker {worker} connected")
-
-        self._worker_alive_since[worker] = (time.time(), info)
-
     async def assign_task_to_worker(self, task: Task) -> bool:
         worker = self._allocator.assign_task(task.task_id)
         if worker is None:
@@ -59,6 +55,9 @@ class VanillaWorkerManager(WorkerManager, Looper):
         # send to worker
         await self._binder.send(worker, MessageType.Task, task)
         return True
+
+    async def has_available_worker(self) -> bool:
+        return self._allocator.has_available_worker()
 
     async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
         worker = self._allocator.get_assigned_worker(task_cancel.task_id)
@@ -105,8 +104,15 @@ class VanillaWorkerManager(WorkerManager, Looper):
 
         await self.__reroute_tasks(task_ids=task_ids)
 
-    async def has_available_worker(self) -> bool:
-        return self._allocator.has_available_worker()
+    async def on_heartbeat(self, worker: bytes, info: Heartbeat):
+        if self._allocator.add_worker(worker):
+            logging.info(f"worker {worker} connected")
+
+        self._worker_alive_since[worker] = (time.time(), info)
+
+    async def on_disconnect(self, source: bytes, request: DisconnectRequest):
+        await self.__disconnect_worker(request.worker)
+        await self._binder.send(source, MessageType.DisconnectResponse, DisconnectResponse(request.worker))
 
     async def routine(self):
         await self.__balance_request()
@@ -159,16 +165,19 @@ class VanillaWorkerManager(WorkerManager, Looper):
             if now - alive_since > self._timeout_seconds
         ]
         for dead_worker in dead_workers:
-            logging.info(f"worker {dead_worker} disconnected")
-            self._worker_alive_since.pop(dead_worker)
-
-            task_ids = self._allocator.remove_worker(dead_worker)
-            if not task_ids:
-                continue
-
-            logging.info(f"rerouting {len(task_ids)} tasks")
-            await self.__reroute_tasks(task_ids)
+            await self.__disconnect_worker(dead_worker)
 
     async def __reroute_tasks(self, task_ids: List[bytes]):
         for task_id in task_ids:
             await self._task_manager.on_task_reroute(task_id)
+
+    async def __disconnect_worker(self, worker: bytes):
+        logging.info(f"worker {worker} disconnected")
+        self._worker_alive_since.pop(worker)
+
+        task_ids = self._allocator.remove_worker(worker)
+        if not task_ids:
+            return
+
+        logging.info(f"rerouting {len(task_ids)} tasks")
+        await self.__reroute_tasks(task_ids)

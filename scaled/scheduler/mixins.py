@@ -1,7 +1,16 @@
 import abc
 from typing import Dict, Optional, Set
 
-from scaled.protocol.python.message import FunctionRequest, Heartbeat, Task, TaskCancel, TaskCancelEcho, TaskResult
+from scaled.protocol.python.message import (
+    BalanceResponse,
+    DisconnectRequest,
+    FunctionRequest,
+    Heartbeat,
+    Task,
+    TaskCancel,
+    TaskCancelEcho,
+    TaskResult,
+)
 
 
 class Looper(metaclass=abc.ABCMeta):
@@ -90,9 +99,17 @@ class WorkerManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    async def on_balance_response(self, response: BalanceResponse):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     async def on_task_done(self, task_result: TaskResult):
         raise NotImplementedError()
 
     @abc.abstractmethod
     async def on_heartbeat(self, worker: bytes, info: Heartbeat):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_disconnect(self, source: bytes, request: DisconnectRequest):
         raise NotImplementedError()

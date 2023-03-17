@@ -4,7 +4,7 @@ import functools
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import MessageType, MessageVariant
+from scaled.protocol.python.message import DisconnectRequest, MessageType, MessageVariant
 from scaled.utility.event_loop import create_async_loop_routine
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.agent.function_cache import FunctionCache
@@ -97,6 +97,10 @@ class Agent:
             )
         except asyncio.CancelledError:
             pass
+
+        await self._connector_external.send(
+            MessageType.DisconnectRequest, DisconnectRequest(self._connector_external.identity)
+        )
 
 
 @functools.wraps(Agent)

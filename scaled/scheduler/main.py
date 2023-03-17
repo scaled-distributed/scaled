@@ -75,6 +75,10 @@ class Scheduler:
             await self._function_manager.on_function(source, message)
             return
 
+        if message_type == MessageType.DisconnectRequest:
+            await self._worker_manager.on_disconnect(source, message)
+            return
+
         logging.error(f"{self.__class__.__name__}: unknown {message_type} from {source=}: {message}")
 
     async def get_loops(self):
