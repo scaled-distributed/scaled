@@ -43,7 +43,7 @@ def poke(screen):
         subscribe_status(
             address=ZMQConfig.from_string(args.address),
             callback=functools.partial(show_status, screen=screen, config=config),
-            timeout=args.timeout
+            timeout=args.timeout,
         )
     except zmq.Again:
         raise TimeoutError(f"Cannot connect to monitoring address {args.address} after {args.timeout} seconds")
@@ -78,7 +78,6 @@ def subscribe_status(address: ZMQConfig, callback: Callable[[SchedulerStatus], N
         callback(message)
 
 
-
 def show_status(status: SchedulerStatus, screen, config):
     data = json.loads(status.data)
 
@@ -89,12 +88,12 @@ def show_status(status: SchedulerStatus, screen, config):
     data["scheduler"]["cpu"] = __format_percentage(data["scheduler"]["cpu"])
     data["scheduler"]["rss"] = __format_bytes(data["scheduler"]["rss"])
     scheduler_table = __generate_keyword_data("scheduler", data["scheduler"])
-    task_manager_table = __generate_keyword_data("task_manager", data["task_manager"])
-    sent_table = __generate_keyword_data("scheduler_sent", data["binder"]["sent"])
-    received_table = __generate_keyword_data("scheduler_received", data["binder"]["received"])
+    task_manager_table = __generate_keyword_data("task_manager", data["task_manager"], format_integer=True)
+    sent_table = __generate_keyword_data("scheduler_sent", data["binder"]["sent"], format_integer=True)
+    received_table = __generate_keyword_data("scheduler_received", data["binder"]["received"], format_integer=True)
     # client_table = __generate_keyword_data("client_manager", data["client_manager"])
     function_id_to_tasks = __generate_keyword_data(
-        "function_id_to_tasks", data["function_manager"]["function_id_to_tasks"], truncate_number=24
+        "function_id_to_tasks", data["function_manager"]["function_id_to_tasks"], truncate_key=24
     )
     worker_manager_table = __generate_worker_manager_table(
         data["worker_manager"], truncate_number=24, sort_by=config["sort_by"]
@@ -109,7 +108,7 @@ def show_status(status: SchedulerStatus, screen, config):
 
     screen.clear()
     try:
-        new_row = __print_table(screen, 0, table1, padding=2)
+        new_row = __print_table(screen, 0, table1, padding=1)
     except curses.error:
         __print_too_small(screen)
         return
@@ -123,12 +122,22 @@ def show_status(status: SchedulerStatus, screen, config):
     screen.refresh()
 
 
-def __generate_keyword_data(title, data, truncate_number: int = 0):
+def __generate_keyword_data(title, data, truncate_key: int = 0, format_integer: bool = False):
     table = [[title, ""]]
-    if truncate_number:
-        table.extend([[f"{k[:-truncate_number]}+", v] for k, v in data.items()])
-    else:
-        table.extend([[k, v] for k, v in data.items()])
+
+    def truncate_key_func(key):
+        if truncate_key:
+            return key[:-truncate_key]
+
+        return key
+
+    def format_integer_func(value):
+        if format_integer:
+            return __format_integer(value)
+
+        return value
+
+    table.extend([[truncate_key_func(k), format_integer_func(v)] for k, v in data.items()])
     return table
 
 
@@ -142,11 +151,8 @@ def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str)
         row["worker"] = f"{row['worker'][:-truncate_number]}+" if truncate_number else row["worker"]
         row["cpu"] = __format_percentage(row["cpu"])
         row["rss"] = __format_bytes(row["rss"])
-        row["free"] = __format_integer(row["free"])
-        row["working"] = __format_integer(row["working"])
-        row["queued"] = __format_integer(row["queued"])
 
-    worker_manager_table = [[f"*{v}" if v == sort_by else v for v in wm_data[0].keys()]]
+    worker_manager_table = [[f"[{v}]" if v == sort_by else v for v in wm_data[0].keys()]]
     worker_manager_table.extend([list(worker.values()) for worker in wm_data])
     return worker_manager_table
 
