@@ -11,10 +11,10 @@ from scaled.protocol.python.message import (
     FunctionResponseType,
     MessageType,
 )
-from scaled.scheduler.mixins import FunctionManager, Looper
+from scaled.scheduler.mixins import FunctionManager, Looper, Reporter
 
 
-class VanillaFunctionManager(FunctionManager, Looper):
+class VanillaFunctionManager(FunctionManager, Looper, Reporter):
     def __init__(self, function_retention_seconds: int):
         self._function_id_to_function: Dict[bytes, bytes] = dict()
         self._function_id_to_alive_since: Dict[bytes, float] = dict()
@@ -95,7 +95,11 @@ class VanillaFunctionManager(FunctionManager, Looper):
             self._function_id_to_alive_since.pop(function_id)
 
     async def statistics(self) -> Dict:
-        return {"function_id_to_tasks": {k.hex(): len(v) for k, v in self._function_id_to_task_ids.items()}}
+        return {
+            "function_manager": {
+                "function_id_to_tasks": {k.hex(): len(v) for k, v in self._function_id_to_task_ids.items()}
+            }
+        }
 
     async def __on_function_check(self, client: bytes, function_id: bytes):
         if function_id in self._function_id_to_function:

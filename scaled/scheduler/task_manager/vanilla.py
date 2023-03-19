@@ -12,11 +12,11 @@ from scaled.protocol.python.message import (
     TaskResult,
     TaskStatus,
 )
-from scaled.scheduler.mixins import ClientManager, FunctionManager, Looper, TaskManager, WorkerManager
+from scaled.scheduler.mixins import ClientManager, FunctionManager, Looper, Reporter, TaskManager, WorkerManager
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
 
 
-class VanillaTaskManager(TaskManager, Looper):
+class VanillaTaskManager(TaskManager, Looper, Reporter):
     def __init__(self, max_number_of_tasks_waiting: int):
         self._max_number_of_tasks_waiting = max_number_of_tasks_waiting
         self._binder: Optional[AsyncBinder] = None
@@ -58,11 +58,13 @@ class VanillaTaskManager(TaskManager, Looper):
 
     async def statistics(self) -> Dict:
         return {
-            "unassigned": self._unassigned.qsize(),
-            "running": len(self._running),
-            "success": self._success_count,
-            "failed": self._failed_count,
-            "canceled": self._canceled_count,
+            "task_manager": {
+                "unassigned": self._unassigned.qsize(),
+                "running": len(self._running),
+                "success": self._success_count,
+                "failed": self._failed_count,
+                "canceled": self._canceled_count,
+            }
         }
 
     async def on_task_new(self, client: bytes, task: Task):

@@ -23,8 +23,8 @@ class Agent:
         processing_queue_size: int,
     ):
         self._connector_external = AsyncConnector(
-            prefix="W",
             context=zmq.asyncio.Context(),
+            prefix="W",
             socket_type=zmq.DEALER,
             address=external_address,
             bind_or_connect="connect",
@@ -32,8 +32,8 @@ class Agent:
         )
 
         self._connector_internal = AsyncConnector(
-            prefix="AA",
             context=internal_context,
+            prefix="A",
             socket_type=zmq.PAIR,
             address=internal_address,
             bind_or_connect="bind",

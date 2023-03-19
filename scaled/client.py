@@ -1,5 +1,4 @@
 import hashlib
-import json
 import logging
 import pickle
 import threading
@@ -23,8 +22,6 @@ from scaled.protocol.python.message import (
     FunctionResponseType,
     MessageType,
     MessageVariant,
-    MonitorRequest,
-    MonitorResponse,
     Task,
     TaskCancel,
     TaskEcho,
@@ -81,12 +78,6 @@ class Client:
         self._task_id_to_future[task_id] = future
         return future
 
-    def scheduler_status(self):
-        self._statistics_future = Future()
-        self._connector.send(MessageType.MonitorRequest, MonitorRequest())
-        statistics = json.loads(self._statistics_future.result())
-        return statistics
-
     def disconnect(self):
         self._stop_event.set()
 
@@ -101,10 +92,6 @@ class Client:
 
         if message_type == MessageType.TaskResult:
             self.__on_task_result(message)
-            return
-
-        if message_type == MessageType.MonitorResponse:
-            self.__on_statistics_response(message)
             return
 
         raise TypeError(f"Unknown {message_type=}")
@@ -159,9 +146,6 @@ class Client:
         if result.status == TaskStatus.Failed:
             future.set_exception(pickle.loads(result.result))
             return
-
-    def __on_statistics_response(self, monitor_response: MonitorResponse):
-        self._statistics_future.set_result(monitor_response.data)
 
     def __on_exit(self):
         if not self._task_id_to_future:

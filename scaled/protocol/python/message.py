@@ -22,7 +22,7 @@ class MessageType(enum.Enum):
     FunctionResponse = b"FA"
 
     MonitorRequest = b"MR"
-    MonitorResponse = b"MS"
+    SchedulerStatus = b"MS"
 
     DisconnectRequest = b"DR"
     DisconnectResponse = b"DP"
@@ -193,18 +193,6 @@ class MonitorRequest(_Message):
 
 
 @attrs.define
-class MonitorResponse(_Message):
-    data: bytes  # json content represent in bytes
-
-    def serialize(self) -> Tuple[bytes, ...]:
-        return (self.data,)
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return MonitorResponse(data[0])
-
-
-@attrs.define
 class FunctionRequest(_Message):
     type: FunctionRequestType
     function_id: bytes
@@ -256,6 +244,18 @@ class DisconnectResponse(_Message):
         return DisconnectResponse(data[0])
 
 
+@attrs.define
+class SchedulerStatus(_Message):
+    data: bytes  # json content represent in bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.data,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return SchedulerStatus(data[0])
+
+
 PROTOCOL = {
     MessageType.Heartbeat.value: Heartbeat,
     MessageType.Task.value: Task,
@@ -265,10 +265,9 @@ PROTOCOL = {
     MessageType.TaskResult.value: TaskResult,
     MessageType.BalanceRequest.value: BalanceRequest,
     MessageType.BalanceResponse.value: BalanceResponse,
-    MessageType.MonitorRequest.value: MonitorRequest,
-    MessageType.MonitorResponse.value: MonitorResponse,
     MessageType.FunctionRequest.value: FunctionRequest,
     MessageType.FunctionResponse.value: FunctionResponse,
     MessageType.DisconnectRequest.value: DisconnectRequest,
     MessageType.DisconnectResponse.value: DisconnectResponse,
+    MessageType.SchedulerStatus.value: SchedulerStatus,
 }

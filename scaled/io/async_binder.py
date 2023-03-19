@@ -7,12 +7,12 @@ from typing import Awaitable, Callable, Dict, List, Literal, Optional
 
 import zmq.asyncio
 
-from scaled.scheduler.mixins import Looper
+from scaled.scheduler.mixins import Looper, Reporter
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
-class AsyncBinder(Looper):
+class AsyncBinder(Looper, Reporter):
     def __init__(self, prefix: str, address: ZMQConfig, io_threads: int):
         self._address = address
         self._identity: bytes = f"{prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
@@ -42,8 +42,10 @@ class AsyncBinder(Looper):
 
     async def statistics(self) -> Dict:
         return {
-            "received": {k: v for k, v in self._statistics["received"].items()},
-            "sent": {k: v for k, v in self._statistics["sent"].items()},
+            "binder": {
+                "received": {k: v for k, v in self._statistics["received"].items()},
+                "sent": {k: v for k, v in self._statistics["sent"].items()},
+            }
         }
 
     async def send(self, to: bytes, message_type: MessageType, message: MessageVariant):

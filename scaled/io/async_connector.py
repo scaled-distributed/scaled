@@ -3,7 +3,7 @@ import os
 import socket
 import uuid
 from collections import defaultdict
-from typing import Awaitable, Callable, List, Literal
+from typing import Awaitable, Callable, List, Literal, Optional
 
 import zmq.asyncio
 
@@ -14,12 +14,12 @@ from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 class AsyncConnector:
     def __init__(
         self,
-        prefix: str,
         context: zmq.asyncio.Context,
+        prefix: str,
         socket_type: int,
         address: ZMQConfig,
         bind_or_connect: Literal["bind", "connect"],
-        callback: Callable[[MessageType, MessageVariant], Awaitable[None]],
+        callback: Optional[Callable[[MessageType, MessageVariant], Awaitable[None]]],
     ):
         self._prefix = prefix
         self._address = address
@@ -27,7 +27,7 @@ class AsyncConnector:
         self._context = context
         self._socket = self._context.socket(socket_type)
         self._identity: bytes = (
-            f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
+            f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4().bytes.hex()}".encode()
         )
 
         # set socket option
@@ -42,7 +42,7 @@ class AsyncConnector:
         else:
             raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
 
-        self._callback: Callable[[MessageType, MessageVariant], Awaitable[None]] = callback
+        self._callback: Optional[Callable[[MessageType, MessageVariant], Awaitable[None]]] = callback
 
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
@@ -63,6 +63,10 @@ class AsyncConnector:
         message = PROTOCOL[message_type_bytes].deserialize(payload)
 
         self.__count_one("received", message_type)
+        if self._callback is None:
+            logging.error(f"{self.__get_prefix()} received message but didn't set callback")
+            return
+
         await self._callback(message_type, message)
 
     async def send(self, message_type: MessageType, data: MessageVariant):

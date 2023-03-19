@@ -18,6 +18,8 @@ class Looper(metaclass=abc.ABCMeta):
     async def routine(self):
         raise NotImplementedError()
 
+
+class Reporter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def statistics(self) -> Dict:
         raise NotImplementedError()

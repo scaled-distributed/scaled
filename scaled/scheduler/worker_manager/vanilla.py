@@ -3,7 +3,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.scheduler.mixins import Looper, TaskManager, WorkerManager
+from scaled.scheduler.mixins import Looper, Reporter, TaskManager, WorkerManager
 from scaled.protocol.python.message import (
     BalanceRequest,
     BalanceResponse,
@@ -19,10 +19,8 @@ from scaled.protocol.python.message import (
 )
 from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
 
-POLLING_TIME = 1
 
-
-class VanillaWorkerManager(WorkerManager, Looper):
+class VanillaWorkerManager(WorkerManager, Looper, Reporter):
     def __init__(
         self,
         per_worker_queue_size: int,
@@ -121,18 +119,16 @@ class VanillaWorkerManager(WorkerManager, Looper):
     async def statistics(self) -> Dict:
         worker_to_task_numbers = self._allocator.statistics()
         return {
-            "scheduler_total_free": sum(worker["scheduler_free"] for worker in worker_to_task_numbers.values()),
-            "scheduler_total_running": sum(worker["scheduler_running"] for worker in worker_to_task_numbers.values()),
-            "worker_total_queued_tasks": sum(info.queued_tasks for _, (_, info) in self._worker_alive_since.items()),
-            "workers": {
-                worker.decode(): {
-                    "worker_cpu": round(info.cpu_usage, 2),
-                    "worker_rss": info.rss_size,
-                    "worker_queued_tasks": info.queued_tasks,
+            "worker_manager": [
+                {
+                    "worker": worker.decode(),
+                    "cpu": round(info.cpu_usage, 2),
+                    "rss": info.rss_size,
                     **worker_to_task_numbers[worker],
+                    "queued": info.queued_tasks,
                 }
                 for worker, (last, info) in self._worker_alive_since.items()
-            },
+            ]
         }
 
     async def __balance_request(self):

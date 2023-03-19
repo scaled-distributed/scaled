@@ -21,6 +21,9 @@ DEFAULT_WORKER_TIMEOUT_SECONDS = 60
 # function clean up time interval
 CLEANUP_INTERVAL_SECONDS = 1
 
+# status report interval, used by poke or scaled monitor
+STATUS_REPORT_INTERVAL_SECONDS = 1
+
 # number of seconds for load balance, if value is 0 means disable load balance
 DEFAULT_LOAD_BALANCE_SECONDS = 1
 

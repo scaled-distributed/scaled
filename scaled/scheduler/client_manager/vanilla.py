@@ -1,10 +1,10 @@
 from collections import defaultdict
 from typing import Dict, Optional, Set
 
-from scaled.scheduler.mixins import ClientManager, Looper
+from scaled.scheduler.mixins import ClientManager, Looper, Reporter
 
 
-class VanillaClientManager(ClientManager, Looper):
+class VanillaClientManager(ClientManager, Looper, Reporter):
     def __init__(self):
         self._task_id_to_client: Dict[bytes, bytes] = dict()
         self._client_to_task_ids: Dict[bytes, Set[bytes]] = defaultdict(set)
@@ -28,4 +28,6 @@ class VanillaClientManager(ClientManager, Looper):
         pass
 
     async def statistics(self) -> Dict:
-        return {client.hex(): len(task_ids) for client, task_ids in self._client_to_task_ids.items()}
+        return {
+            "client_manager": {client.hex(): len(task_ids) for client, task_ids in self._client_to_task_ids.items()}
+        }

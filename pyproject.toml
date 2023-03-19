@@ -17,7 +17,7 @@ Home = "https://github.com/scaled-distributed/scaled"
 [project.scripts]
 scaled_scheduler = "scaled.entry_points.scheduler:main"
 scaled_cluster = "scaled.entry_points.cluster:main"
-scaled_poke = "scaled.entry_points.poke:main"
+scaled_top = "scaled.entry_points.top:main"
 
 [tool.setuptools]
 packages = ["scaled"]
