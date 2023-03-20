@@ -21,7 +21,6 @@ class MessageType(enum.Enum):
     FunctionRequest = b"FR"
     FunctionResponse = b"FA"
 
-    MonitorRequest = b"MR"
     SchedulerStatus = b"MS"
 
     DisconnectRequest = b"DR"
@@ -95,6 +94,17 @@ class TaskEcho(_Message):
 
     def serialize(self) -> Tuple[bytes, ...]:
         return self.task_id, self.status.value
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return TaskEcho(data[0], TaskEchoStatus(data[1]))
+
+
+@attrs.define
+class GraphTask(_Message):
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        pass
 
     @staticmethod
     def deserialize(data: List[bytes]):
@@ -180,16 +190,6 @@ class Heartbeat(_Message):
     @staticmethod
     def deserialize(data: List[bytes]):
         return Heartbeat(*struct.unpack("fQI", data[0]))
-
-
-@attrs.define
-class MonitorRequest(_Message):
-    def serialize(self) -> Tuple[bytes, ...]:
-        return (b"",)
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return MonitorRequest()
 
 
 @attrs.define

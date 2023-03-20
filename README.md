@@ -110,26 +110,26 @@ $ scaled_top ipc:///tmp/0.0.0.0_8516_monitor
 
 Which will something similar to top command, but it's for getting status of the scaled system:
 ```bash
-scheduler              task_manager                 scheduler_sent             scheduler_received
-      cpu     160.0%     unassigned         0     FunctionResponse       101            Heartbeat     48679
-      rss   54.3 MiB        running         2             TaskEcho   1908688      FunctionRequest       101
-                            success   1908686                 Task   1908688                 Task   1908688
-                             failed         0           TaskResult   1908686           TaskResult   1908686
-                           canceled         0       BalanceRequest        48      BalanceResponse        48
-                                                DisconnectResponse       160    DisconnectRequest       160
-
+scheduler          | task_manager         |   scheduler_sent         | scheduler_received
+      cpu     0.0% |   unassigned       0 | FunctionResponse      24 |          Heartbeat 183,109
+      rss 37.1 MiB |      running       0 |         TaskEcho 200,000 |    FunctionRequest      24
+                   |      success 200,000 |             Task 200,000 |               Task 200,000
+                   |       failed       0 |       TaskResult 200,000 |         TaskResult 200,000
+                   |     canceled       0 |   BalanceRequest       4 |    BalanceResponse       4
+--------------------------------------------------------------------------------------------------
 Shortcuts: worker[n] cpu[c] rss[m] free[f] working[w] queued[q]
-                   worker   *cpu       rss   free  working  queued        function_id_to_tasks
-W|Windows|20678|4845f57b+  29.0%  30.6 MiB    999        1       0                   8e7b7fbe+  2
-W|Windows|20679|3cc3bc1e+  25.0%  32.5 MiB  1,000        0       1
-W|Windows|20680|95f1a794+  22.0%  32.2 MiB    999        1       1
-W|Windows|20681|57554ceb+  18.0%  30.2 MiB  1,000        0       1
-W|Windows|20682|4920c056+  15.0%  30.6 MiB  1,000        0       0
-W|Windows|20683|695d7efb+  12.0%  32.4 MiB  1,000        0       1
-W|Windows|20684|ef9f3c16+   8.0%  30.4 MiB  1,000        0       0
-W|Windows|20685|e762963c+   3.0%  32.0 MiB  1,000        0       0
-W|Windows|20686|fba5cc0d+   1.0%  32.4 MiB  1,000        0       0
-W|Windows|20687|6b14b2d0+   0.0%  30.3 MiB  1,000        0       0
+
+                 worker [cpu]      rss free working queued | function_id_to_tasks
+W|Linux|20682|4920c056+  0.0% 31.1 MiB 1000       0      0 |
+W|Linux|20679|3cc3bc1e+  0.0% 33.2 MiB 1000       0      0 |
+W|Linux|20683|695d7efb+  0.0% 33.0 MiB 1000       0      0 |
+W|Linux|20685|e762963c+  0.0% 32.5 MiB 1000       0      0 |
+W|Linux|20678|4845f57b+  0.0% 31.2 MiB 1000       0      0 |
+W|Linux|20686|fba5cc0d+  0.0% 33.0 MiB 1000       0      0 |
+W|Linux|20681|57554ceb+  0.0% 30.7 MiB 1000       0      0 |
+W|Linux|20680|95f1a794+  0.0% 32.8 MiB 1000       0      0 |
+W|Linux|20684|ef9f3c16+  0.0% 31.1 MiB 1000       0      0 |
+W|Linux|20687|6b14b2d0+  0.0% 30.9 MiB 1000       0      0 |
 ```
 
 - scheduler section is showing how much resources scheduler used

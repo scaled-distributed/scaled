@@ -108,16 +108,15 @@ def show_status(status: SchedulerStatus, screen, config):
 
     screen.clear()
     try:
-        new_row = __print_table(screen, 0, table1, padding=0)
+        new_row, max_cols = __print_table(screen, 0, table1, padding=1)
     except curses.error:
         __print_too_small(screen)
         return
 
     try:
-        max_rows, max_cols = screen.getmaxyx()
         screen.addstr(new_row, 0, "-" * max_cols)
         screen.addstr(new_row + 1, 0, "Shortcuts: " + " ".join([f"{v}[{chr(k)}]" for k, v in SORT_BY_OPTIONS.items()]))
-        _ = __print_table(screen, new_row + 2, table2)
+        _ = __print_table(screen, new_row + 3, table2)
     except curses.error:
         pass
 
@@ -159,20 +158,20 @@ def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str)
     return worker_manager_table
 
 
-def __print_table(screen, line_number, data, padding=1):
+def __print_table(screen, line_number, data, padding: int =1):
     if not data:
         return
 
     col_widths = [max(len(str(row[i])) for row in data) for i in range(len(data[0]))]
 
     for i, header in enumerate(data[0]):
-        screen.addstr(line_number, sum(col_widths[:i]) + i + (padding * i), str(header).rjust(col_widths[i]))
+        screen.addstr(line_number, sum(col_widths[:i]) + (padding * i), str(header).rjust(col_widths[i]))
 
     for i, row in enumerate(data[1:], start=1):
         for j, cell in enumerate(row):
-            screen.addstr(line_number + i, sum(col_widths[:j]) + j + (padding * j), str(cell).rjust(col_widths[j]))
+            screen.addstr(line_number + i, sum(col_widths[:j]) + (padding * j), str(cell).rjust(col_widths[j]))
 
-    return line_number + len(data)
+    return line_number + len(data), sum(col_widths) + (padding * len(col_widths))
 
 
 def __format_bytes(number) -> str:
