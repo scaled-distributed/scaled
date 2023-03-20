@@ -16,7 +16,7 @@ SORT_BY_OPTIONS = {
     ord("m"): "rss",
     ord("f"): "free",
     ord("w"): "working",
-    ord("q"): "queued",
+    ord("d"): "queued",
 }
 
 
@@ -128,7 +128,7 @@ def __generate_keyword_data(title, data, truncate_key: int = 0, format_integer: 
 
     def truncate_key_func(key):
         if truncate_key:
-            return key[:-truncate_key]
+            return f"{key[:-truncate_key]}+"
 
         return key
 
