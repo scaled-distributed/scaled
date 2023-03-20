@@ -99,21 +99,23 @@ def show_status(status: SchedulerStatus, screen, config):
         data["worker_manager"], truncate_number=24, sort_by=config["sort_by"]
     )
 
-    table1 = __merge_tables(scheduler_table, task_manager_table)
-    table1 = __merge_tables(table1, sent_table)
-    table1 = __merge_tables(table1, received_table)
+    table1 = __merge_tables(scheduler_table, task_manager_table, padding="|")
+    table1 = __merge_tables(table1, sent_table, padding="|")
+    table1 = __merge_tables(table1, received_table, padding="|")
     # table = __merge_tables(table, client_table)
 
-    table2 = __merge_tables(worker_manager_table, function_id_to_tasks, padding=4)
+    table2 = __merge_tables(worker_manager_table, function_id_to_tasks, padding="|")
 
     screen.clear()
     try:
-        new_row = __print_table(screen, 0, table1, padding=1)
+        new_row = __print_table(screen, 0, table1, padding=0)
     except curses.error:
         __print_too_small(screen)
         return
 
     try:
+        max_rows, max_cols = screen.getmaxyx()
+        screen.addstr(new_row, 0, "-" * max_cols)
         screen.addstr(new_row + 1, 0, "Shortcuts: " + " ".join([f"{v}[{chr(k)}]" for k, v in SORT_BY_OPTIONS.items()]))
         _ = __print_table(screen, new_row + 2, table2)
     except curses.error:
@@ -190,7 +192,7 @@ def __format_percentage(number):
     return f"{number:.1%}"
 
 
-def __merge_tables(left: List[List], right: List[List], padding: int = 0) -> List[List]:
+def __merge_tables(left: List[List], right: List[List], padding: str = "") -> List[List]:
     if not left:
         return right
 
@@ -210,7 +212,7 @@ def __merge_tables(left: List[List], right: List[List], padding: int = 0) -> Lis
             right_row = [""] * len(right[0])
 
         if padding:
-            padding_column = [" " * padding]
+            padding_column = [padding]
             result.append(left_row + padding_column + right_row)
         else:
             result.append(left_row + right_row)
