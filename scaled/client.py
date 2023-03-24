@@ -16,6 +16,8 @@ from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.message import (
+    Argument,
+    ArgumentType,
     FunctionRequest,
     FunctionRequestType,
     FunctionResponse,
@@ -69,7 +71,11 @@ class Client:
         task_id = uuid.uuid1().bytes
         all_args = Client.__convert_kwargs_to_args(fn, args, kwargs)
 
-        task = Task(task_id, function_id, self._serializer.serialize_arguments(all_args))
+        task = Task(
+            task_id,
+            function_id,
+            [Argument(ArgumentType.Data, data) for data in self._serializer.serialize_arguments(all_args)],
+        )
         self._task_id_to_task_function[task_id] = (task, function_bytes)
 
         self.__on_buffer_task_send(task)

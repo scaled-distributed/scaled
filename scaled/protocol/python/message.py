@@ -1,7 +1,7 @@
 import abc
 import enum
 import struct
-from typing import List, Tuple, TypeVar
+from typing import List, Tuple, TypeVar, Union
 
 import attrs
 
@@ -12,6 +12,12 @@ class MessageType(enum.Enum):
     TaskCancel = b"TC"
     TaskCancelEcho = b"TX"
     TaskResult = b"TR"
+
+    GraphTask = b"GT"
+    GraphEcho = b"GE"
+    GraphCancel = b"GC"
+    GraphCancelEcho = b"GX"
+    GraphResult = b"GR"
 
     BalanceRequest = b"BQ"
     BalanceResponse = b"BR"
@@ -59,6 +65,11 @@ class FunctionResponseType(enum.Enum):
     Duplicated = b"DC"
 
 
+class ArgumentType(enum.Enum):
+    Data = b"D"
+    Task = b"T"
+
+
 class _Message(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def serialize(self) -> Tuple[bytes, ...]:
@@ -70,6 +81,19 @@ class _Message(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
+@attrs.define
+class Argument:
+    type: ArgumentType
+    data: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.type.value, self.data
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return Argument(ArgumentType(data[0]), data[1])
+
+
 MessageVariant = TypeVar("MessageVariant", bound=_Message)
 
 
@@ -77,14 +101,14 @@ MessageVariant = TypeVar("MessageVariant", bound=_Message)
 class Task(_Message):
     task_id: bytes
     function_id: bytes
-    function_args: Tuple[bytes, ...]
+    function_args: List[Argument]
 
     def serialize(self) -> Tuple[bytes, bytes, bytes]:
-        return self.task_id, self.function_id, *self.function_args
+        return self.task_id, self.function_id, *[d for arg in self.function_args for d in arg.serialize()]
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Task(data[0], data[1], tuple(data[2:]))
+        return Task(data[0], data[1], [Argument.deserialize(data[i : i + 2]) for i in range(2, len(data), 2)])
 
 
 @attrs.define
@@ -102,7 +126,6 @@ class TaskEcho(_Message):
 
 @attrs.define
 class GraphTask(_Message):
-
     def serialize(self) -> Tuple[bytes, ...]:
         pass
 

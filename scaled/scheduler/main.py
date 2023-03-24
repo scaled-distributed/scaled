@@ -56,14 +56,14 @@ class Scheduler:
             load_balance_seconds=load_balance_seconds,
             load_balance_trigger_times=load_balance_trigger_times,
         )
-        self._eternal_reporter = StatusReporter(self._binder_monitor)
+        self._status_reporter = StatusReporter(self._binder_monitor)
 
         self._binder.register(self.on_receive_message)
         self._function_manager.hook(self._binder)
         self._task_manager.hook(self._binder, self._client_manager, self._function_manager, self._worker_manager)
         self._worker_manager.hook(self._binder, self._task_manager)
 
-        self._eternal_reporter.register_manager(
+        self._status_reporter.register_manager(
             [self._binder, self._client_manager, self._function_manager, self._task_manager, self._worker_manager]
         )
 
@@ -109,7 +109,7 @@ class Scheduler:
                 create_async_loop_routine(self._task_manager.routine, 0),
                 create_async_loop_routine(self._function_manager.routine, CLEANUP_INTERVAL_SECONDS),
                 create_async_loop_routine(self._worker_manager.routine, CLEANUP_INTERVAL_SECONDS),
-                create_async_loop_routine(self._eternal_reporter.routine, STATUS_REPORT_INTERVAL_SECONDS),
+                create_async_loop_routine(self._status_reporter.routine, STATUS_REPORT_INTERVAL_SECONDS),
                 return_exceptions=True,
             )
         except asyncio.CancelledError:

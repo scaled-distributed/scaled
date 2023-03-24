@@ -116,7 +116,8 @@ def show_status(status: SchedulerStatus, screen, config):
     try:
         screen.addstr(new_row, 0, "-" * max_cols)
         screen.addstr(new_row + 1, 0, "Shortcuts: " + " ".join([f"{v}[{chr(k)}]" for k, v in SORT_BY_OPTIONS.items()]))
-        _ = __print_table(screen, new_row + 3, table2)
+        screen.addstr(new_row + 3, 0, f"Total {len(data['worker_manager'])} worker(s)")
+        _ = __print_table(screen, new_row + 4, table2)
     except curses.error:
         pass
 
@@ -144,7 +145,8 @@ def __generate_keyword_data(title, data, truncate_key: int = 0, format_integer: 
 
 def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str):
     if not wm_data:
-        return []
+        headers = [["No workers"]]
+        return headers
 
     wm_data = sorted(wm_data, key=lambda item: item[sort_by], reverse=True)
 
@@ -158,7 +160,7 @@ def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str)
     return worker_manager_table
 
 
-def __print_table(screen, line_number, data, padding: int =1):
+def __print_table(screen, line_number, data, padding: int = 1):
     if not data:
         return
 
@@ -175,12 +177,12 @@ def __print_table(screen, line_number, data, padding: int =1):
 
 
 def __format_bytes(number) -> str:
-    for unit in ["B", "KiB", "MiB", "GiB", "TiB"]:
+    for unit in ["b", "k", "m", "g", "t"]:
         if number >= 1024.0:
             number /= 1024.0
             continue
 
-        return f"{number:.1f} {unit}"
+        return f"{number:.1f}{unit}"
 
 
 def __format_integer(number):
