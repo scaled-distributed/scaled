@@ -71,7 +71,7 @@ class AsyncConnector:
 
     async def send(self, message_type: MessageType, data: MessageVariant):
         self.__count_one("sent", message_type)
-        await self._socket.send_multipart([message_type.value, *data.serialize()])
+        await self._socket.send_multipart([message_type.value, *data.serialize()], copy=False)
 
     async def statistics(self):
         return self._statistics

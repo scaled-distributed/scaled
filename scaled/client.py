@@ -178,10 +178,6 @@ class Client:
     def __convert_kwargs_to_args(fn: Callable, args: Tuple[Any], kwargs: Dict[str, Any]) -> Tuple:
         all_params = [p for p in signature(fn).parameters.values()]
 
-        keyword_only_arguments = tuple(p.name for p in all_params if p.kind == p.KEYWORD_ONLY)
-        if keyword_only_arguments:
-            raise TypeError(f"client doesn't support {fn} has keyword only arguments: {keyword_only_arguments}")
-
         params = [p for p in all_params if p.kind in {p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD}]
 
         if len(args) >= len(params):
@@ -191,6 +187,7 @@ class Client:
 
         args = list(args)
         kwargs = kwargs.copy()
+        kwargs.update({p.name: p.default for p in all_params if p.kind == p.KEYWORD_ONLY if p.default != p.empty})
 
         for p in params[len(args) : number_of_required]:
             try:

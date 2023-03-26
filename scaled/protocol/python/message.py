@@ -1,7 +1,7 @@
 import abc
 import enum
 import struct
-from typing import List, Tuple, TypeVar, Union
+from typing import List, Tuple, TypeVar
 
 import attrs
 
@@ -14,10 +14,10 @@ class MessageType(enum.Enum):
     TaskResult = b"TR"
 
     GraphTask = b"GT"
-    GraphEcho = b"GE"
-    GraphCancel = b"GC"
-    GraphCancelEcho = b"GX"
-    GraphResult = b"GR"
+    GraphTaskEcho = b"GE"
+    GraphTaskCancel = b"GC"
+    GraphTaskCancelEcho = b"GX"
+    GraphTaskResult = b"GR"
 
     BalanceRequest = b"BQ"
     BalanceResponse = b"BR"
@@ -125,16 +125,6 @@ class TaskEcho(_Message):
 
 
 @attrs.define
-class GraphTask(_Message):
-    def serialize(self) -> Tuple[bytes, ...]:
-        pass
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return TaskEcho(data[0], TaskEchoStatus(data[1]))
-
-
-@attrs.define
 class TaskCancel(_Message):
     task_id: bytes
 
@@ -172,6 +162,94 @@ class TaskResult(_Message):
     @staticmethod
     def deserialize(data: List[bytes]):
         return TaskResult(data[0], TaskStatus(data[1]), struct.unpack("f", data[2])[0], data[3])
+
+
+@attrs.define
+class GraphTask(_Message):
+    task_id: bytes
+    targets: List[bytes]
+    graph: List[Task]
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        graph_bytes = []
+        for task in self.graph:
+            frames = task.serialize()
+            graph_bytes.append(struct.pack("I", len(frames)))
+            graph_bytes.extend(frames)
+
+        return self.task_id, struct.pack("I", len(self.targets)), *self.targets, *graph_bytes
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        index = 0
+        task_id = data[index]
+        index += 1
+        number_of_targets = struct.unpack("I", data[index])[0]
+        index += 1
+        targets = data[index : index + number_of_targets]
+        index += number_of_targets
+
+        graph = []
+        while index < len(data):
+            number_of_frames = struct.unpack("I", data[index])[0]
+            index += 1
+            graph.append(Task.deserialize(data[index : index + number_of_frames]))
+            index += number_of_frames
+
+        return GraphTask(task_id, targets, graph)
+
+
+@attrs.define
+class GraphTaskEcho(_Message):
+    task_id: bytes
+    status: TaskEchoStatus
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.task_id, self.status.value
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return GraphTaskEcho(data[0], TaskEchoStatus(data[1]))
+
+
+@attrs.define
+class GraphTaskCancel(_Message):
+    task_id: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (self.task_id,)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return GraphTaskCancel(data[0])
+
+
+@attrs.define
+class GraphTaskCancelEcho(_Message):
+    task_id: bytes
+    status: TaskEchoStatus
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.task_id, self.status.value
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return GraphTaskCancelEcho(data[0], TaskEchoStatus(data[1]))
+
+
+@attrs.define
+class GraphTaskResult(_Message):
+    task_id: bytes
+    status: TaskStatus
+    duration: float
+    result: bytes
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.task_id, self.status.value, struct.pack("f", self.duration), self.result
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return GraphTaskResult(data[0], TaskStatus(data[1]), struct.unpack("f", data[2])[0], data[3])
 
 
 @attrs.define
@@ -286,6 +364,11 @@ PROTOCOL = {
     MessageType.TaskCancel.value: TaskCancel,
     MessageType.TaskCancelEcho.value: TaskCancelEcho,
     MessageType.TaskResult.value: TaskResult,
+    MessageType.GraphTask.value: GraphTask,
+    MessageType.GraphTaskEcho.value: GraphTaskEcho,
+    MessageType.GraphTaskCancel.value: GraphTaskCancel,
+    MessageType.GraphTaskCancelEcho.value: GraphTaskCancelEcho,
+    MessageType.GraphTaskResult.value: GraphTaskResult,
     MessageType.BalanceRequest.value: BalanceRequest,
     MessageType.BalanceResponse.value: BalanceResponse,
     MessageType.FunctionRequest.value: FunctionRequest,

@@ -1,3 +1,4 @@
+import functools
 import random
 import time
 
@@ -16,6 +17,10 @@ def noop(sec: int):
 def noop_sleep(sec: int):
     time.sleep(sec)
     return sec
+
+
+def heavy_function(sec: int, payload: bytes):
+    return len(payload) * sec
 
 
 def raise_exception(foo: int):
@@ -51,6 +56,21 @@ class TestClient(unittest.TestCase):
         client.disconnect()
         time.sleep(5)
 
+    def test_heavy_function(self):
+        client = Client(address="tcp://127.0.0.1:2345")
+
+        size = 500_000_000
+        tasks = [random.randint(0, 100) for _ in range(100000)]
+        function = functools.partial(heavy_function, payload=b"1" * size)
+        with ScopedLogger(f"submit {len(tasks)} tasks"):
+            futures = [client.submit(function, i) for i in tasks]
+
+        with ScopedLogger(f"gather {len(futures)} results"):
+            results = [future.result() for future in futures]
+
+        expected = [task * size for task in tasks]
+        self.assertEqual(results, expected)
+
     def test_sleep(self):
         client = Client(address="tcp://127.0.0.1:2345")
 
@@ -85,17 +105,16 @@ class TestClient(unittest.TestCase):
 
         client = Client(address="tcp://127.0.0.1:2345")
 
-        future = client.submit(func_args, 1, c=4, b=2)
-        self.assertEqual(future.result(), (1, 2, 4, 0))
-
-        future = client.submit(func_args, d=5, b=3, c=1, a=4)
-        self.assertEqual(future.result(), (4, 3, 1, 5))
-
-        future = client.submit(func_args, 1, c=4, b=2, d=6)
-        self.assertEqual(future.result(), (1, 2, 4, 6))
+        self.assertEqual(client.submit(func_args, 1, c=4, b=2).result(), (1, 2, 4, 0))
+        self.assertEqual(client.submit(func_args, d=5, b=3, c=1, a=4).result(), (4, 3, 1, 5))
+        self.assertEqual(client.submit(func_args, 1, c=4, b=2, d=6).result(), (1, 2, 4, 6))
+        self.assertEqual(client.submit(functools.partial(func_args, 5, 6), 1, 2).result(), (5, 6, 1, 2))
 
         with self.assertRaises(TypeError):
             client.submit(func_args, 1)
 
         with self.assertRaises(TypeError):
-            client.submit(func_args2, 1, c=4, b=2, d=6)
+            client.submit(func_args2, 1, c=4, b=2, d=6).result()
+
+        with self.assertRaises(TypeError):
+            client.submit(func_args2, a=3, b=4).result()

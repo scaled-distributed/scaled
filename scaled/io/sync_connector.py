@@ -81,7 +81,7 @@ class SyncConnector(threading.Thread):
         self._send_queue.put((message_type, message))
 
     def send_immediately(self, message_type: MessageType, message: MessageVariant):
-        self._socket.send_multipart([message_type.value, *message.serialize()])
+        self._socket.send_multipart([message_type.value, *message.serialize()], copy=False)
 
     def monitor(self):
         with self._statistics_mutex:

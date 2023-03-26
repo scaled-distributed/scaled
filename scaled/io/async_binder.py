@@ -50,7 +50,7 @@ class AsyncBinder(Looper, Reporter):
 
     async def send(self, to: bytes, message_type: MessageType, message: MessageVariant):
         self.__count_one("sent", message_type)
-        await self._socket.send_multipart([to, message_type.value, *message.serialize()])
+        await self._socket.send_multipart([to, message_type.value, *message.serialize()], copy=False)
 
     def __set_socket_options(self):
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
