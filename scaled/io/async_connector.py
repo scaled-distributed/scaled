@@ -47,7 +47,10 @@ class AsyncConnector:
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
     def __del__(self):
-        self._socket.close()
+        self.shutdown()
+
+    def shutdown(self):
+        self._context.destroy()
 
     @property
     def identity(self) -> bytes:

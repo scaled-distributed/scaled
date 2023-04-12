@@ -12,6 +12,8 @@ from scaled.utility.zmq_config import ZMQConfig
 
 SORT_BY_OPTIONS = {
     ord("n"): "worker",
+    ord("C"): "agt_cpu",
+    ord("M"): "agt_rss",
     ord("c"): "cpu",
     ord("m"): "rss",
     ord("f"): "free",
@@ -152,6 +154,8 @@ def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str)
 
     for row in wm_data:
         row["worker"] = f"{row['worker'][:-truncate_number]}+" if truncate_number else row["worker"]
+        row["agt_cpu"] = __format_percentage(row["agt_cpu"])
+        row["agt_rss"] = __format_bytes(row["agt_rss"])
         row["cpu"] = __format_percentage(row["cpu"])
         row["rss"] = __format_bytes(row["rss"])
 

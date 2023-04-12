@@ -7,7 +7,6 @@ from scaled.io.config import (
     DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     DEFAULT_NUMBER_OF_WORKER,
     DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
-    DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
 )
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.utility.event_loop import EventLoopType, register_event_loop
@@ -53,13 +52,6 @@ def get_args():
         help="number of bytes threshold to enable libc to trim memory",
     )
     parser.add_argument(
-        "--processing-queue-size",
-        "-pq",
-        type=int,
-        default=DEFAULT_WORKER_PROCESSING_QUEUE_SIZE,
-        help="number of tasks in each worker that cannot be canceled or rebalanced",
-    )
-    parser.add_argument(
         "--event-loop", "-el", default="builtin", choices=EventLoopType.allowed_types(), help="select event loop type"
     )
     parser.add_argument("address", type=ZMQConfig.from_string, help="scheduler address to connect to")
@@ -78,7 +70,6 @@ def main():
         function_retention_seconds=args.function_retention_seconds,
         garbage_collect_interval_seconds=args.garbage_collect_interval_seconds,
         trim_memory_threshold_bytes=args.trim_memory_threshold_bytes,
-        processing_queue_size=args.processing_queue_size,
         event_loop=args.event_loop,
         serializer=DefaultSerializer(),
     )

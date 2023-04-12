@@ -21,7 +21,6 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         function_retention_seconds: int,
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
-        processing_queue_size: int,
         event_loop: str,
         serializer: Serializer,
     ):
@@ -35,7 +34,6 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         self._function_retention_seconds = function_retention_seconds
         self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
         self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
-        self._processing_queue_size = processing_queue_size
         self._event_loop = event_loop
         self._serializer = serializer
 
@@ -48,7 +46,10 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
 
     def __shutdown(self, *args):
         assert args is not None
-        logging.info(f"received signal, abort")
+        logging.info(f"received signal, aborting")
+        for worker in self._workers:
+            worker.terminate()
+
         self._stop_event.set()
 
     def __register_signal(self):
@@ -63,18 +64,15 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
 
         self._workers = [
             Worker(
-                index=i,
+                event_loop=self._event_loop,
                 address=self._address,
-                stop_event=self._stop_event,
                 heartbeat_interval_seconds=self._heartbeat_interval_seconds,
-                function_retention_seconds=self._function_retention_seconds,
                 garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
                 trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
-                processing_queue_size=self._processing_queue_size,
-                event_loop=self._event_loop,
                 serializer=self._serializer,
+                function_retention_seconds=self._function_retention_seconds,
             )
-            for i in range(self._n_workers)
+            for _ in range(self._n_workers)
         ]
 
         if self._n_workers == 1:
@@ -85,15 +83,14 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
             worker.start()
 
         for i, worker in enumerate(self._workers):
-            logging.info(f"Worker[{i}] started")
+            logging.info(f"Worker[{worker.ident}] started")
 
         while not self._stop_event.is_set():
-            time.sleep(0.1)
-            continue
+            time.sleep(1)
 
-        for i, worker in enumerate(self._workers):
+        for worker in self._workers:
+            logging.info(f"Worker[{worker.ident}] quiting")
             worker.join()
-            logging.info(f"Worker[{i}] quited")
 
         logging.info(f"{self.__get_prefix()} shutdown")
 

@@ -281,16 +281,22 @@ class BalanceResponse(_Message):
 
 @attrs.define
 class Heartbeat(_Message):
-    cpu_usage: float
-    rss_size: int
+    agent_cpu: float
+    agent_rss: int
+    worker_cpu: float
+    worker_rss: int
     queued_tasks: int
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return (struct.pack("fQI", self.cpu_usage, self.rss_size, self.queued_tasks),)
+        return (
+            struct.pack(
+                "fQfQI", self.agent_cpu, self.agent_rss, self.worker_cpu, self.worker_rss, self.queued_tasks
+            ),
+        )
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(*struct.unpack("fQI", data[0]))
+        return Heartbeat(*struct.unpack("fQfQI", data[0]))
 
 
 @attrs.define

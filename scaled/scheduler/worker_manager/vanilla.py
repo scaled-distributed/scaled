@@ -122,8 +122,10 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             "worker_manager": [
                 {
                     "worker": worker.decode(),
-                    "cpu": round(info.cpu_usage, 2),
-                    "rss": info.rss_size,
+                    "agt_cpu": round(info.agent_cpu, 2),
+                    "agt_rss": info.agent_rss,
+                    "cpu": round(info.worker_cpu, 2),
+                    "rss": info.worker_rss,
                     **worker_to_task_numbers[worker],
                     "queued": info.queued_tasks,
                 }
