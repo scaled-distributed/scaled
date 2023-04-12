@@ -96,7 +96,7 @@ class QueuedAllocator(TaskAllocator):
 
     def statistics(self) -> Dict:
         return {
-            worker: {"free": self._max_tasks_per_worker - len(tasks), "working": len(tasks)}
+            worker: {"free": self._max_tasks_per_worker - len(tasks), "sent": len(tasks)}
             for worker, tasks in self._workers_to_task_ids.items()
         }
 

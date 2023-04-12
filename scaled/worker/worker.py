@@ -1,167 +1,140 @@
-import logging
+import asyncio
 import multiprocessing
-import pickle
 import signal
-import time
-from typing import Callable, Dict, Optional
+from typing import Optional
 
-import tblib.pickling_support
-import zmq
 import zmq.asyncio
 
-from scaled.io.sync_connector import SyncConnector
+from scaled.io.async_connector import AsyncConnector
+from scaled.io.config import CLEANUP_INTERVAL_SECONDS
+from scaled.protocol.python.message import DisconnectRequest, MessageType, MessageVariant
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
-from scaled.utility.zmq_config import ZMQConfig, ZMQType
-from scaled.protocol.python.message import (
-    FunctionRequest,
-    FunctionRequestType,
-    MessageType,
-    MessageVariant,
-    Task,
-    TaskResult,
-    TaskStatus,
-)
-from scaled.worker.agent.agent_thread import AgentThread
-from scaled.worker.memory_cleaner import MemoryCleaner
+from scaled.utility.event_loop import create_async_loop_routine, register_event_loop
+from scaled.utility.zmq_config import ZMQConfig
+from scaled.worker.agent.function_cache import VanillaFunctionCacheManager
+from scaled.worker.agent.heartbeat import VanillaHeartbeatManager
+from scaled.worker.agent.task_manager import VanillaTaskManager
+from scaled.worker.agent.processor_manager import VanillaProcessorManager
 
 
 class Worker(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
-        index: int,
+        event_loop: str,
         address: ZMQConfig,
-        stop_event: multiprocessing.Event,
         heartbeat_interval_seconds: int,
-        function_retention_seconds: int,
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
-        processing_queue_size: int,
-        event_loop: str,
         serializer: FunctionSerializerType,
+        function_retention_seconds: int,
     ):
-        multiprocessing.Process.__init__(self, name="Worker")
+        multiprocessing.Process.__init__(self, name="Agent")
 
-        self._index = index
+        self._event_loop = event_loop
         self._address = address
+
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
-        self._function_retention_seconds = function_retention_seconds
         self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
         self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
-        self._processing_queue_size = processing_queue_size
-        self._event_loop = event_loop
-        self._stop_event = stop_event
         self._serializer = serializer
+        self._function_retention_seconds = function_retention_seconds
 
-        self._agent: Optional[AgentThread] = None
-        self._internal_connector: Optional[SyncConnector] = None
-        self._cleaner: Optional[MemoryCleaner] = None
-        self._ready_event = multiprocessing.get_context("spawn").Event()
+        self._connector_external: Optional[AsyncConnector] = None
+        self._task_manager: Optional[VanillaTaskManager] = None
+        self._function_cache: Optional[VanillaFunctionCacheManager] = None
+        self._heartbeat: Optional[VanillaHeartbeatManager] = None
+        self._processor_manager: Optional[VanillaProcessorManager] = None
 
-        self._cached_functions: Dict[bytes, Callable] = {}
-
-    def wait_till_ready(self):
-        while not self._ready_event.is_set():
-            continue
+    @property
+    def identity(self):
+        return self._connector_external.identity
 
     def run(self) -> None:
         self.__initialize()
         self.__run_forever()
 
-    def shutdown(self, *args):
-        assert args is not None
-        self._stop_event.set()
-        self._agent.terminate()
-
     def __initialize(self):
-        self.__register_signal()
-        tblib.pickling_support.install()
+        register_event_loop(self._event_loop)
 
-        context = zmq.Context()
-        internal_address = ZMQConfig(type=ZMQType.inproc, host="memory")
-
-        self._internal_connector = SyncConnector(
-            stop_event=self._stop_event,
-            prefix="AW",
-            context=context,
-            socket_type=zmq.PAIR,
+        self._connector_external = AsyncConnector(
+            context=zmq.asyncio.Context(),
+            prefix="W",
+            socket_type=zmq.DEALER,
+            address=self._address,
             bind_or_connect="connect",
-            address=internal_address,
-            callback=self.__on_connector_receive,
-            exit_callback=None,
-            daemonic=False,
+            callback=self.__on_receive_external,
         )
 
-        self._agent = AgentThread(
-            external_address=self._address,
-            internal_context=zmq.asyncio.Context.shadow(context.underlying),
-            internal_address=internal_address,
-            heartbeat_interval_seconds=self._heartbeat_interval_seconds,
-            function_retention_seconds=self._function_retention_seconds,
-            processing_queue_size=self._processing_queue_size,
+        self._function_cache = VanillaFunctionCacheManager(function_retention_seconds=self._function_retention_seconds)
+        self._task_manager = VanillaTaskManager()
+        self._heartbeat = VanillaHeartbeatManager()
+        self._processor_manager = VanillaProcessorManager(
             event_loop=self._event_loop,
-        )
-        self._agent.start()
-
-        self._cleaner = MemoryCleaner(
-            stop_event=self._stop_event,
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
             trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
+            serializer=self._serializer,
         )
-        self._cleaner.start()
 
-        # worker is ready
-        self._ready_event.set()
+        # register
+        self._function_cache.register(
+            connector_external=self._connector_external,
+            task_manager=self._task_manager,
+            internal_manager=self._processor_manager,
+        )
+        self._task_manager.register(processor_manager=self._processor_manager)
+        self._heartbeat.register(connector_external=self._connector_external, worker_task_manager=self._task_manager)
+        self._processor_manager.register(heartbeat=self._heartbeat, function_cache=self._function_cache)
+
+        self._processor_manager.restart_processor()
+        self._loop = asyncio.new_event_loop()
+        self.__register_signal()
+        self._task = self._loop.create_task(self.__get_loops())
+
+    async def __on_receive_external(self, message_type: MessageType, message: MessageVariant):
+        if message_type == MessageType.Task:
+            await self._function_cache.on_new_task(message)
+            return
+
+        if message_type == MessageType.TaskCancel:
+            await self._function_cache.on_cancel_task(message)
+            return
+
+        if message_type == MessageType.BalanceRequest:
+            await self._function_cache.on_balance_request(message)
+            return
+
+        if message_type == MessageType.FunctionResponse:
+            await self._function_cache.on_new_function(message)
+            return
+
+        raise TypeError(f"Unknown {message_type=} {message=}")
+
+    async def __get_loops(self):
+        try:
+            await asyncio.gather(
+                create_async_loop_routine(self._connector_external.routine, 0),
+                create_async_loop_routine(self._function_cache.routine, CLEANUP_INTERVAL_SECONDS),
+                create_async_loop_routine(self._task_manager.routine, 0),
+                create_async_loop_routine(self._heartbeat.routine, self._heartbeat_interval_seconds),
+                create_async_loop_routine(self._processor_manager.routine, 0),
+                return_exceptions=True,
+            )
+        except asyncio.CancelledError:
+            pass
+        except KeyboardInterrupt:
+            pass
+
+        await self._connector_external.send(
+            MessageType.DisconnectRequest, DisconnectRequest(self._connector_external.identity)
+        )
 
     def __run_forever(self):
-        self._internal_connector.run()
-        self.shutdown()
+        self._loop.run_until_complete(self._task)
 
     def __register_signal(self):
-        signal.signal(signal.SIGINT, self.shutdown)
-        signal.signal(signal.SIGTERM, self.shutdown)
+        self._loop.add_signal_handler(signal.SIGINT, self.__shutdown)
+        self._loop.add_signal_handler(signal.SIGTERM, self.__shutdown)
 
-    def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.FunctionRequest:
-            self.__on_receive_function_request(message)
-            return
-
-        if message_type == MessageType.Task:
-            self.__on_received_task(message)
-            return
-
-        logging.error(f"unknown {message_type=}")
-
-    def __on_receive_function_request(self, request: FunctionRequest):
-        if request.type == FunctionRequestType.Add:
-            self._cached_functions[request.function_id] = self._serializer.deserialize_function(request.content)
-            return
-
-        if request.type == FunctionRequestType.Delete:
-            self._cached_functions.pop(request.function_id)
-            return
-
-        logging.error(f"unknown request function request type {request=}")
-
-    def __on_received_task(self, task: Task):
-        begin = time.monotonic()
-        try:
-            function = self._cached_functions[task.function_id]
-            args = self._serializer.deserialize_arguments(tuple(arg.data for arg in task.function_args))
-            result = function(*args)
-            result_bytes = self._serializer.serialize_result(result)
-            self._internal_connector.send_immediately(
-                MessageType.TaskResult,
-                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes),
-            )
-
-        except Exception as e:
-            logging.exception(f"exception when processing task_id={task.task_id.hex()}:")
-            self._internal_connector.send_immediately(
-                MessageType.TaskResult,
-                TaskResult(
-                    task.task_id,
-                    TaskStatus.Failed,
-                    time.monotonic() - begin,
-                    pickle.dumps(e, protocol=pickle.HIGHEST_PROTOCOL),
-                ),
-            )
+    def __shutdown(self):
+        self._processor_manager.shutdown()
+        self._task.cancel()

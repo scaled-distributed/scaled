@@ -38,6 +38,8 @@ def create_async_loop_routine(routine: Callable[[], Awaitable], seconds: int):
                 await asyncio.sleep(seconds)
         except asyncio.CancelledError:
             pass
+        except KeyboardInterrupt:
+            pass
 
         logging.info(f"{routine.__self__.__class__.__name__}: exited")
 

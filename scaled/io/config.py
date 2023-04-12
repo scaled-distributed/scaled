@@ -51,6 +51,3 @@ DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS = 30
 
 # number of bytes threshold for worker process that trigger deep garbage collection
 DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES = 1024 * 1024 * 1024
-
-# number of tasks that will be processed on worker and cannot be canceled
-DEFAULT_WORKER_PROCESSING_QUEUE_SIZE = 1
