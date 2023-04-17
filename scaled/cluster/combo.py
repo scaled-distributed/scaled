@@ -38,9 +38,7 @@ class SchedulerClusterCombo:
         per_worker_queue_size: int = DEFAULT_PER_WORKER_QUEUE_SIZE,
         serializer: Serializer = DefaultSerializer(),
     ):
-        self._stop_event = multiprocessing.get_context("spawn").Event()
         self._cluster = ClusterProcess(
-            stop_event=self._stop_event,
             address=ZMQConfig.from_string(address),
             n_workers=n_workers,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
@@ -70,8 +68,7 @@ class SchedulerClusterCombo:
 
     def shutdown(self):
         logging.info(f"{self.__get_prefix()} shutdown")
-        self._stop_event.set()
-        self._cluster.join()
+        self._cluster.terminate()
         self._scheduler.terminate()
 
     def __get_prefix(self):

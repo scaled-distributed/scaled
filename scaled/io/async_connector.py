@@ -50,7 +50,7 @@ class AsyncConnector:
         self.shutdown()
 
     def shutdown(self):
-        self._context.destroy()
+        self._context.destroy(linger=1)
 
     @property
     def identity(self) -> bytes:

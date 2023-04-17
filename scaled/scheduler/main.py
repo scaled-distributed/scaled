@@ -1,8 +1,6 @@
 import asyncio
 import functools
-import json
 import logging
-import uuid
 
 import zmq.asyncio
 
@@ -114,6 +112,8 @@ class Scheduler:
             )
         except asyncio.CancelledError:
             pass
+
+        self._binder.shutdown()
 
 
 @functools.wraps(Scheduler)
