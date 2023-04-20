@@ -1,5 +1,4 @@
 import abc
-from typing import List
 
 from scaled.protocol.python.message import BalanceRequest, FunctionResponse, Task, TaskCancel, TaskResult
 
@@ -10,13 +9,15 @@ class Looper(metaclass=abc.ABCMeta):
         pass
 
 
-class FunctionCacheManager(metaclass=abc.ABCMeta):
+class HeartbeatManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_new_task(self, task: Task):
+    def set_processor_pid(self, process_id: int):
         raise NotImplementedError()
 
+
+class TaskManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def on_cancel_task(self, task_cancel: TaskCancel):
+    async def on_task_new(self, task: Task):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -24,23 +25,21 @@ class FunctionCacheManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_balance_request(self, request: BalanceRequest):
+    async def on_cancel_task(self, task_cancel: TaskCancel):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_new_function(self, response: FunctionResponse):
+    def on_balance_request(self, balance_request: BalanceRequest):
         raise NotImplementedError()
 
-
-class HeartbeatManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def set_processor_pid(self, process_id: int):
+    def get_queued_size(self):
         raise NotImplementedError()
 
 
 class ProcessorManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def on_add_function(self, function_id: bytes, function_content: bytes):
+    def on_add_function(self, function_response: FunctionResponse):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -64,27 +63,5 @@ class ProcessorManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def shutdown(self):
-        raise NotImplementedError()
-
-
-class TaskManager(metaclass=abc.ABCMeta):
-    @abc.abstractmethod
-    async def on_queue_task(self, task: Task):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def on_task_result(self, task_id: bytes):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def on_cancel_task(self, task_id: bytes) -> bool:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def on_balance_remove_tasks(self, number_of_tasks: int) -> List[bytes]:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def get_queued_size(self):
+    def destroy(self):
         raise NotImplementedError()

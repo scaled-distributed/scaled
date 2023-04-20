@@ -1,9 +1,10 @@
 import logging
 import multiprocessing
 import pickle
+import signal
 import threading
 import time
-from typing import Callable, Dict, Optional
+from typing import Optional
 
 import tblib.pickling_support
 import zmq
@@ -20,7 +21,7 @@ from scaled.protocol.python.message import (
 )
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.agent.processor.memory_cleaner import MemoryCleaner
+from scaled.worker.agent.processor.cache_cleaner import CacheCleaner
 
 
 class Processor(multiprocessing.get_context("spawn").Process):
@@ -30,6 +31,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
         address: ZMQConfig,
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
+        function_retention_seconds: int,
         serializer: FunctionSerializerType,
     ):
         multiprocessing.Process.__init__(self, name="Processor")
@@ -39,10 +41,11 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
         self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
         self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
+        self._function_retention_seconds = function_retention_seconds
         self._serializer = serializer
 
-        self._memory_cleaner: Optional[MemoryCleaner] = None
-        self._cached_functions: Dict[bytes, Callable] = {}
+        self._cache_cleaner: Optional[CacheCleaner] = None
+        self._onhold_task: Optional[Task] = None
 
     def run(self) -> None:
         self.__initialize()
@@ -63,11 +66,12 @@ class Processor(multiprocessing.get_context("spawn").Process):
             daemonic=False,
         )
 
-        self._memory_cleaner = MemoryCleaner(
+        self._cache_cleaner = CacheCleaner(
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
             trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
+            function_retention_seconds=self._function_retention_seconds,
         )
-        self._memory_cleaner.start()
+        self._cache_cleaner.start()
 
     def __run_forever(self):
         try:
@@ -88,19 +92,36 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __on_receive_function_request(self, request: FunctionRequest):
         if request.type == FunctionRequestType.Add:
-            self._cached_functions[request.function_id] = self._serializer.deserialize_function(request.content)
+            self._cache_cleaner.add_function(
+                request.function_id, self._serializer.deserialize_function(request.content)
+            )
+            task = self._onhold_task
+            self._onhold_task = None
+            self.__process_task(task)
             return
 
         if request.type == FunctionRequestType.Delete:
-            self._cached_functions.pop(request.function_id)
+            self._cache_cleaner.del_function(request.function_id)
             return
 
         logging.error(f"unknown request function request type {request=}")
 
     def __on_received_task(self, task: Task):
+        function = self._cache_cleaner.get_function(task.function_id)
+        if function is None:
+            assert self._onhold_task is None
+            self._onhold_task = task
+            self._connector.send_immediately(
+                MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
+            )
+            return
+
+        self.__process_task(task)
+
+    def __process_task(self, task: Task):
         begin = time.monotonic()
         try:
-            function = self._cached_functions[task.function_id]
+            function = self._cache_cleaner.get_function(task.function_id)
             args = self._serializer.deserialize_arguments(tuple(arg.data for arg in task.function_args))
             result = function(*args)
             result_bytes = self._serializer.serialize_result(result)
@@ -120,3 +141,10 @@ class Processor(multiprocessing.get_context("spawn").Process):
                     pickle.dumps(e, protocol=pickle.HIGHEST_PROTOCOL),
                 ),
             )
+
+    def __register_signal(self):
+        signal.signal(signal.SIGINT, self.__destroy)
+        signal.signal(signal.SIGTERM, self.__destroy)
+
+    def __destroy(self):
+        self._connector.destroy()

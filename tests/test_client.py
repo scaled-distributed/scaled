@@ -36,7 +36,7 @@ class TestClient(unittest.TestCase):
         # need server
         client = Client(address="tcp://127.0.0.1:2345")
 
-        tasks = [random.randint(0, 100) for _ in range(10000)]
+        tasks = [random.randint(0, 100) for _ in range(100000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(noop, i) for i in tasks]
 
@@ -54,7 +54,6 @@ class TestClient(unittest.TestCase):
 
         time.sleep(1)
         client.disconnect()
-        time.sleep(1)
 
     def test_heavy_function(self):
         client = Client(address="tcp://127.0.0.1:2345")

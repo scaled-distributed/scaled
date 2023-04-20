@@ -113,7 +113,8 @@ class Scheduler:
         except asyncio.CancelledError:
             pass
 
-        self._binder.shutdown()
+        self._binder.destroy()
+        self._binder_monitor.destroy()
 
 
 @functools.wraps(Scheduler)

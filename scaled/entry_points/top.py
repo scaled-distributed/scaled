@@ -17,7 +17,7 @@ SORT_BY_OPTIONS = {
     ord("c"): "cpu",
     ord("m"): "rss",
     ord("f"): "free",
-    ord("w"): "working",
+    ord("w"): "sent",
     ord("d"): "queued",
 }
 

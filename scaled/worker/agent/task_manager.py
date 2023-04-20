@@ -1,6 +1,15 @@
 from typing import Dict, List, Optional
 
-from scaled.protocol.python.message import Task
+from scaled.io.async_connector import AsyncConnector
+from scaled.protocol.python.message import (
+    BalanceRequest,
+    MessageType,
+    Task,
+    TaskCancel,
+    TaskCancelEcho,
+    TaskEchoStatus,
+    TaskResult,
+)
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
 from scaled.worker.agent.mixins import Looper, ProcessorManager, TaskManager
 
@@ -10,34 +19,44 @@ class VanillaTaskManager(Looper, TaskManager):
         self._queued_task_id_to_task: Dict[bytes, Task] = dict()
         self._queued_task_ids = IndexedQueue()
 
+        self._connector_external: Optional[AsyncConnector] = None
         self._processor_manager: Optional[ProcessorManager] = None
 
-    def register(self, processor_manager: ProcessorManager):
+    def register(self, connector: AsyncConnector, processor_manager: ProcessorManager):
+        self._connector_external = connector
         self._processor_manager = processor_manager
 
-    async def on_queue_task(self, task: Task):
+    async def on_task_new(self, task: Task):
         self._queued_task_id_to_task[task.task_id] = task
-        self._queued_task_ids.put_nowait(task.task_id)
+        await self._queued_task_ids.put(task.task_id)
 
     async def routine(self):
         await self.__processing_task()
 
-    def on_task_result(self, task_id: bytes):
-        self._processor_manager.on_task_result(task_id)
+    async def on_task_result(self, result: TaskResult):
+        await self._connector_external.send(MessageType.TaskResult, result)
 
-    def on_cancel_task(self, task_id: bytes) -> bool:
-        if task_id in self._queued_task_id_to_task:
-            self._queued_task_id_to_task.pop(task_id)
-            self._queued_task_ids.remove(task_id)
-            return True
+    async def on_cancel_task(self, task_cancel: TaskCancel):
+        if task_cancel.task_id in self._queued_task_id_to_task:
+            self._queued_task_id_to_task.pop(task_cancel.task_id)
+            self._queued_task_ids.remove(task_cancel.task_id)
+            await self._connector_external.send(
+                MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelOK)
+            )
+            return
 
-        if self._processor_manager.on_cancel_task(task_id):
-            return True
+        if self._processor_manager.on_cancel_task(task_cancel.task_id):
+            await self._connector_external.send(
+                MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelOK)
+            )
+            return
 
-        return False
+        await self._connector_external.send(
+            MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelFailed)
+        )
 
-    def on_balance_remove_tasks(self, number_of_tasks: int) -> List[bytes]:
-        number_of_tasks = min(number_of_tasks, self._queued_task_ids.qsize())
+    def on_balance_request(self, balance_request: BalanceRequest) -> List[bytes]:
+        number_of_tasks = min(balance_request.number_of_tasks, self._queued_task_ids.qsize())
         removed_tasks = []
         while number_of_tasks:
             task_id = self._queued_task_ids.get_nowait()

@@ -47,9 +47,9 @@ class AsyncConnector:
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
     def __del__(self):
-        self.shutdown()
+        self.destroy()
 
-    def shutdown(self):
+    def destroy(self):
         self._context.destroy(linger=1)
 
     @property

@@ -63,7 +63,10 @@ class SyncConnector(threading.Thread):
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
     def __del__(self):
-        self._socket.close()
+        self.destroy()
+
+    def destroy(self):
+        self._context.destroy(linger=0)
 
     @property
     def identity(self) -> bytes:

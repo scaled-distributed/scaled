@@ -26,8 +26,8 @@ class AsyncBinder(Looper, Reporter):
 
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
-    def shutdown(self):
-        self._context.destroy(linger=1)
+    def destroy(self):
+        self._context.destroy(linger=0)
 
     def register(self, callback: Callable[[bytes, MessageType, MessageVariant], Awaitable[None]]):
         self._callback = callback

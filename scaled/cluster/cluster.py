@@ -40,15 +40,15 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         self.__register_signal()
         self.__start_workers_and_run_forever()
 
-    def __shutdown(self, *args):
+    def __destroy(self, *args):
         assert args is not None
         logging.info(f"{self.__get_prefix()} received signal, shutting down")
         for worker in self._workers:
             worker.terminate()
 
     def __register_signal(self):
-        signal.signal(signal.SIGINT, self.__shutdown)
-        signal.signal(signal.SIGTERM, self.__shutdown)
+        signal.signal(signal.SIGINT, self.__destroy)
+        signal.signal(signal.SIGTERM, self.__destroy)
 
     def __start_workers_and_run_forever(self):
         logging.info(

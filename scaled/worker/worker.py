@@ -6,12 +6,10 @@ from typing import Optional
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.io.config import CLEANUP_INTERVAL_SECONDS
-from scaled.protocol.python.message import DisconnectRequest, MessageType, MessageVariant
+from scaled.protocol.python.message import BalanceResponse, DisconnectRequest, MessageType, MessageVariant
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.event_loop import create_async_loop_routine, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.agent.function_cache import VanillaFunctionCacheManager
 from scaled.worker.agent.heartbeat import VanillaHeartbeatManager
 from scaled.worker.agent.task_manager import VanillaTaskManager
 from scaled.worker.agent.processor_manager import VanillaProcessorManager
@@ -41,7 +39,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
         self._connector_external: Optional[AsyncConnector] = None
         self._task_manager: Optional[VanillaTaskManager] = None
-        self._function_cache: Optional[VanillaFunctionCacheManager] = None
         self._heartbeat: Optional[VanillaHeartbeatManager] = None
         self._processor_manager: Optional[VanillaProcessorManager] = None
 
@@ -65,25 +62,22 @@ class Worker(multiprocessing.get_context("spawn").Process):
             callback=self.__on_receive_external,
         )
 
-        self._function_cache = VanillaFunctionCacheManager(function_retention_seconds=self._function_retention_seconds)
         self._task_manager = VanillaTaskManager()
         self._heartbeat = VanillaHeartbeatManager()
         self._processor_manager = VanillaProcessorManager(
             event_loop=self._event_loop,
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
             trim_memory_threshold_bytes=self._trim_memory_threshold_bytes,
+            function_retention_seconds=self._function_retention_seconds,
             serializer=self._serializer,
         )
 
         # register
-        self._function_cache.register(
-            connector_external=self._connector_external,
-            task_manager=self._task_manager,
-            internal_manager=self._processor_manager,
-        )
-        self._task_manager.register(processor_manager=self._processor_manager)
+        self._task_manager.register(connector=self._connector_external, processor_manager=self._processor_manager)
         self._heartbeat.register(connector_external=self._connector_external, worker_task_manager=self._task_manager)
-        self._processor_manager.register(heartbeat=self._heartbeat, function_cache=self._function_cache)
+        self._processor_manager.register(
+            heartbeat=self._heartbeat, task_manager=self._task_manager, connector_external=self._connector_external
+        )
 
         self._processor_manager.restart_processor()
         self._loop = asyncio.new_event_loop()
@@ -92,19 +86,20 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     async def __on_receive_external(self, message_type: MessageType, message: MessageVariant):
         if message_type == MessageType.Task:
-            await self._function_cache.on_new_task(message)
+            await self._task_manager.on_task_new(message)
             return
 
         if message_type == MessageType.TaskCancel:
-            await self._function_cache.on_cancel_task(message)
+            await self._task_manager.on_cancel_task(message)
             return
 
         if message_type == MessageType.BalanceRequest:
-            await self._function_cache.on_balance_request(message)
+            task_ids = self._task_manager.on_balance_request(message)
+            await self._connector_external.send(MessageType.BalanceResponse, BalanceResponse(task_ids))
             return
 
         if message_type == MessageType.FunctionResponse:
-            await self._function_cache.on_new_function(message)
+            await self._processor_manager.on_add_function(message)
             return
 
         raise TypeError(f"Unknown {message_type=} {message=}")
@@ -113,7 +108,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
         try:
             await asyncio.gather(
                 create_async_loop_routine(self._connector_external.routine, 0),
-                create_async_loop_routine(self._function_cache.routine, CLEANUP_INTERVAL_SECONDS),
                 create_async_loop_routine(self._task_manager.routine, 0),
                 create_async_loop_routine(self._heartbeat.routine, self._heartbeat_interval_seconds),
                 create_async_loop_routine(self._processor_manager.routine, 0),
@@ -128,15 +122,15 @@ class Worker(multiprocessing.get_context("spawn").Process):
             MessageType.DisconnectRequest, DisconnectRequest(self._connector_external.identity)
         )
 
-        self._connector_external.shutdown()
-        self._processor_manager.shutdown()
+        self._connector_external.destroy()
+        self._processor_manager.destroy()
 
     def __run_forever(self):
         self._loop.run_until_complete(self._task)
 
     def __register_signal(self):
-        self._loop.add_signal_handler(signal.SIGINT, self.__shutdown)
-        self._loop.add_signal_handler(signal.SIGTERM, self.__shutdown)
+        self._loop.add_signal_handler(signal.SIGINT, self.__destroy)
+        self._loop.add_signal_handler(signal.SIGTERM, self.__destroy)
 
-    def __shutdown(self):
+    def __destroy(self):
         self._task.cancel()
