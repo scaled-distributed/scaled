@@ -45,7 +45,7 @@ class VanillaTaskManager(Looper, TaskManager):
             )
             return
 
-        if self._processor_manager.on_cancel_task(task_cancel.task_id):
+        if await self._processor_manager.on_cancel_task(task_cancel.task_id):
             await self._connector_external.send(
                 MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelOK)
             )
@@ -70,6 +70,9 @@ class VanillaTaskManager(Looper, TaskManager):
         return self._queued_task_ids.qsize()
 
     async def __processing_task(self):
-        task_id = await self._queued_task_ids.get()
-        task = self._queued_task_id_to_task.pop(task_id)
-        await self._processor_manager.on_task(task)
+        task = self._queued_task_id_to_task.pop(await self._queued_task_ids.get())
+        if await self._processor_manager.on_task(task):
+            return
+
+        await self._queued_task_ids.put(task.task_id)
+        self._queued_task_id_to_task[task.task_id] = task

@@ -10,7 +10,7 @@ from scaled.worker.agent.mixins import Looper, HeartbeatManager, TaskManager
 class VanillaHeartbeatManager(Looper, HeartbeatManager):
     def __init__(self):
         self._agent_process = psutil.Process()
-        self._worker_process = None
+        self._worker_process: Optional[psutil.Process] = None
 
         self._connector_external: Optional[AsyncConnector] = None
         self._worker_task_manager: Optional[TaskManager] = None
@@ -23,6 +23,9 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
         self._worker_process = psutil.Process(process_id)
 
     async def routine(self):
+        if self._worker_process is None:
+            return
+
         await self._connector_external.send(
             MessageType.Heartbeat,
             Heartbeat(

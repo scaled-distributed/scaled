@@ -15,7 +15,7 @@ from scaled.protocol.python.message import (
     FunctionRequestType,
     MessageType,
     MessageVariant,
-    Task,
+    ProcessorInitialize, Task,
     TaskResult,
     TaskStatus,
 )
@@ -46,6 +46,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
         self._cache_cleaner: Optional[CacheCleaner] = None
         self._onhold_task: Optional[Task] = None
+        self._initialized: bool = False
 
     def run(self) -> None:
         self.__initialize()
@@ -75,11 +76,17 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __run_forever(self):
         try:
+            self._connector.send_immediately(MessageType.ProcessorInitialize, ProcessorInitialize())
             self._connector.run()
         except KeyboardInterrupt:
             pass
 
     def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
+        if not self._initialized:
+            if message_type == MessageType.ProcessorInitialize:
+                self._initialized = True
+            return
+
         if message_type == MessageType.FunctionRequest:
             self.__on_receive_function_request(message)
             return

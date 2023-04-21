@@ -32,6 +32,8 @@ class MessageType(enum.Enum):
     DisconnectRequest = b"DR"
     DisconnectResponse = b"DP"
 
+    ProcessorInitialize = b"PI"
+
     @staticmethod
     def allowed_values():
         return {member.value for member in MessageType}
@@ -289,9 +291,7 @@ class Heartbeat(_Message):
 
     def serialize(self) -> Tuple[bytes, ...]:
         return (
-            struct.pack(
-                "fQfQI", self.agent_cpu, self.agent_rss, self.worker_cpu, self.worker_rss, self.queued_tasks
-            ),
+            struct.pack("fQfQI", self.agent_cpu, self.agent_rss, self.worker_cpu, self.worker_rss, self.queued_tasks),
         )
 
     @staticmethod
@@ -352,6 +352,16 @@ class DisconnectResponse(_Message):
 
 
 @attrs.define
+class ProcessorInitialize(_Message):
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (b"",)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return ProcessorInitialize()
+
+
+@attrs.define
 class SchedulerStatus(_Message):
     data: bytes  # json content represent in bytes
 
@@ -381,5 +391,6 @@ PROTOCOL = {
     MessageType.FunctionResponse.value: FunctionResponse,
     MessageType.DisconnectRequest.value: DisconnectRequest,
     MessageType.DisconnectResponse.value: DisconnectResponse,
+    MessageType.ProcessorInitialize.value: ProcessorInitialize,
     MessageType.SchedulerStatus.value: SchedulerStatus,
 }

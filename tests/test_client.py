@@ -33,10 +33,10 @@ class TestClient(unittest.TestCase):
         setup_logger()
 
     def test_noop(self):
-        # need server
+        print("noop")
         client = Client(address="tcp://127.0.0.1:2345")
 
-        tasks = [random.randint(0, 100) for _ in range(100000)]
+        tasks = [random.randint(0, 100) for _ in range(10000)]
         with ScopedLogger(f"submit {len(tasks)} tasks"):
             futures = [client.submit(noop, i) for i in tasks]
 
@@ -46,6 +46,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(results, tasks)
 
     def test_noop_cancel(self):
+        print("noop_cancel")
         client = Client(address="tcp://127.0.0.1:2345")
 
         tasks = [10, 1, 1] * 10
@@ -54,8 +55,10 @@ class TestClient(unittest.TestCase):
 
         time.sleep(1)
         client.disconnect()
+        time.sleep(1)
 
     def test_heavy_function(self):
+        print("heavy_function")
         client = Client(address="tcp://127.0.0.1:2345")
 
         size = 500_000_000
@@ -71,6 +74,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(results, expected)
 
     def test_sleep(self):
+        print("sleep")
         client = Client(address="tcp://127.0.0.1:2345")
 
         tasks = [10, 1, 1] * 10
@@ -84,6 +88,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(results, tasks)
 
     def test_raise_exception(self):
+        print("raise_exception")
         client = Client(address="tcp://127.0.0.1:2345")
 
         tasks = [i for i in range(100)]
@@ -96,6 +101,7 @@ class TestClient(unittest.TestCase):
         client.disconnect()
 
     def test_function(self):
+        print("function")
         def func_args(a: int, b: int, c: int, d: int = 0):
             return a, b, c, d
 

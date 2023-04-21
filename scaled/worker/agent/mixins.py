@@ -47,7 +47,7 @@ class ProcessorManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task(self, task: Task):
+    async def on_task(self, task: Task) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -55,7 +55,7 @@ class ProcessorManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def on_cancel_task(self, task_id: bytes) -> bool:
+    async def on_cancel_task(self, task_id: bytes) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod

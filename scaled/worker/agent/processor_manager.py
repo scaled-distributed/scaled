@@ -17,7 +17,7 @@ from scaled.protocol.python.message import (
     FunctionResponse,
     MessageType,
     MessageVariant,
-    Task,
+    ProcessorInitialize, Task,
     TaskResult,
 )
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
@@ -41,6 +41,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         self._function_retention_seconds = function_retention_seconds
         self._serializer = serializer
         self._lock = asyncio.Lock()
+        self._processor_ready = False
 
         self._address_path = os.path.join(tempfile.gettempdir(), f"scaled_worker_{uuid.uuid4().hex}")
         self._address = ZMQConfig(ZMQType.ipc, host=self._address_path)
@@ -67,6 +68,9 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         self._connector_external = connector_external
 
     async def routine(self):
+        if self._processor is None:
+            self.restart_processor()
+
         await self._connector.routine()
 
     async def on_add_function(self, function_response: FunctionResponse):
@@ -80,10 +84,14 @@ class VanillaProcessorManager(Looper, ProcessorManager):
             MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Delete, function_id, b"")
         )
 
-    async def on_task(self, task: Task):
+    async def on_task(self, task: Task) -> bool:
+        if not self._processor_ready:
+            return False
+
         await self._lock.acquire()
         self._current_task_id = task.task_id
         await self._connector.send(MessageType.Task, task)
+        return True
 
     async def on_task_result(self, task_result: TaskResult):
         if task_result.task_id != self._current_task_id:
@@ -97,11 +105,10 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         await self._task_manager.on_task_result(task_result)
 
-    def on_cancel_task(self, task_id: bytes) -> bool:
-        # TODO: fix bug
-        # if task_id == self._current_task_id:
-        #     self.restart_processor()
-        #     return True
+    async def on_cancel_task(self, task_id: bytes) -> bool:
+        if task_id == self._current_task_id:
+            self.restart_processor()
+            return True
 
         return False
 
@@ -118,8 +125,9 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         if self._processor is None:
             return
 
-        # print(f"Worker[{os.getpid()}]: stop Processor[{self._processor.pid}]")
+        logging.info(f"Worker[{os.getpid()}]: stop Processor[{self._processor.pid}]")
         os.kill(self._processor.pid, signal.SIGTERM)
+        self._processor_ready = False
 
     def __start_new_processor(self):
         self._processor = Processor(
@@ -137,9 +145,15 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         if self._lock.locked():
             self._lock.release()
 
-        # print(f"Worker[{os.getpid()}]: start Processor[{self._processor.pid}]")
+        logging.info(f"Worker[{os.getpid()}]: start Processor[{self._processor.pid}]")
 
     async def __on_receive_internal(self, message_type: MessageType, message: MessageVariant):
+        if message_type == MessageType.ProcessorInitialize:
+            assert self._processor_ready is False
+            self._processor_ready = True
+            await self._connector.send(MessageType.ProcessorInitialize, ProcessorInitialize())
+            return
+
         if message_type == MessageType.TaskResult:
             await self.on_task_result(message)
             return
