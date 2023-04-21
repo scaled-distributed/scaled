@@ -33,6 +33,10 @@ from scaled.protocol.python.message import (
 )
 
 
+class ScaledDisconnect(Exception):
+    pass
+
+
 class Client:
     def __init__(self, address: str, serializer: FunctionSerializerType = DefaultSerializer()):
         self._address = address
@@ -158,8 +162,9 @@ class Client:
             return
 
         logging.info(f"canceling {len(self._task_id_to_future)} tasks")
-        for task_id in self._task_id_to_future.keys():
+        for task_id, future in self._task_id_to_future.items():
             self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
+            future.set_exception(ScaledDisconnect(f"disconnected from {self._address}"))
 
     def __get_function_id(self, fn: Callable) -> Tuple[bytes, bytes]:
         if fn in self._function_to_function_id_cache:

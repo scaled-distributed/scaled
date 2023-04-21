@@ -154,4 +154,4 @@ class Processor(multiprocessing.get_context("spawn").Process):
         signal.signal(signal.SIGTERM, self.__destroy)
 
     def __destroy(self):
-        self._connector.destroy()
+        self._connector.close()

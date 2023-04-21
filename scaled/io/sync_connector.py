@@ -6,7 +6,7 @@ import threading
 import uuid
 from queue import Queue
 from collections import defaultdict
-from typing import Callable, Literal, Optional
+from typing import Callable, List, Literal, Optional
 
 import zmq
 
@@ -62,11 +62,8 @@ class SyncConnector(threading.Thread):
         self._statistics_mutex = threading.Lock()
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
-    def __del__(self):
-        self.destroy()
-
-    def destroy(self):
-        self._context.destroy(linger=0)
+    def close(self):
+        self._socket.close()
 
     @property
     def identity(self) -> bytes:
@@ -79,6 +76,8 @@ class SyncConnector(threading.Thread):
 
         if self._exit_callback is not None:
             self._exit_callback()
+
+        self.close()
 
     def send(self, message_type: MessageType, message: MessageVariant):
         self._send_queue.put((message_type, message))
@@ -96,15 +95,20 @@ class SyncConnector(threading.Thread):
             self._socket.send_multipart([message_type.value, *message.serialize()])
 
     def __routine_polling(self):
-        count = self._socket.poll(POLLING_TIME_MILLISECONDS)
-        if not count:
+        try:
+            count = self._socket.poll(POLLING_TIME_MILLISECONDS)
+
+            if not count:
+                return
+
+            for _ in range(count):
+                frames = self._socket.recv_multipart()
+                self.__routine_receive(frames)
+
+        except zmq.ZMQError:
             return
 
-        for _ in range(count):
-            self.__routine_receive()
-
-    def __routine_receive(self):
-        frames = self._socket.recv_multipart()
+    def __routine_receive(self, frames: List[bytes]):
         if len(frames) < 2:
             logging.error(f"{self.__get_prefix()} received unexpected frames {frames}")
             return
