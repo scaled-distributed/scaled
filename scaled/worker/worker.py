@@ -79,7 +79,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
             heartbeat=self._heartbeat, task_manager=self._task_manager, connector_external=self._connector_external
         )
 
-        self._loop = asyncio.new_event_loop()
+        self._loop = asyncio.get_event_loop()
         self.__register_signal()
         self._task = self._loop.create_task(self.__get_loops())
 

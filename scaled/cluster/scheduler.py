@@ -41,7 +41,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):
         setup_logger()
         register_event_loop(self._event_loop)
 
-        self._loop = asyncio.new_event_loop()
+        self._loop = asyncio.get_event_loop()
         self._task = self._loop.create_task(
             scheduler_main(
                 address=self._address,

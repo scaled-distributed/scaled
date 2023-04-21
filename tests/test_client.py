@@ -3,7 +3,6 @@ import random
 import time
 
 import unittest
-from collections import Counter
 
 from scaled.client import Client
 from scaled.utility.logging.scoped_logger import ScopedLogger
