@@ -16,12 +16,12 @@ class DefaultSerializer(Serializer):
         return cloudpickle.loads(payload)
 
     @staticmethod
-    def serialize_arguments(args: Tuple[Any, ...]) -> Tuple[bytes, ...]:
-        return tuple(pickle.dumps(arg, protocol=pickle.HIGHEST_PROTOCOL) for arg in args)
+    def serialize_argument(arg: Any) -> bytes:
+        return pickle.dumps(arg, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def deserialize_arguments(payload: Tuple[bytes, ...]) -> Tuple[Any, ...]:
-        return tuple(pickle.loads(arg) for arg in payload)
+    def deserialize_argument(payload: bytes) -> Any:
+        return pickle.loads(payload)
 
     @staticmethod
     def serialize_result(result: Any) -> bytes:

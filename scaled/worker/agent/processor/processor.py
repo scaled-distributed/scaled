@@ -129,7 +129,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
         begin = time.monotonic()
         try:
             function = self._cache_cleaner.get_function(task.function_id)
-            args = self._serializer.deserialize_arguments(tuple(arg.data for arg in task.function_args))
+            args = tuple(self._serializer.deserialize_argument(arg.data) for arg in task.function_args)
             result = function(*args)
             result_bytes = self._serializer.serialize_result(result)
             self._connector.send_immediately(

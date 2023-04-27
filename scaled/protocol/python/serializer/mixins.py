@@ -15,12 +15,12 @@ class Serializer(metaclass=abc.ABCMeta):
 
     @staticmethod
     @abc.abstractmethod
-    def serialize_arguments(args: Tuple[Any, ...]) -> Tuple[bytes, ...]:
+    def serialize_argument(args: Any) -> bytes:
         raise NotImplementedError()
 
     @staticmethod
     @abc.abstractmethod
-    def deserialize_arguments(payload: Tuple[bytes, ...]) -> Tuple[Any, ...]:
+    def deserialize_argument(payload: bytes) -> Any:
         raise NotImplementedError()
 
     @staticmethod

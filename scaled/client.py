@@ -78,7 +78,7 @@ class Client:
         task = Task(
             task_id,
             function_id,
-            [Argument(ArgumentType.Data, data) for data in self._serializer.serialize_arguments(all_args)],
+            [Argument(ArgumentType.Data, self._serializer.serialize_argument(data)) for data in all_args],
         )
         self._task_id_to_task_function[task_id] = (task, function_bytes)
 
