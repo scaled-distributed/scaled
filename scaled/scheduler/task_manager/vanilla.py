@@ -75,7 +75,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
             return
 
         if (
-            not await self._worker_manager.has_available_worker()
+            not self._worker_manager.has_available_worker()
             and 0 <= self._max_number_of_tasks_waiting <= self._unassigned.qsize()
         ):
             await self._binder.send(client, MessageType.TaskEcho, TaskEcho(task.task_id, TaskEchoStatus.NoWorker))

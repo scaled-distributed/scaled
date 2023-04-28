@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 class TaskAllocator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def add_worker(self, worker: bytes) -> bool:
+    async def add_worker(self, worker: bytes) -> bool:
         """add worker to worker collection"""
         raise NotImplementedError()
 
@@ -20,7 +20,7 @@ class TaskAllocator(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def assign_task(self, task_id: bytes) -> Optional[bytes]:
+    async def assign_task(self, task_id: bytes) -> Optional[bytes]:
         """assign task_id in allocator, return None means no available worker, otherwise will return worker been
         assigned to"""
         raise NotImplementedError()

@@ -89,10 +89,6 @@ class WorkerManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def has_available_worker(self) -> bool:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
     async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
         raise NotImplementedError()
 
@@ -114,4 +110,8 @@ class WorkerManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def on_disconnect(self, source: bytes, request: DisconnectRequest):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def has_available_worker(self) -> bool:
         raise NotImplementedError()

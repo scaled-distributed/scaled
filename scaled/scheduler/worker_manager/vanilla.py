@@ -46,16 +46,13 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         self._task_manager = task_manager
 
     async def assign_task_to_worker(self, task: Task) -> bool:
-        worker = self._allocator.assign_task(task.task_id)
+        worker = await self._allocator.assign_task(task.task_id)
         if worker is None:
             return False
 
         # send to worker
         await self._binder.send(worker, MessageType.Task, task)
         return True
-
-    async def has_available_worker(self) -> bool:
-        return self._allocator.has_available_worker()
 
     async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
         worker = self._allocator.get_assigned_worker(task_cancel.task_id)
@@ -103,7 +100,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         await self.__reroute_tasks(task_ids=task_ids)
 
     async def on_heartbeat(self, worker: bytes, info: Heartbeat):
-        if self._allocator.add_worker(worker):
+        if await self._allocator.add_worker(worker):
             logging.info(f"worker {worker} connected")
 
         self._worker_alive_since[worker] = (time.time(), info)
@@ -132,6 +129,9 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
                 for worker, (last, info) in self._worker_alive_since.items()
             ]
         }
+
+    def has_available_worker(self) -> bool:
+        return self._allocator.has_available_worker()
 
     async def __balance_request(self):
         if self._load_balance_seconds <= 0:
