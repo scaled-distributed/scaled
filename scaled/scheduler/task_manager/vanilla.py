@@ -34,7 +34,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
         self._failed_count: int = 0
         self._canceled_count: int = 0
 
-    def hook(
+    def register(
         self,
         binder: AsyncBinder,
         client_manager: ClientManager,

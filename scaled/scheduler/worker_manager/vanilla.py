@@ -41,7 +41,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         self._last_balance_advice = None
         self._load_balance_advice_same_count = 0
 
-    def hook(self, binder: AsyncBinder, task_manager: TaskManager):
+    def register(self, binder: AsyncBinder, task_manager: TaskManager):
         self._binder = binder
         self._task_manager = task_manager
 

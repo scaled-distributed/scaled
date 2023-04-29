@@ -57,11 +57,11 @@ class Scheduler:
         self._status_reporter = StatusReporter(self._binder_monitor)
 
         self._binder.register(self.on_receive_message)
-        self._function_manager.hook(self._binder)
-        self._task_manager.hook(self._binder, self._client_manager, self._function_manager, self._worker_manager)
-        self._worker_manager.hook(self._binder, self._task_manager)
+        self._function_manager.register(self._binder)
+        self._task_manager.register(self._binder, self._client_manager, self._function_manager, self._worker_manager)
+        self._worker_manager.register(self._binder, self._task_manager)
 
-        self._status_reporter.register_manager(
+        self._status_reporter.register_managers(
             [self._binder, self._client_manager, self._function_manager, self._task_manager, self._worker_manager]
         )
 

@@ -25,7 +25,7 @@ class VanillaFunctionManager(FunctionManager, Looper, Reporter):
 
         self._binder: Optional[AsyncBinder] = None
 
-    def hook(self, binder: AsyncBinder):
+    def register(self, binder: AsyncBinder):
         self._binder = binder
 
     async def on_function(self, source: bytes, request: FunctionRequest):

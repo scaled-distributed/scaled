@@ -16,7 +16,7 @@ class StatusReporter(Looper):
 
         self._process = psutil.Process()
 
-    def register_manager(self, managers: List[Reporter]):
+    def register_managers(self, managers: List[Reporter]):
         self._managers.extend(managers)
 
     async def routine(self):

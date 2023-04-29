@@ -59,7 +59,8 @@ class Client:
 
         self._function_to_function_id_cache: Dict[Callable, Tuple[bytes, bytes]] = dict()
 
-        self._task_id_to_task_function: Dict[bytes, Tuple[Task, bytes]] = dict()
+        self._task_id_to_task: Dict[bytes, Task] = dict()
+        self._task_id_to_function: Dict[bytes, bytes] = dict()
         self._task_id_to_future: Dict[bytes, Future] = dict()
 
         self._function_id_to_not_ready_tasks: Dict[bytes, List[Task]] = defaultdict(list)
@@ -80,7 +81,8 @@ class Client:
             function_id,
             [Argument(ArgumentType.Data, self._serializer.serialize_argument(data)) for data in all_args],
         )
-        self._task_id_to_task_function[task_id] = (task, function_bytes)
+        self._task_id_to_task[task_id] = task
+        self._task_id_to_function[task_id] = function_bytes
 
         self.__on_buffer_task_send(task)
 
@@ -107,14 +109,14 @@ class Client:
         raise TypeError(f"Unknown {message_type=}")
 
     def __on_task_echo(self, task_echo: TaskEcho):
-        if task_echo.task_id not in self._task_id_to_task_function:
+        if task_echo.task_id not in self._task_id_to_task:
             return
 
         if task_echo.status == TaskEchoStatus.Duplicated:
             return
 
         if task_echo.status == TaskEchoStatus.FunctionNotExists:
-            task, _ = self._task_id_to_task_function[task_echo.task_id]
+            task = self._task_id_to_task[task_echo.task_id]
             self.__on_buffer_task_send(task)
             return
 
@@ -123,12 +125,13 @@ class Client:
 
         assert task_echo.status == TaskEchoStatus.SubmitOK, f"Unknown task status: " f"{task_echo=}"
 
-        self._task_id_to_task_function.pop(task_echo.task_id)
+        self._task_id_to_task.pop(task_echo.task_id)
+        self._task_id_to_function.pop(task_echo.task_id)
         self._task_id_to_future[task_echo.task_id].set_running_or_notify_cancel()
 
     def __on_buffer_task_send(self, task):
         if task.function_id not in self._function_id_to_not_ready_tasks:
-            _, function_bytes = self._task_id_to_task_function[task.task_id]
+            function_bytes = self._task_id_to_function[task.task_id]
             self._connector.send(
                 MessageType.FunctionRequest,
                 FunctionRequest(FunctionRequestType.Add, function_id=task.function_id, content=function_bytes),
