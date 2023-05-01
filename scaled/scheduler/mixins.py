@@ -5,6 +5,8 @@ from scaled.protocol.python.message import (
     BalanceResponse,
     DisconnectRequest,
     FunctionRequest,
+    GraphTask,
+    GraphTaskCancel,
     Heartbeat,
     Task,
     TaskCancel,
@@ -61,6 +63,20 @@ class ClientManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
+class GraphTaskManager(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    async def on_graph_task(self, client: bytes, graph_task: GraphTask):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_graph_task_cancel(self, graph_task_cancel: GraphTaskCancel):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_task_done(self, result: TaskResult) -> bool:
+        raise NotImplementedError()
+
+
 class TaskManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def on_task_new(self, client: bytes, task: Task):
@@ -71,7 +87,7 @@ class TaskManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_cancel(self, client: bytes, task_id: bytes):
+    async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
         raise NotImplementedError()
 
     @abc.abstractmethod

@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Callable, Tuple, TypeVar
+from typing import Any, Callable, TypeVar
 
 
 class Serializer(metaclass=abc.ABCMeta):

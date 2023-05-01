@@ -102,6 +102,35 @@ future = client.submit(foobar, 1)
 print(future.result())
 ```
 
+Scaled also supports submit graph task, for example:
+
+```python
+from scaled.client import Client
+
+
+def inc(i):
+    return i + 1
+
+def add(a, b):
+    return a + b
+
+def minus(a, b):
+    return a - b
+
+graph = {
+    "a": 2,
+    "b": 2, 
+    "c": (inc, "a"),  # c = a + 1 = 2 + 1 = 3
+    "d": (add, "a", "b"),  # d = a + b = 2 + 2 = 4
+    "e": (minus, "d", "c")  # e = d - c = 4 - 3 = 1
+}
+
+client = Client(address="tcp://127.0.0.1:2345")
+futures = client.submit_graph(graph, keys=["e"])
+
+print(futures[0].result())
+```
+
 # Scaled Top
 You can use `scaled_top` to connect to scheduler monitor address to get some insides of the scaled_top
 ```bash
@@ -119,17 +148,18 @@ scheduler          | task_manager         |   scheduler_sent         | scheduler
 --------------------------------------------------------------------------------------------------
 Shortcuts: worker[n] cpu[c] rss[m] free[f] working[w] queued[q]
 
-                 worker [cpu]      rss free working queued | function_id_to_tasks
-W|Linux|20682|4920c056+  0.0% 31.1 MiB 1000       0      0 |
-W|Linux|20679|3cc3bc1e+  0.0% 33.2 MiB 1000       0      0 |
-W|Linux|20683|695d7efb+  0.0% 33.0 MiB 1000       0      0 |
-W|Linux|20685|e762963c+  0.0% 32.5 MiB 1000       0      0 |
-W|Linux|20678|4845f57b+  0.0% 31.2 MiB 1000       0      0 |
-W|Linux|20686|fba5cc0d+  0.0% 33.0 MiB 1000       0      0 |
-W|Linux|20681|57554ceb+  0.0% 30.7 MiB 1000       0      0 |
-W|Linux|20680|95f1a794+  0.0% 32.8 MiB 1000       0      0 |
-W|Linux|20684|ef9f3c16+  0.0% 31.1 MiB 1000       0      0 |
-W|Linux|20687|6b14b2d0+  0.0% 30.9 MiB 1000       0      0 |
+Total 10 worker(s)
+                 worker agt_cpu agt_rss [cpu]   rss free sent queued | function_id_to_tasks
+W|Linux|15940|3c9409c0+    0.0%   32.7m  0.0% 28.4m 1000    0      0 |
+W|Linux|15946|d6450641+    0.0%   30.7m  0.0% 28.2m 1000    0      0 |
+W|Linux|15942|3ed56e89+    0.0%   34.8m  0.0% 30.4m 1000    0      0 |
+W|Linux|15944|6e7d5b99+    0.0%   30.8m  0.0% 28.2m 1000    0      0 |
+W|Linux|15945|33106447+    0.0%   31.1m  0.0% 28.1m 1000    0      0 |
+W|Linux|15937|b031ce9a+    0.0%   31.0m  0.0% 30.3m 1000    0      0 |
+W|Linux|15941|c4dcc2f3+    0.0%   30.5m  0.0% 28.2m 1000    0      0 |
+W|Linux|15939|e1ab4340+    0.0%   31.0m  0.0% 28.1m 1000    0      0 |
+W|Linux|15938|ed582770+    0.0%   31.1m  0.0% 28.1m 1000    0      0 |
+W|Linux|15943|a7fe8b5e+    0.0%   30.7m  0.0% 28.3m 1000    0      0 |
 ```
 
 - scheduler section is showing how much resources scheduler used
@@ -139,3 +169,8 @@ W|Linux|20687|6b14b2d0+  0.0% 30.9 MiB 1000       0      0 |
 - function_id_to_tasks section shows task count for each function used
 - worker section shows worker details, you can use shortcuts to sort by columns, the char * on column header show which 
   column is sorted right now
+  - agt_cpu/agt_rss means cpu/memory usage of worker agent
+  - cpu/rss means cpu/memory usage of worker
+  - free means number of free task slots for this worker
+  - sent means how many tasks scheduler sent to the worker
+  - queued means how many tasks worker received and queued

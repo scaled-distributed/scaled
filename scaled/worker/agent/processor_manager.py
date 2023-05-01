@@ -17,7 +17,8 @@ from scaled.protocol.python.message import (
     FunctionResponse,
     MessageType,
     MessageVariant,
-    ProcessorInitialize, Task,
+    ProcessorInitialize,
+    Task,
     TaskResult,
 )
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType

@@ -8,6 +8,7 @@ class PriorityQueue(Queue):
 
     Entries are typically list of the form: [priority number, data].
     """
+
     def __len__(self):
         return len(self._queue)
 

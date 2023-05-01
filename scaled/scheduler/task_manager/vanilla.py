@@ -12,6 +12,7 @@ from scaled.protocol.python.message import (
     TaskResult,
     TaskStatus,
 )
+from scaled.scheduler.graph_manager.vanilla import GraphManager
 from scaled.scheduler.mixins import ClientManager, FunctionManager, Looper, Reporter, TaskManager, WorkerManager
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
 
@@ -24,6 +25,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
         self._client_manager: Optional[ClientManager] = None
         self._function_manager: Optional[FunctionManager] = None
         self._worker_manager: Optional[WorkerManager] = None
+        self._graph_manager: Optional[GraphManager] = None
 
         self._task_id_to_task: Dict[bytes, Task] = dict()
 
@@ -40,12 +42,14 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
         client_manager: ClientManager,
         function_manager: FunctionManager,
         worker_manager: WorkerManager,
+        graph_manager: GraphManager,
     ):
         self._binder = binder
 
         self._client_manager = client_manager
         self._function_manager = function_manager
         self._worker_manager = worker_manager
+        self._graph_manager = graph_manager
 
     async def routine(self):
         task_id = await self._unassigned.get()
@@ -122,14 +126,16 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
         if result.status == TaskStatus.Success:
             await self.__on_task_done(result)
             self._success_count += 1
-            return
 
-        if result.status == TaskStatus.Failed:
+        elif result.status == TaskStatus.Failed:
             await self.__on_task_done(result)
             self._failed_count += 1
+
+        client = await self._client_manager.on_task_done(result.task_id)
+        if await self._graph_manager.on_task_done(result):
             return
 
-        raise ValueError(f"unknown TaskResult status: {result.status}")
+        await self._binder.send(client, MessageType.TaskResult, result)
 
     async def __on_task_done(self, result: TaskResult):
         if result.task_id not in self._running:
@@ -137,7 +143,4 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
 
         self._running.remove(result.task_id)
         task = self._task_id_to_task.pop(result.task_id)
-        client = await self._client_manager.on_task_done(result.task_id)
-
-        await self._binder.send(client, MessageType.TaskResult, result)
         await self._function_manager.on_task_done_function(task.task_id, task.function_id)

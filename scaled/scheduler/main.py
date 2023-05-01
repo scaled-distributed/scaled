@@ -8,6 +8,7 @@ from scaled.io.async_connector import AsyncConnector
 from scaled.io.config import CLEANUP_INTERVAL_SECONDS, STATUS_REPORT_INTERVAL_SECONDS
 from scaled.scheduler.client_manager.vanilla import VanillaClientManager
 from scaled.scheduler.function_manager.vanilla import VanillaFunctionManager
+from scaled.scheduler.graph_manager.vanilla import GraphManager
 from scaled.scheduler.status_reporter import StatusReporter
 from scaled.utility.event_loop import create_async_loop_routine
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
@@ -47,6 +48,7 @@ class Scheduler:
 
         self._client_manager = VanillaClientManager()
         self._function_manager = VanillaFunctionManager(function_retention_seconds=function_retention_seconds)
+        self._graph_manager = GraphManager()
         self._task_manager = VanillaTaskManager(max_number_of_tasks_waiting=max_number_of_tasks_waiting)
         self._worker_manager = VanillaWorkerManager(
             per_worker_queue_size=per_worker_queue_size,
@@ -56,9 +58,14 @@ class Scheduler:
         )
         self._status_reporter = StatusReporter(self._binder_monitor)
 
+        # register
         self._binder.register(self.on_receive_message)
         self._function_manager.register(self._binder)
-        self._task_manager.register(self._binder, self._client_manager, self._function_manager, self._worker_manager)
+
+        self._graph_manager.register(self._binder, self._function_manager, self._task_manager)
+        self._task_manager.register(
+            self._binder, self._client_manager, self._function_manager, self._worker_manager, self._graph_manager
+        )
         self._worker_manager.register(self._binder, self._task_manager)
 
         self._status_reporter.register_managers(
@@ -72,6 +79,14 @@ class Scheduler:
 
         if message_type == MessageType.BalanceResponse:
             await self._worker_manager.on_balance_response(message)
+            return
+
+        if message_type == MessageType.GraphTask:
+            await self._graph_manager.on_graph_task(source, message)
+            return
+
+        if message_type == MessageType.GraphTaskCancel:
+            await self._graph_manager.on_graph_task_cancel(message)
             return
 
         if message_type == MessageType.Task:
@@ -104,6 +119,7 @@ class Scheduler:
         try:
             await asyncio.gather(
                 create_async_loop_routine(self._binder.routine, 0),
+                create_async_loop_routine(self._graph_manager.routine, 0),
                 create_async_loop_routine(self._task_manager.routine, 0),
                 create_async_loop_routine(self._function_manager.routine, CLEANUP_INTERVAL_SECONDS),
                 create_async_loop_routine(self._worker_manager.routine, CLEANUP_INTERVAL_SECONDS),

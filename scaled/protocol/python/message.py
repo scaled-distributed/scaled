@@ -1,7 +1,7 @@
 import abc
 import enum
 import struct
-from typing import List, Tuple, TypeVar
+from typing import Dict, List, Tuple, TypeVar
 
 import attrs
 
@@ -169,23 +169,38 @@ class TaskResult(_Message):
 @attrs.define
 class GraphTask(_Message):
     task_id: bytes
+    functions: Dict[bytes, bytes]
     targets: List[bytes]
     graph: List[Task]
 
     def serialize(self) -> Tuple[bytes, ...]:
+        function_bytes = list()
+        function_bytes.append(struct.pack("I", len(self.functions)))
+        function_bytes.extend(self.functions.keys())
+        function_bytes.extend(self.functions.values())
+
         graph_bytes = []
         for task in self.graph:
             frames = task.serialize()
             graph_bytes.append(struct.pack("I", len(frames)))
             graph_bytes.extend(frames)
 
-        return self.task_id, struct.pack("I", len(self.targets)), *self.targets, *graph_bytes
+        return self.task_id, *function_bytes, struct.pack("I", len(self.targets)), *self.targets, *graph_bytes
 
     @staticmethod
     def deserialize(data: List[bytes]):
         index = 0
         task_id = data[index]
         index += 1
+
+        number_of_functions = struct.unpack("I", data[index])[0]
+        index += 1
+        keys = data[index : index + number_of_functions]
+        index += number_of_functions
+        values = data[index : index + number_of_functions]
+        index += number_of_functions
+        functions = dict(zip(keys, values))
+
         number_of_targets = struct.unpack("I", data[index])[0]
         index += 1
         targets = data[index : index + number_of_targets]
@@ -198,7 +213,7 @@ class GraphTask(_Message):
             graph.append(Task.deserialize(data[index : index + number_of_frames]))
             index += number_of_frames
 
-        return GraphTask(task_id, targets, graph)
+        return GraphTask(task_id, functions, targets, graph)
 
 
 @attrs.define
@@ -243,15 +258,14 @@ class GraphTaskCancelEcho(_Message):
 class GraphTaskResult(_Message):
     task_id: bytes
     status: TaskStatus
-    duration: float
-    result: bytes
+    results: List[bytes]
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id, self.status.value, struct.pack("f", self.duration), self.result
+        return self.task_id, self.status.value, *self.results
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return GraphTaskResult(data[0], TaskStatus(data[1]), struct.unpack("f", data[2])[0], data[3])
+        return GraphTaskResult(data[0], TaskStatus(data[1]), data[2:])
 
 
 @attrs.define

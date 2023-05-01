@@ -5,9 +5,10 @@ import threading
 import uuid
 from collections import defaultdict
 from concurrent.futures import Future
+from graphlib import TopologicalSorter
 from inspect import signature
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import zmq
 
@@ -22,6 +23,9 @@ from scaled.protocol.python.message import (
     FunctionRequestType,
     FunctionResponse,
     FunctionResponseType,
+    GraphTask,
+    GraphTaskCancel,
+    GraphTaskResult,
     MessageType,
     MessageVariant,
     Task,
@@ -64,7 +68,8 @@ class Client:
         self._task_id_to_future: Dict[bytes, Future] = dict()
 
         self._function_id_to_not_ready_tasks: Dict[bytes, List[Task]] = defaultdict(list)
-        self._statistics_future: Optional[Future] = None
+
+        self._graph_task_id_to_futures: Dict[bytes, List[Future]] = dict()
 
     def __del__(self):
         logging.info(f"ScaledClient: disconnect from {self._address}")
@@ -90,6 +95,25 @@ class Client:
         self._task_id_to_future[task_id] = future
         return future
 
+    def submit_graph(self, graph: Dict[str, Union[Any, Tuple[Callable, Any, ...]]], keys: List[str]) -> List[Future]:
+        """
+        graph = {
+            "a": 1,
+            "b": 2,
+            "c": (inc, "a"),
+            "d": (inc, "b"),
+            "d": (add, "c", "d")
+        }
+        """
+
+        node_name_to_data_argument, graph = self.__split_data_and_graph(graph)
+        self.__check_graph(node_name_to_data_argument, graph, keys)
+
+        graph, futures = self.__construct_graph(node_name_to_data_argument, graph, keys)
+        self._connector.send(MessageType.GraphTask, graph)
+        self._graph_task_id_to_futures[graph.task_id] = futures
+        return futures
+
     def disconnect(self):
         self._stop_event.set()
 
@@ -104,6 +128,10 @@ class Client:
 
         if message_type == MessageType.TaskResult:
             self.__on_task_result(message)
+            return
+
+        if message_type == MessageType.GraphTaskResult:
+            self.__on_graph_task_result(message)
             return
 
         raise TypeError(f"Unknown {message_type=}")
@@ -160,14 +188,34 @@ class Client:
             future.set_exception(pickle.loads(result.result))
             return
 
-    def __on_exit(self):
-        if not self._task_id_to_future:
+    def __on_graph_task_result(self, graph_result: GraphTaskResult):
+        if graph_result.task_id not in self._graph_task_id_to_futures:
             return
 
-        logging.info(f"canceling {len(self._task_id_to_future)} tasks")
-        for task_id, future in self._task_id_to_future.items():
-            self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
-            future.set_exception(ScaledDisconnect(f"disconnected from {self._address}"))
+        futures = self._graph_task_id_to_futures.pop(graph_result.task_id)
+        if graph_result.status == TaskStatus.Success:
+            for i, result in enumerate(graph_result.results):
+                futures[i].set_result(self._serializer.deserialize_result(result))
+            return
+
+        if graph_result.status == TaskStatus.Failed:
+            exception = pickle.loads(graph_result.results[0])
+            for i, result in enumerate(graph_result.results):
+                futures[i].set_exception(exception)
+            return
+
+    def __on_exit(self):
+        if self._task_id_to_future:
+            logging.info(f"canceling {len(self._task_id_to_future)} task(s)")
+            for task_id, future in self._task_id_to_future.items():
+                self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
+                future.set_exception(ScaledDisconnect(f"disconnected from {self._address}"))
+
+        if self._graph_task_id_to_futures:
+            logging.info(f"canceling {len(self._graph_task_id_to_futures)} graph task(s)")
+            for task_id, future in self._graph_task_id_to_futures:
+                self._connector.send_immediately(MessageType.GraphTaskCancel, GraphTaskCancel(task_id))
+                future.set_exception(ScaledDisconnect(f"disconnected from {self._address}"))
 
     def __get_function_id(self, fn: Callable) -> Tuple[bytes, bytes]:
         if fn in self._function_to_function_id_cache:
@@ -208,3 +256,77 @@ class Client:
             args.append(kwargs.pop(p.name, p.default))
 
         return tuple(args)
+
+    def __split_data_and_graph(
+        self, graph: Dict[str, Union[Any, Tuple[Callable, Any, ...]]]
+    ) -> Tuple[Dict[str, Argument], Dict[str, Tuple[Callable, Any, ...]]]:
+        graph = graph.copy()
+        node_name_to_data_argument = {}
+        for node_name, node in graph.items():
+            if isinstance(node, tuple) and len(node) > 0 and callable(node[0]):
+                continue
+
+            node_name_to_data_argument[node_name] = Argument(
+                ArgumentType.Data, self._serializer.serialize_argument(node)
+            )
+
+        for node_name in node_name_to_data_argument.keys():
+            graph.pop(node_name)
+
+        return node_name_to_data_argument, graph
+
+    @staticmethod
+    def __check_graph(
+        node_to_argument: Dict[str, Argument], graph: Dict[str, Union[Any, Tuple[Callable, Any, ...]]], keys: List[str]
+    ):
+        # sanity check graph
+        for key in keys:
+            if key not in graph:
+                raise KeyError(f"key {key} has to be in graph")
+
+        sorter = TopologicalSorter()
+        for node_name, node in graph.items():
+            assert isinstance(node, tuple) and len(node) > 0 and callable(node[0]), (
+                "node has to be tuple and first " "item should be function"
+            )
+
+            for arg in node[1:]:
+                if arg not in node_to_argument and arg not in graph:
+                    raise KeyError(f"argument {arg} in node '{node_name}': {tuple(node)} is not defined in graph")
+
+            sorter.add(node_name, *node[1:])
+
+        # check cyclic dependencies
+        sorter.prepare()
+
+    def __construct_graph(
+        self, data_arguments: Dict[str, Argument], graph: Dict[str, Tuple[Callable, Any, ...]], keys: List[str]
+    ) -> Tuple[GraphTask, List[Future]]:
+        node_name_to_task_id = {node_name: uuid.uuid1().bytes for node_name in graph.keys()}
+        task_id_to_future = {node_name_to_task_id[node_name]: Future() for node_name in keys}
+
+        functions = {}
+        tasks = []
+        for node_name, node in graph.items():
+            task_id = node_name_to_task_id[node_name]
+
+            function, *args = node
+            function_id, function_bytes = self.__generate_function_id_bytes(function)
+            functions[function_id] = function_bytes
+
+            arguments = []
+            for arg in args:
+                assert arg in graph or arg in data_arguments
+
+                if arg in graph:
+                    argument = Argument(ArgumentType.Task, node_name_to_task_id[arg])
+                else:
+                    argument = data_arguments[arg]
+
+                arguments.append(argument)
+
+            tasks.append(Task(task_id, function_id, arguments))
+
+        # send graph task
+        graph = GraphTask(uuid.uuid1().bytes, functions, list(task_id_to_future.keys()), tasks)
+        return graph, list(task_id_to_future.values())

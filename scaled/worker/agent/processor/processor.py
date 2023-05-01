@@ -15,7 +15,8 @@ from scaled.protocol.python.message import (
     FunctionRequestType,
     MessageType,
     MessageVariant,
-    ProcessorInitialize, Task,
+    ProcessorInitialize,
+    Task,
     TaskResult,
     TaskStatus,
 )
