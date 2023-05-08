@@ -74,16 +74,17 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         await self._connector.routine()
 
-    async def on_add_function(self, function_response: FunctionResponse):
-        await self._connector.send(
-            MessageType.FunctionRequest,
-            FunctionRequest(FunctionRequestType.Add, function_response.function_id, function_response.content),
-        )
+    async def on_function_request(self, request: FunctionRequest):
+        if request.type == FunctionRequestType.Delete:
+            await self._connector.send(
+                MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Delete, request.function_id, b"")
+            )
+            return
 
-    async def on_delete_function(self, function_id: bytes):
-        await self._connector.send(
-            MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Delete, function_id, b"")
-        )
+        raise TypeError(f"unknown function request type: {request.type}")
+
+    async def on_function_response(self, response: FunctionResponse):
+        await self._connector.send(MessageType.FunctionResponse, response)
 
     async def on_task(self, task: Task) -> bool:
         if not self._processor_ready:

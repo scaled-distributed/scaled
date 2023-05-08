@@ -1,6 +1,13 @@
 import abc
 
-from scaled.protocol.python.message import BalanceRequest, FunctionResponse, Task, TaskCancel, TaskResult
+from scaled.protocol.python.message import (
+    BalanceRequest,
+    FunctionRequest,
+    FunctionResponse,
+    Task,
+    TaskCancel,
+    TaskResult,
+)
 
 
 class Looper(metaclass=abc.ABCMeta):
@@ -39,11 +46,11 @@ class TaskManager(metaclass=abc.ABCMeta):
 
 class ProcessorManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def on_add_function(self, function_response: FunctionResponse):
+    def on_function_request(self, request: FunctionRequest):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def on_delete_function(self, function_id: bytes):
+    def on_function_response(self, response: FunctionResponse):
         raise NotImplementedError()
 
     @abc.abstractmethod

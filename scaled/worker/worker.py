@@ -97,8 +97,12 @@ class Worker(multiprocessing.get_context("spawn").Process):
             await self._connector_external.send(MessageType.BalanceResponse, BalanceResponse(task_ids))
             return
 
+        if message_type == MessageType.FunctionRequest:
+            await self._processor_manager.on_function_request(message)
+            return
+
         if message_type == MessageType.FunctionResponse:
-            await self._processor_manager.on_add_function(message)
+            await self._processor_manager.on_function_response(message)
             return
 
         raise TypeError(f"Unknown {message_type=} {message=}")

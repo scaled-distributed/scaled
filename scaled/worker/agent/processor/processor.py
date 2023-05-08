@@ -13,6 +13,7 @@ from scaled.io.sync_connector import SyncConnector
 from scaled.protocol.python.message import (
     FunctionRequest,
     FunctionRequestType,
+    FunctionResponse,
     MessageType,
     MessageVariant,
     ProcessorInitialize,
@@ -88,6 +89,10 @@ class Processor(multiprocessing.get_context("spawn").Process):
                 self._initialized = True
             return
 
+        if message_type == MessageType.FunctionResponse:
+            self.__on_receive_function_response(message)
+            return
+
         if message_type == MessageType.FunctionRequest:
             self.__on_receive_function_request(message)
             return
@@ -99,32 +104,29 @@ class Processor(multiprocessing.get_context("spawn").Process):
         logging.error(f"unknown {message=}")
 
     def __on_receive_function_request(self, request: FunctionRequest):
-        if request.type == FunctionRequestType.Add:
-            self._cache_cleaner.add_function(
-                request.function_id, self._serializer.deserialize_function(request.content)
-            )
-            task = self._onhold_task
-            self._onhold_task = None
-            self.__process_task(task)
-            return
-
         if request.type == FunctionRequestType.Delete:
             self._cache_cleaner.del_function(request.function_id)
             return
 
-        logging.error(f"unknown request function request type {request=}")
+        logging.error(f"worker received unknown request function request type {request=}")
+
+    def __on_receive_function_response(self, response: FunctionResponse):
+        self._cache_cleaner.add_function(response.function_id, self._serializer.deserialize_function(response.content))
+        task = self._onhold_task
+        self._onhold_task = None
+        self.__process_task(task)
 
     def __on_received_task(self, task: Task):
         function = self._cache_cleaner.get_function(task.function_id)
-        if function is None:
-            assert self._onhold_task is None
-            self._onhold_task = task
-            self._connector.send_immediately(
-                MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
-            )
+        if function is not None:
+            self.__process_task(task)
             return
 
-        self.__process_task(task)
+        assert self._onhold_task is None
+        self._onhold_task = task
+        self._connector.send_immediately(
+            MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
+        )
 
     def __process_task(self, task: Task):
         begin = time.monotonic()

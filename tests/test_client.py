@@ -6,6 +6,7 @@ import time
 import unittest
 
 from scaled.client import Client
+from scaled.cluster.combo import SchedulerClusterCombo
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
@@ -31,9 +32,11 @@ def raise_exception(foo: int):
 class TestClient(unittest.TestCase):
     def setUp(self) -> None:
         setup_logger()
+        self.address = "tcp://127.0.0.1:2345"
+        self.cluster = SchedulerClusterCombo(address=self.address, n_workers=3, event_loop="builtin")
 
     def test_noop(self):
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         tasks = [random.randint(0, 100) for _ in range(10000)]
         with ScopedLogger(f"submit {len(tasks)} noop tasks"):
@@ -45,7 +48,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(results, tasks)
 
     def test_noop_cancel(self):
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         tasks = [10, 1, 1] * 10
         with ScopedLogger(f"submit {len(tasks)} noop and cancel tasks"):
@@ -56,7 +59,7 @@ class TestClient(unittest.TestCase):
         time.sleep(1)
 
     def test_heavy_function(self):
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         size = 500_000_000
         tasks = [random.randint(0, 100) for _ in range(10000)]
@@ -71,7 +74,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(results, expected)
 
     def test_sleep(self):
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         time.sleep(5)
 
@@ -90,7 +93,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(results, tasks)
 
     def test_raise_exception(self):
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         tasks = [i for i in range(100)]
         with ScopedLogger(f"submit {len(tasks)} 100 tasks, raise 1 of the tasks"):
@@ -108,7 +111,7 @@ class TestClient(unittest.TestCase):
         def func_args2(a: int, b: int, *, c: int, d: int = 0):
             return a, b, c, d
 
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         with ScopedLogger(f"test mix of positional and keyword arguments and with some arguments default value"):
             self.assertEqual(client.submit(func_args, 1, c=4, b=2).result(), (1, 2, 4, 0))
@@ -143,7 +146,7 @@ class TestClient(unittest.TestCase):
 
         graph = {"a": 2, "b": 2, "c": (inc, "a"), "d": (add, "a", "b"), "e": (minus, "d", "c")}
 
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         with ScopedLogger(f"test graph"):
             futures = client.submit_graph(graph, ["e"])
@@ -166,7 +169,7 @@ class TestClient(unittest.TestCase):
 
         graph = {"a": 2, "b": 2, "c": (inc, "a"), "d": (add, "a", "b"), "e": (minus, "d", "c")}
 
-        client = Client(address="tcp://127.0.0.1:2345")
+        client = Client(self.address)
 
         futures = client.submit_graph(graph, ["e"])
         with self.assertRaises(ValueError):
