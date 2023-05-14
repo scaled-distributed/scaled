@@ -1,7 +1,5 @@
 pyzmq
-attrs
 psutil
-colorlog
 cloudpickle
 tblib
-graphlib-backport
+graphlib-backport; python_version < '3.9'

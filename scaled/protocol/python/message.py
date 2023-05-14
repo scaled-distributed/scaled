@@ -1,9 +1,8 @@
 import abc
+import dataclasses
 import enum
 import struct
 from typing import Dict, List, Tuple, TypeVar
-
-import attrs
 
 
 class MessageType(enum.Enum):
@@ -83,7 +82,7 @@ class _Message(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-@attrs.define
+@dataclasses.dataclass
 class Argument:
     type: ArgumentType
     data: bytes
@@ -99,7 +98,7 @@ class Argument:
 MessageVariant = TypeVar("MessageVariant", bound=_Message)
 
 
-@attrs.define
+@dataclasses.dataclass
 class Task(_Message):
     task_id: bytes
     function_id: bytes
@@ -113,7 +112,7 @@ class Task(_Message):
         return Task(data[0], data[1], [Argument.deserialize(data[i : i + 2]) for i in range(2, len(data), 2)])
 
 
-@attrs.define
+@dataclasses.dataclass
 class TaskEcho(_Message):
     task_id: bytes
     status: TaskEchoStatus
@@ -126,7 +125,7 @@ class TaskEcho(_Message):
         return TaskEcho(data[0], TaskEchoStatus(data[1]))
 
 
-@attrs.define
+@dataclasses.dataclass
 class TaskCancel(_Message):
     task_id: bytes
 
@@ -138,7 +137,7 @@ class TaskCancel(_Message):
         return TaskCancel(data[0])
 
 
-@attrs.define
+@dataclasses.dataclass
 class TaskCancelEcho(_Message):
     task_id: bytes
     status: TaskEchoStatus
@@ -151,7 +150,7 @@ class TaskCancelEcho(_Message):
         return TaskCancelEcho(data[0], TaskEchoStatus(data[1]))
 
 
-@attrs.define
+@dataclasses.dataclass
 class TaskResult(_Message):
     task_id: bytes
     status: TaskStatus
@@ -166,7 +165,7 @@ class TaskResult(_Message):
         return TaskResult(data[0], TaskStatus(data[1]), struct.unpack("f", data[2])[0], data[3])
 
 
-@attrs.define
+@dataclasses.dataclass
 class GraphTask(_Message):
     task_id: bytes
     functions: Dict[bytes, bytes]
@@ -216,7 +215,7 @@ class GraphTask(_Message):
         return GraphTask(task_id, functions, targets, graph)
 
 
-@attrs.define
+@dataclasses.dataclass
 class GraphTaskEcho(_Message):
     task_id: bytes
     status: TaskEchoStatus
@@ -229,7 +228,7 @@ class GraphTaskEcho(_Message):
         return GraphTaskEcho(data[0], TaskEchoStatus(data[1]))
 
 
-@attrs.define
+@dataclasses.dataclass
 class GraphTaskCancel(_Message):
     task_id: bytes
 
@@ -241,7 +240,7 @@ class GraphTaskCancel(_Message):
         return GraphTaskCancel(data[0])
 
 
-@attrs.define
+@dataclasses.dataclass
 class GraphTaskCancelEcho(_Message):
     task_id: bytes
     status: TaskEchoStatus
@@ -254,7 +253,7 @@ class GraphTaskCancelEcho(_Message):
         return GraphTaskCancelEcho(data[0], TaskEchoStatus(data[1]))
 
 
-@attrs.define
+@dataclasses.dataclass
 class GraphTaskResult(_Message):
     task_id: bytes
     status: TaskStatus
@@ -268,7 +267,7 @@ class GraphTaskResult(_Message):
         return GraphTaskResult(data[0], TaskStatus(data[1]), data[2:])
 
 
-@attrs.define
+@dataclasses.dataclass
 class BalanceRequest(_Message):
     number_of_tasks: int
 
@@ -280,7 +279,7 @@ class BalanceRequest(_Message):
         return BalanceRequest(*struct.unpack("I", data[0]))
 
 
-@attrs.define
+@dataclasses.dataclass
 class BalanceResponse(_Message):
     task_ids: List[bytes]
 
@@ -295,7 +294,7 @@ class BalanceResponse(_Message):
         return BalanceResponse(task_ids)
 
 
-@attrs.define
+@dataclasses.dataclass
 class Heartbeat(_Message):
     agent_cpu: float
     agent_rss: int
@@ -313,7 +312,7 @@ class Heartbeat(_Message):
         return Heartbeat(*struct.unpack("fQfQI", data[0]))
 
 
-@attrs.define
+@dataclasses.dataclass
 class FunctionRequest(_Message):
     type: FunctionRequestType
     function_id: bytes
@@ -327,7 +326,7 @@ class FunctionRequest(_Message):
         return FunctionRequest(FunctionRequestType(data[0]), data[1], data[2])
 
 
-@attrs.define
+@dataclasses.dataclass
 class FunctionResponse(_Message):
     status: FunctionResponseType
     function_id: bytes
@@ -341,7 +340,7 @@ class FunctionResponse(_Message):
         return FunctionResponse(FunctionResponseType(data[0]), data[1], data[2])
 
 
-@attrs.define
+@dataclasses.dataclass
 class DisconnectRequest(_Message):
     worker: bytes
 
@@ -353,7 +352,7 @@ class DisconnectRequest(_Message):
         return DisconnectRequest(data[0])
 
 
-@attrs.define
+@dataclasses.dataclass
 class DisconnectResponse(_Message):
     worker: bytes
 
@@ -365,7 +364,7 @@ class DisconnectResponse(_Message):
         return DisconnectResponse(data[0])
 
 
-@attrs.define
+@dataclasses.dataclass
 class ProcessorInitialize(_Message):
     def serialize(self) -> Tuple[bytes, ...]:
         return (b"",)
@@ -375,7 +374,7 @@ class ProcessorInitialize(_Message):
         return ProcessorInitialize()
 
 
-@attrs.define
+@dataclasses.dataclass
 class SchedulerStatus(_Message):
     data: bytes  # json content represent in bytes
 

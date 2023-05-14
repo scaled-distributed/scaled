@@ -12,7 +12,7 @@ def sleep_print(sec: int):
 
 def main():
     setup_logger()
-    tasks = [random.randint(0, 100) for _ in range(10000)]
+    tasks = [random.randint(0, 100) for _ in range(100000)]
 
     cluster = LocalCluster(n_workers=10, threads_per_worker=2, memory_limit="100GB")
     client = Client(address=cluster.scheduler_address)

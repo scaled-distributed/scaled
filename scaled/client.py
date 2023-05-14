@@ -95,7 +95,9 @@ class Client:
         self._task_id_to_future[task_id] = future
         return future
 
-    def submit_graph(self, graph: Dict[str, Union[Any, Tuple[Callable, Any, ...]]], keys: List[str]) -> List[Future]:
+    def submit_graph(
+        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, Any], ...]]], keys: List[str]
+    ) -> List[Future]:
         """
         graph = {
             "a": 1,
@@ -258,8 +260,8 @@ class Client:
         return tuple(args)
 
     def __split_data_and_graph(
-        self, graph: Dict[str, Union[Any, Tuple[Callable, Any, ...]]]
-    ) -> Tuple[Dict[str, Argument], Dict[str, Tuple[Callable, Any, ...]]]:
+        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, Any], ...]]]
+    ) -> Tuple[Dict[str, Argument], Dict[str, Tuple[Union[Callable, Any], ...]]]:
         graph = graph.copy()
         node_name_to_data_argument = {}
         for node_name, node in graph.items():
@@ -277,7 +279,9 @@ class Client:
 
     @staticmethod
     def __check_graph(
-        node_to_argument: Dict[str, Argument], graph: Dict[str, Union[Any, Tuple[Callable, Any, ...]]], keys: List[str]
+        node_to_argument: Dict[str, Argument],
+        graph: Dict[str, Union[Any, Tuple[Union[Callable, Any], ...]]],
+        keys: List[str],
     ):
         # sanity check graph
         for key in keys:
@@ -300,7 +304,7 @@ class Client:
         sorter.prepare()
 
     def __construct_graph(
-        self, data_arguments: Dict[str, Argument], graph: Dict[str, Tuple[Callable, Any, ...]], keys: List[str]
+        self, data_arguments: Dict[str, Argument], graph: Dict[str, Tuple[Union[Callable, Any], ...]], keys: List[str]
     ) -> Tuple[GraphTask, List[Future]]:
         node_name_to_task_id = {node_name: uuid.uuid1().bytes for node_name in graph.keys()}
         task_id_to_future = {node_name_to_task_id[node_name]: Future() for node_name in keys}

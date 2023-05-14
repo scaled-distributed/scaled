@@ -1,6 +1,7 @@
 # Scaled
-This project is aiming the target that provides simple and efficient and reliable way for distributing computing 
-framework, centralized scheduler and stable protocol when client and worker talking to scheduler
+This project is aiming the target that provides very light, efficient, reliable way for distribute computing 
+framework, like dask and ray, it uses centralized scheduler (like dask, unlike ray) and language agnostic protocol 
+between client and scheduler, or between scheduler and worker.
 
 # Introduction
 The goal for this project should be as simple as possible
@@ -17,6 +18,7 @@ if you want to use uvloop, please do: `pip install uvloop`, default we are using
 
 
 # How to use it
+The use experience is very close to dask
 
 ## Start local scheduler and cluster at the same time in the code
 
@@ -101,6 +103,53 @@ future = client.submit(foobar, 1)
 
 print(future.result())
 ```
+
+## Scheduler
+
+As scaled_scheduler only need communicate with client and worker with protocol, so scaled_scheduler can be packaged and
+distributed independently, unless protocol changes. It can be used for scheduling tasks that by other language 
+implementations of client/worker too.
+
+Assume there is implementation of scaled protocol written in C++, has client and worker side, it can use python version
+of scaled_scheduler for task scheduling and balancing
+
+### Scheduler Benchmark
+
+Initially I was thinking to implement C++ or Rust version of scheduler that follows the protocol, but seems PyPy works
+pretty well, the scheduling overhead will be reduced by ~60%. Below is a simple benchmark chart, I used 100k noop tasks
+to just test how much overhead does scheduler will introduce
+
+**Note: as dask took 110 seconds to finish same amount of 100k noop tasks, I will not list it to below chart**
+
+| Python  | Version   | Event Loop | Time    |
+|---------|-----------|------------|---------|
+| CPython | 3.10      | asyncio    | 19.131s |
+| CPython | 3.10      | uvloop     | 17.809s |
+| CPython | 3.11.3    | asyncio    | 19.475s |
+| CPython | 3.11.3    | uvloop     | 18.406s |
+| PyPy    | 3.9.16    | asyncio    | 8.748s  |
+| PyPy    | 3.9.16    | uvloop     | N/A     |
+
+* Test machine is AMD 5900X with 32gb RAM, started 10 workers
+
+
+### Package scheduler as one file
+
+Here is how to use nuitka to compile package into one file (doesn't provide speedup):
+
+```shell
+nuitka3 --standalone --onefile --no-pyi-file --remove-output --include-package=uvloop --output-filename=scaled_scheduler ./run_scheduler.py
+nuitka3 --standalone --onefile --no-pyi-file --remove-output --output-filename=scaled_top ./run_top.py
+```
+
+Here is how to use pex to package into one file:
+```shell
+pex scaled -c scaled_scheduler -o scaled_scheduler
+pex scaled -c scaled_top -o scaled_top
+```
+
+
+## Graph Task
 
 Scaled also supports submit graph task, for example:
 

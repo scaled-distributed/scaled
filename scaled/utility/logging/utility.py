@@ -43,19 +43,11 @@ def __detect_log_types(file_name: str) -> LogType:
     return LogType.File
 
 
-def __format(name, color=None) -> str:
+def __format(name) -> str:
     if not name:
         return ""
 
-    name = "%({name})s".format(name=name)
-    if not color:
-        return name
-
-    return __colored(name, color)
-
-
-def __colored(text, color) -> str:
-    return "%({color})s{text}%(reset)s".format(text=text, color=color)
+    return "%({name})s".format(name=name)
 
 
 def __generate_log_config() -> typing.Dict:
@@ -63,18 +55,6 @@ def __generate_log_config() -> typing.Dict:
         "version": 1,
         "disable_existing_loggers": False,  # this fixes the problem
         "formatters": {
-            "colored": {
-                "()": "colorlog.ColoredFormatter",
-                "format": "[{levelname}]{asctime}: {message}".format(
-                    levelname=__format("levelname", color="log_color"),
-                    asctime=__format("asctime", color="green"),
-                    module=__format("module"),
-                    message=__format("message", color="log_color"),
-                ),
-                "datefmt": "%Y-%m-%d %H:%M:%S%z",
-                "reset": True,
-                "log_colors": {"DEBG": "white", "INFO": "white", "WARN": "yellow", "EROR": "red", "CTIC": "red"},
-            },
             "standard": {
                 "format": "[{levelname}]{asctime}: {message}".format(
                     levelname=__format("levelname"),
@@ -135,7 +115,7 @@ def __create_stdout_handler(logging_level: str):
     return {
         "class": "logging.StreamHandler",
         "level": logging_level,
-        "formatter": "colored",
+        "formatter": "standard",
         "stream": "ext://sys.stdout",
     }
 
