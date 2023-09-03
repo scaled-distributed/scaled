@@ -40,7 +40,7 @@ class AsyncConnector:
         else:
             raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
 
-        self._callback: Optional[Callable[[MessageType, MessageVariant], Awaitable[None]]] = callback
+        self._callback: Optional[Callable[[MessageVariant], Awaitable[None]]] = callback
 
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
@@ -68,7 +68,7 @@ class AsyncConnector:
             logging.error(f"{self.__get_prefix()} received message but didn't set callback")
             return
 
-        await self._callback(message_type, message)
+        await self._callback(message)
 
     async def send(self, data: MessageVariant):
         message_type = PROTOCOL.inverse[type(data)]

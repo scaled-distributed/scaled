@@ -14,7 +14,6 @@ from scaled.protocol.python.message import (
     FunctionRequest,
     FunctionRequestType,
     FunctionResponse,
-    MessageType,
     MessageVariant,
     ProcessorInitialize,
     Task,
@@ -82,21 +81,23 @@ class Processor(multiprocessing.get_context("spawn").Process):
         except KeyboardInterrupt:
             pass
 
-    def __on_connector_receive(self, message_type: MessageType, message: MessageVariant):
-        if not self._initialized:
-            if message_type == MessageType.ProcessorInitialize:
+    def __on_connector_receive(self, message: MessageVariant):
+        if isinstance(message, ProcessorInitialize):
+            if not self._initialized:
                 self._initialized = True
+            else:
+                raise ValueError(f"received multiple initialize message")
             return
 
-        if message_type == MessageType.FunctionResponse:
+        if isinstance(message, FunctionResponse):
             self.__on_receive_function_response(message)
             return
 
-        if message_type == MessageType.FunctionRequest:
+        if isinstance(message, FunctionRequest):
             self.__on_receive_function_request(message)
             return
 
-        if message_type == MessageType.Task:
+        if isinstance(message, Task):
             self.__on_received_task(message)
             return
 
@@ -149,7 +150,6 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __register_signal(self):
         signal.signal(signal.SIGINT, self.__destroy)
-        signal.signal(signal.SIGTERM, self.__destroy)
 
     def __destroy(self):
         self._connector.close()

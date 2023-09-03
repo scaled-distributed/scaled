@@ -22,14 +22,14 @@ class AsyncBinder(Looper, Reporter):
         self.__set_socket_options()
         self._socket.bind(self._address.to_address())
 
-        self._callback: Optional[Callable[[bytes, MessageType, MessageVariant], Awaitable[None]]] = None
+        self._callback: Optional[Callable[[bytes, MessageVariant], Awaitable[None]]] = None
 
         self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
 
     def destroy(self):
         self._context.destroy(linger=0)
 
-    def register(self, callback: Callable[[bytes, MessageType, MessageVariant], Awaitable[None]]):
+    def register(self, callback: Callable[[bytes, MessageVariant], Awaitable[None]]):
         self._callback = callback
 
     async def routine(self):
@@ -42,7 +42,7 @@ class AsyncBinder(Looper, Reporter):
         self.__count_one("received", message_type)
 
         message = PROTOCOL[message_type].deserialize(payload)
-        await self._callback(source, message_type, message)
+        await self._callback(source, message)
 
     async def statistics(self) -> Dict:
         return {

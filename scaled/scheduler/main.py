@@ -13,7 +13,18 @@ from scaled.scheduler.status_reporter import StatusReporter
 from scaled.utility.event_loop import create_async_loop_routine
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import MessageType, MessageVariant
+from scaled.protocol.python.message import (
+    BalanceResponse,
+    DisconnectRequest,
+    FunctionRequest,
+    GraphTask,
+    GraphTaskCancel,
+    Heartbeat,
+    MessageVariant,
+    Task,
+    TaskCancel,
+    TaskResult,
+)
 from scaled.scheduler.task_manager import VanillaTaskManager
 from scaled.scheduler.worker_manager import VanillaWorkerManager
 
@@ -73,44 +84,44 @@ class Scheduler:
             [self._binder, self._client_manager, self._function_manager, self._task_manager, self._worker_manager]
         )
 
-    async def on_receive_message(self, source: bytes, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.Heartbeat:
+    async def on_receive_message(self, source: bytes, message: MessageVariant):
+        if isinstance(message, Heartbeat):
             await self._worker_manager.on_heartbeat(source, message)
             return
 
-        if message_type == MessageType.BalanceResponse:
+        if isinstance(message, BalanceResponse):
             await self._worker_manager.on_balance_response(message)
             return
 
-        if message_type == MessageType.GraphTask:
+        if isinstance(message, GraphTask):
             await self._graph_manager.on_graph_task(source, message)
             return
 
-        if message_type == MessageType.GraphTaskCancel:
+        if isinstance(message, GraphTaskCancel):
             await self._graph_manager.on_graph_task_cancel(message)
             return
 
-        if message_type == MessageType.Task:
+        if isinstance(message, Task):
             await self._task_manager.on_task_new(source, message)
             return
 
-        if message_type == MessageType.TaskCancel:
+        if isinstance(message, TaskCancel):
             await self._task_manager.on_task_cancel(source, message)
             return
 
-        if message_type == MessageType.TaskResult:
+        if isinstance(message, TaskResult):
             await self._worker_manager.on_task_done(message)
             return
 
-        if message_type == MessageType.FunctionRequest:
+        if isinstance(message, FunctionRequest):
             await self._function_manager.on_function(source, message)
             return
 
-        if message_type == MessageType.DisconnectRequest:
+        if isinstance(message, DisconnectRequest):
             await self._worker_manager.on_disconnect(source, message)
             return
 
-        logging.error(f"{self.__class__.__name__}: unknown {message_type} from {source=}: {message}")
+        logging.error(f"{self.__class__.__name__}: unknown message from {source=}: {message}")
 
     async def get_loops(self):
         try:

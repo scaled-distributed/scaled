@@ -23,7 +23,7 @@ class SyncConnector(threading.Thread):
         socket_type: int,
         bind_or_connect: Literal["bind", "connect"],
         address: ZMQConfig,
-        callback: Callable[[MessageType, MessageVariant], None],
+        callback: Callable[[MessageVariant], None],
         exit_callback: Optional[Callable[[], None]],
         daemonic: bool,
     ):
@@ -120,7 +120,7 @@ class SyncConnector(threading.Thread):
         message = PROTOCOL[message_type].deserialize(payload)
 
         self.__count_one("received", message_type)
-        self._callback(message_type, message)
+        self._callback(message)
 
     def __count_one(self, count_type: Literal["sent", "received"], message_type: MessageType):
         with self._statistics_mutex:

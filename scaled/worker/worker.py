@@ -6,7 +6,16 @@ from typing import Optional
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import BalanceResponse, DisconnectRequest, MessageType, MessageVariant
+from scaled.protocol.python.message import (
+    BalanceRequest,
+    BalanceResponse,
+    DisconnectRequest,
+    FunctionRequest,
+    FunctionResponse,
+    MessageVariant,
+    Task,
+    TaskCancel,
+)
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.event_loop import create_async_loop_routine, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
@@ -82,29 +91,29 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self.__register_signal()
         self._task = self._loop.create_task(self.__get_loops())
 
-    async def __on_receive_external(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.Task:
+    async def __on_receive_external(self, message: MessageVariant):
+        if isinstance(message, Task):
             await self._task_manager.on_task_new(message)
             return
 
-        if message_type == MessageType.TaskCancel:
+        if isinstance(message, TaskCancel):
             await self._task_manager.on_cancel_task(message)
             return
 
-        if message_type == MessageType.BalanceRequest:
+        if isinstance(message, BalanceRequest):
             task_ids = self._task_manager.on_balance_request(message)
             await self._connector_external.send(BalanceResponse(task_ids))
             return
 
-        if message_type == MessageType.FunctionRequest:
+        if isinstance(message, FunctionRequest):
             await self._processor_manager.on_function_request(message)
             return
 
-        if message_type == MessageType.FunctionResponse:
+        if isinstance(message, FunctionResponse):
             await self._processor_manager.on_function_response(message)
             return
 
-        raise TypeError(f"Unknown {message_type=} {message=}")
+        raise TypeError(f"Unknown {message=}")
 
     async def __get_loops(self):
         try:

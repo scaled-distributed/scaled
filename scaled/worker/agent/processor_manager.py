@@ -15,7 +15,6 @@ from scaled.protocol.python.message import (
     FunctionRequest,
     FunctionRequestType,
     FunctionResponse,
-    MessageType,
     MessageVariant,
     ProcessorInitialize,
     Task,
@@ -146,18 +145,18 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         logging.info(f"Worker[{os.getpid()}]: start Processor[{self._processor.pid}]")
 
-    async def __on_receive_internal(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.ProcessorInitialize:
+    async def __on_receive_internal(self, message: MessageVariant):
+        if isinstance(message, ProcessorInitialize):
             assert self._processor_ready is False
             self._processor_ready = True
             await self._connector.send(ProcessorInitialize())
             return
 
-        if message_type == MessageType.TaskResult:
+        if isinstance(message, TaskResult):
             await self.on_task_result(message)
             return
 
-        if message_type == MessageType.FunctionRequest:
+        if isinstance(message, FunctionRequest):
             await self._connector_external.send(message)
             return
 

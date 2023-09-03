@@ -26,7 +26,6 @@ from scaled.protocol.python.message import (
     GraphTask,
     GraphTaskCancel,
     GraphTaskResult,
-    MessageType,
     MessageVariant,
     Task,
     TaskCancel,
@@ -127,24 +126,24 @@ class Client:
     def disconnect(self):
         self._stop_event.set()
 
-    def __on_receive(self, message_type: MessageType, message: MessageVariant):
-        if message_type == MessageType.TaskEcho:
+    def __on_receive(self, message: MessageVariant):
+        if isinstance(message, TaskEcho):
             self.__on_task_echo(message)
             return
 
-        if message_type == MessageType.FunctionResponse:
+        if isinstance(message, FunctionResponse):
             self.__on_function_response(message)
             return
 
-        if message_type == MessageType.TaskResult:
+        if isinstance(message, TaskResult):
             self.__on_task_result(message)
             return
 
-        if message_type == MessageType.GraphTaskResult:
+        if isinstance(message, GraphTaskResult):
             self.__on_graph_task_result(message)
             return
 
-        raise TypeError(f"Unknown {message_type=}")
+        raise TypeError(f"Unknown {message=}")
 
     def __on_task_echo(self, task_echo: TaskEcho):
         if task_echo.task_id not in self._task_id_to_task:
