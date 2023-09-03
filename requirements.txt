@@ -1,3 +1,4 @@
+bidict
 pyzmq
 psutil
 cloudpickle

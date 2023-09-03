@@ -38,8 +38,8 @@ class CacheCleaner(threading.Thread):
         self._cached_functions_alive_since[function_id] = time.time()
 
     def del_function(self, function_id: bytes):
-        self._cached_functions_alive_since.pop(function_id)
-        self._cached_functions.pop(function_id)
+        self._cached_functions_alive_since.pop(function_id, None)
+        self._cached_functions.pop(function_id, None)
 
     def get_function(self, function_id: bytes) -> Optional[Callable]:
         function = self._cached_functions.get(function_id)

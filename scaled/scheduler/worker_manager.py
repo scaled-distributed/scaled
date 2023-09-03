@@ -10,14 +10,13 @@ from scaled.protocol.python.message import (
     DisconnectRequest,
     DisconnectResponse,
     Heartbeat,
-    MessageType,
     Task,
-    TaskCancelEcho,
-    TaskEchoStatus,
     TaskResult,
     TaskCancel,
+    FunctionRequest,
+    FunctionRequestType,
 )
-from scaled.scheduler.worker_manager.allocators.queued import QueuedAllocator
+from scaled.scheduler.allocators.queued import QueuedAllocator
 
 
 class VanillaWorkerManager(WorkerManager, Looper, Reporter):
@@ -51,7 +50,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             return False
 
         # send to worker
-        await self._binder.send(worker, MessageType.Task, task)
+        await self._binder.send(worker, task)
         return True
 
     async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
@@ -60,29 +59,14 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             logging.error(f"cannot find task_id={task_cancel.task_id.hex()} in task workers")
             return
 
-        await self._binder.send(worker, MessageType.TaskCancel, TaskCancel(task_cancel.task_id))
-
-    async def on_task_cancel_echo(self, worker: bytes, task_cancel_echo: TaskCancelEcho):
-        if task_cancel_echo.status == TaskEchoStatus.CancelFailed:
-            logging.warning(f"cancel task task_id={task_cancel_echo.task_id.hex()} failed")
-            return
-
-        assert task_cancel_echo.status == TaskEchoStatus.CancelOK
-        worker = self._allocator.remove_task(task_cancel_echo.task_id)
-        if worker is None:
-            logging.error(
-                f"received TaskCancelEcho for task_id={task_cancel_echo.task_id.hex()} not known to any worker"
-            )
-            return
-
-        await self._task_manager.on_task_cancel_echo(worker, task_cancel_echo)
+        await self._binder.send(worker, TaskCancel(task_cancel.task_id))
 
     async def on_task_done(self, task_result: TaskResult):
         worker = self._allocator.remove_task(task_result.task_id)
         if worker is None:
             logging.error(
-                f"received task_id={task_result.task_id.hex()} not known to any worker, might due to worker get "
-                f"disconnected or canceled"
+                f"received unknown task result for task_id={task_result.task_id.hex()}, status={task_result.status} "
+                f"might due to worker get disconnected or canceled"
             )
             return
 
@@ -105,9 +89,13 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
 
         self._worker_alive_since[worker] = (time.time(), info)
 
+    async def on_delete_function(self, function_id: bytes):
+        for worker in self._allocator.get_worker_ids():
+            await self._binder.send(worker, FunctionRequest(FunctionRequestType.Delete, function_id, b"", b""))
+
     async def on_disconnect(self, source: bytes, request: DisconnectRequest):
         await self.__disconnect_worker(request.worker)
-        await self._binder.send(source, MessageType.DisconnectResponse, DisconnectResponse(request.worker))
+        await self._binder.send(source, DisconnectResponse(request.worker))
 
     async def routine(self):
         await self.__balance_request()
@@ -153,7 +141,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         logging.info(f"balance: {current_advice}")
         self._last_balance_advice = current_advice
         for worker, number_of_tasks in current_advice.items():
-            await self._binder.send(worker, MessageType.BalanceRequest, BalanceRequest(number_of_tasks))
+            await self._binder.send(worker, BalanceRequest(number_of_tasks))
 
     async def __clean_workers(self):
         now = time.time()

@@ -55,7 +55,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
         self._connector_external = AsyncConnector(
             context=zmq.asyncio.Context(),
-            prefix="W",
             socket_type=zmq.DEALER,
             address=self._address,
             bind_or_connect="connect",
@@ -94,7 +93,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
         if message_type == MessageType.BalanceRequest:
             task_ids = self._task_manager.on_balance_request(message)
-            await self._connector_external.send(MessageType.BalanceResponse, BalanceResponse(task_ids))
+            await self._connector_external.send(BalanceResponse(task_ids))
             return
 
         if message_type == MessageType.FunctionRequest:
@@ -114,16 +113,13 @@ class Worker(multiprocessing.get_context("spawn").Process):
                 create_async_loop_routine(self._task_manager.routine, 0),
                 create_async_loop_routine(self._heartbeat.routine, self._heartbeat_interval_seconds),
                 create_async_loop_routine(self._processor_manager.routine, 0),
-                return_exceptions=True,
             )
         except asyncio.CancelledError:
             pass
         except KeyboardInterrupt:
             pass
 
-        await self._connector_external.send(
-            MessageType.DisconnectRequest, DisconnectRequest(self._connector_external.identity)
-        )
+        await self._connector_external.send(DisconnectRequest(self._connector_external.identity))
 
         self._connector_external.destroy()
         self._processor_manager.destroy()
@@ -133,7 +129,6 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
     def __register_signal(self):
         self._loop.add_signal_handler(signal.SIGINT, self.__destroy)
-        self._loop.add_signal_handler(signal.SIGTERM, self.__destroy)
 
     def __destroy(self):
         self._task.cancel()

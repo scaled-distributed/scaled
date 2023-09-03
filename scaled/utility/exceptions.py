@@ -1,0 +1,2 @@
+class ScaledDisconnect(Exception):
+    pass

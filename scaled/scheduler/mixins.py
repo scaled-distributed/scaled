@@ -10,7 +10,6 @@ from scaled.protocol.python.message import (
     Heartbeat,
     Task,
     TaskCancel,
-    TaskCancelEcho,
     TaskResult,
 )
 
@@ -37,11 +36,15 @@ class FunctionManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_done_function(self, task_id: bytes, function_id: bytes):
+    async def on_task_done_function(self, task_id: bytes):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def has_function(self, function_id: bytes) -> bool:
+    def has_function(self, function_id: bytes) -> bool:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_function_name(self, function_id: bytes) -> bytes:
         raise NotImplementedError()
 
 
@@ -91,10 +94,6 @@ class TaskManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_cancel_echo(self, worker: bytes, task_cancel_echo: TaskCancelEcho):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
     async def on_task_done(self, result: TaskResult):
         raise NotImplementedError()
 
@@ -109,10 +108,6 @@ class WorkerManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_cancel_echo(self, worker: bytes, task_cancel_echo: TaskCancelEcho):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
     async def on_balance_response(self, response: BalanceResponse):
         raise NotImplementedError()
 
@@ -122,6 +117,10 @@ class WorkerManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def on_heartbeat(self, worker: bytes, info: Heartbeat):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_delete_function(self, function_id: bytes):
         raise NotImplementedError()
 
     @abc.abstractmethod

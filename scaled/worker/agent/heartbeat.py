@@ -3,7 +3,7 @@ from typing import Optional
 import psutil
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import Heartbeat, MessageType
+from scaled.protocol.python.message import Heartbeat
 from scaled.worker.agent.mixins import Looper, HeartbeatManager, TaskManager
 
 
@@ -27,12 +27,11 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
             return
 
         await self._connector_external.send(
-            MessageType.Heartbeat,
             Heartbeat(
                 self._agent_process.cpu_percent() / 100,
                 self._agent_process.memory_info().rss,
                 self._worker_process.cpu_percent() / 100,
                 self._worker_process.memory_info().rss,
                 self._worker_task_manager.get_queued_size(),
-            ),
+            )
         )

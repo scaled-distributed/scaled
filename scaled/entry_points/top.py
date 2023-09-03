@@ -3,11 +3,12 @@ import curses
 import functools
 import json
 import logging
-from typing import Callable, List
+from typing import Callable, List, Literal
 
 import zmq
 
 from scaled.protocol.python.message import MessageType, PROTOCOL, SchedulerStatus
+from scaled.utility.formatter import format_bytes, format_integer, format_percentage
 from scaled.utility.zmq_config import ZMQConfig
 
 SORT_BY_OPTIONS = {
@@ -71,7 +72,7 @@ def subscribe_status(address: ZMQConfig, callback: Callable[[SchedulerStatus], N
 
         message_type_bytes, *payload = frames
         message_type = MessageType(message_type_bytes)
-        message = PROTOCOL[message_type_bytes].deserialize(payload)
+        message = PROTOCOL[message_type].deserialize(payload)
 
         if message_type != message_type.SchedulerStatus:
             raise ValueError(f"unknown message type: {message_type}")
@@ -87,26 +88,24 @@ def show_status(status: SchedulerStatus, screen, config):
     if option in SORT_BY_OPTIONS:
         config["sort_by"] = SORT_BY_OPTIONS[option]
 
-    data["scheduler"]["cpu"] = __format_percentage(data["scheduler"]["cpu"])
-    data["scheduler"]["rss"] = __format_bytes(data["scheduler"]["rss"])
+    data["scheduler"]["cpu"] = format_percentage(data["scheduler"]["cpu"])
+    data["scheduler"]["rss"] = format_bytes(data["scheduler"]["rss"])
     scheduler_table = __generate_keyword_data("scheduler", data["scheduler"])
-    task_manager_table = __generate_keyword_data("task_manager", data["task_manager"], format_integer=True)
-    sent_table = __generate_keyword_data("scheduler_sent", data["binder"]["sent"], format_integer=True)
-    received_table = __generate_keyword_data("scheduler_received", data["binder"]["received"], format_integer=True)
-    # client_table = __generate_keyword_data("client_manager", data["client_manager"])
-    function_id_to_tasks = __generate_keyword_data(
-        "function_id_to_tasks", data["function_manager"]["function_id_to_tasks"], truncate_key=24
-    )
+    task_manager_table = __generate_keyword_data("task_manager", data["task_manager"], format_integer_flag=True)
+    sent_table = __generate_keyword_data("scheduler_sent", data["binder"]["sent"], format_integer_flag=True)
+    received_table = __generate_keyword_data("scheduler_received", data["binder"]["received"], format_integer_flag=True)
+    client_table = __generate_keyword_data("client_manager", data["client_manager"], key_col_length=18)
+    function_name_to_tasks = __generate_keyword_data("func_to_num_tasks", data["function_manager"], key_col_length=18)
     worker_manager_table = __generate_worker_manager_table(
-        data["worker_manager"], truncate_number=24, sort_by=config["sort_by"]
+        data["worker_manager"], worker_length=24, sort_by=config["sort_by"]
     )
 
     table1 = __merge_tables(scheduler_table, task_manager_table, padding="|")
     table1 = __merge_tables(table1, sent_table, padding="|")
     table1 = __merge_tables(table1, received_table, padding="|")
-    # table = __merge_tables(table, client_table)
 
-    table2 = __merge_tables(worker_manager_table, function_id_to_tasks, padding="|")
+    table2 = __concat_tables(client_table, function_name_to_tasks)
+    table3 = __merge_tables(worker_manager_table, table2, padding="|")
 
     screen.clear()
     try:
@@ -119,33 +118,27 @@ def show_status(status: SchedulerStatus, screen, config):
         screen.addstr(new_row, 0, "-" * max_cols)
         screen.addstr(new_row + 1, 0, "Shortcuts: " + " ".join([f"{v}[{chr(k)}]" for k, v in SORT_BY_OPTIONS.items()]))
         screen.addstr(new_row + 3, 0, f"Total {len(data['worker_manager'])} worker(s)")
-        _ = __print_table(screen, new_row + 4, table2)
+        _ = __print_table(screen, new_row + 4, table3)
     except curses.error:
         pass
 
     screen.refresh()
 
 
-def __generate_keyword_data(title, data, truncate_key: int = 0, format_integer: bool = False):
+def __generate_keyword_data(title, data, key_col_length: int = 0, format_integer_flag: bool = False):
     table = [[title, ""]]
 
-    def truncate_key_func(key):
-        if truncate_key:
-            return f"{key[:-truncate_key]}+"
-
-        return key
-
     def format_integer_func(value):
-        if format_integer:
-            return __format_integer(value)
+        if format_integer_flag:
+            return format_integer(value)
 
         return value
 
-    table.extend([[truncate_key_func(k), format_integer_func(v)] for k, v in data.items()])
+    table.extend([[__truncate(k, key_col_length), format_integer_func(v)] for k, v in data.items()])
     return table
 
 
-def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str):
+def __generate_worker_manager_table(wm_data, worker_length: int, sort_by: str):
     if not wm_data:
         headers = [["No workers"]]
         return headers
@@ -153,11 +146,11 @@ def __generate_worker_manager_table(wm_data, truncate_number: int, sort_by: str)
     wm_data = sorted(wm_data, key=lambda item: item[sort_by], reverse=True)
 
     for row in wm_data:
-        row["worker"] = f"{row['worker'][:-truncate_number]}+" if truncate_number else row["worker"]
-        row["agt_cpu"] = __format_percentage(row["agt_cpu"])
-        row["agt_rss"] = __format_bytes(row["agt_rss"])
-        row["cpu"] = __format_percentage(row["cpu"])
-        row["rss"] = __format_bytes(row["rss"])
+        row["worker"] = __truncate(row["worker"], worker_length, how="left")
+        row["agt_cpu"] = format_percentage(row["agt_cpu"])
+        row["agt_rss"] = format_bytes(row["agt_rss"])
+        row["cpu"] = format_percentage(row["cpu"])
+        row["rss"] = format_bytes(row["rss"])
 
     worker_manager_table = [[f"[{v}]" if v == sort_by else v for v in wm_data[0].keys()]]
     worker_manager_table.extend([list(worker.values()) for worker in wm_data])
@@ -178,23 +171,6 @@ def __print_table(screen, line_number, data, padding: int = 1):
             screen.addstr(line_number + i, sum(col_widths[:j]) + (padding * j), str(cell).rjust(col_widths[j]))
 
     return line_number + len(data), sum(col_widths) + (padding * len(col_widths))
-
-
-def __format_bytes(number) -> str:
-    for unit in ["b", "k", "m", "g", "t"]:
-        if number >= 1024.0:
-            number /= 1024.0
-            continue
-
-        return f"{number:.1f}{unit}"
-
-
-def __format_integer(number):
-    return f"{number:,}"
-
-
-def __format_percentage(number):
-    return f"{number:.1%}"
 
 
 def __merge_tables(left: List[List], right: List[List], padding: str = "") -> List[List]:
@@ -223,6 +199,32 @@ def __merge_tables(left: List[List], right: List[List], padding: str = "") -> Li
             result.append(left_row + right_row)
 
     return result
+
+
+def __concat_tables(up: List[List], down: List[List], padding: int = 1) -> List[List]:
+    max_cols = max([len(row) for row in up] + [len(row) for row in down])
+    for row in up:
+        row.extend([""] * (max_cols - len(row)))
+
+    padding_rows = [[""] * max_cols] * padding
+
+    for row in down:
+        row.extend([""] * (max_cols - len(row)))
+
+    return up + padding_rows + down
+
+
+def __truncate(string: str, number: int, how: Literal["left", "right"] = "left") -> str:
+    if number <= 0:
+        return string
+
+    if len(string) <= number:
+        return string
+
+    if how == "left":
+        return f"{string[:number]}+"
+    else:
+        return f"+{string[-number:]}"
 
 
 def __print_too_small(screen):

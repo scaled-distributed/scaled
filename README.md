@@ -175,9 +175,7 @@ graph = {
 }
 
 client = Client(address="tcp://127.0.0.1:2345")
-futures = client.submit_graph(graph, keys=["e"])
-
-print(futures[0].result())
+print(client.get(graph, keys=["e"]))
 ```
 
 # Scaled Top
@@ -188,27 +186,30 @@ $ scaled_top ipc:///tmp/0.0.0.0_8516_monitor
 
 Which will something similar to top command, but it's for getting status of the scaled system:
 ```bash
-scheduler          | task_manager         |   scheduler_sent         | scheduler_received
-      cpu     0.0% |   unassigned       0 | FunctionResponse      24 |          Heartbeat 183,109
-      rss 37.1 MiB |      running       0 |         TaskEcho 200,000 |    FunctionRequest      24
-                   |      success 200,000 |             Task 200,000 |               Task 200,000
-                   |       failed       0 |       TaskResult 200,000 |         TaskResult 200,000
-                   |     canceled       0 |   BalanceRequest       4 |    BalanceResponse       4
---------------------------------------------------------------------------------------------------
-Shortcuts: worker[n] cpu[c] rss[m] free[f] working[w] queued[q]
+scheduler       | task_manager        |     scheduler_sent        | scheduler_received
+      cpu  0.0% |   unassigned      0 | DisconnectResponse     10 |          Heartbeat 263,493
+      rss 45.5m |      running      0 |   FunctionResponse    169 |  DisconnectRequest      10
+                |      success 40,278 |           TaskEcho 40,352 |    FunctionRequest     145
+                |       failed     10 |               Task 40,352 |               Task  40,332
+                |     canceled     64 |         TaskResult 40,336 |         TaskResult  40,352
+                |    not_found      0 |    FunctionRequest    280 |         TaskCancel     210
+                                      |         TaskCancel     64 |          GraphTask       8
+                                      |    GraphTaskResult      8 |
+-----------------------------------------------------------------------------------------------
+Shortcuts: worker[n] agt_cpu[C] agt_rss[M] cpu[c] rss[m] free[f] sent[w] queued[d]
 
 Total 10 worker(s)
-                 worker agt_cpu agt_rss [cpu]   rss free sent queued | function_id_to_tasks
-W|Linux|15940|3c9409c0+    0.0%   32.7m  0.0% 28.4m 1000    0      0 |
-W|Linux|15946|d6450641+    0.0%   30.7m  0.0% 28.2m 1000    0      0 |
-W|Linux|15942|3ed56e89+    0.0%   34.8m  0.0% 30.4m 1000    0      0 |
-W|Linux|15944|6e7d5b99+    0.0%   30.8m  0.0% 28.2m 1000    0      0 |
-W|Linux|15945|33106447+    0.0%   31.1m  0.0% 28.1m 1000    0      0 |
-W|Linux|15937|b031ce9a+    0.0%   31.0m  0.0% 30.3m 1000    0      0 |
-W|Linux|15941|c4dcc2f3+    0.0%   30.5m  0.0% 28.2m 1000    0      0 |
-W|Linux|15939|e1ab4340+    0.0%   31.0m  0.0% 28.1m 1000    0      0 |
-W|Linux|15938|ed582770+    0.0%   31.1m  0.0% 28.1m 1000    0      0 |
-W|Linux|15943|a7fe8b5e+    0.0%   30.7m  0.0% 28.3m 1000    0      0 |
+                   worker agt_cpu agt_rss [cpu]   rss free sent queued |    client_manager
+177861|desk-manjaro|1bd0+    0.0%   33.3m  0.0% 33.2m 1000    0      0 |
+177859|desk-manjaro|bc79+    0.0%   31.4m  0.0% 32.2m 1000    0      0 | func_to_num_tasks
+177867|desk-manjaro|1104+    0.0%   31.5m  0.0% 32.2m 1000    0      0 |
+177863|desk-manjaro|a6d1+    0.0%   34.9m  0.0% 31.2m 1000    0      0 |
+177865|desk-manjaro|0c92+    0.0%   35.3m  0.0% 32.4m 1000    0      0 |
+177858|desk-manjaro|8ddd+    0.0%   32.8m  0.0% 30.9m 1000    0      0 |
+177866|desk-manjaro|d3ae+    0.0%   35.2m  0.0% 33.2m 1000    0      0 |
+177860|desk-manjaro|6ecc+    0.0%   33.5m  0.0% 30.8m 1000    0      0 |
+177864|desk-manjaro|b4ce+    0.0%   33.4m  0.0% 31.2m 1000    0      0 |
+177862|desk-manjaro|7e15+    0.0%   35.3m  0.0% 31.2m 1000    0      0 |
 ```
 
 - scheduler section is showing how much resources scheduler used

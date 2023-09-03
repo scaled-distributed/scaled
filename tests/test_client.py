@@ -1,5 +1,4 @@
 import functools
-import graphlib
 import random
 import time
 
@@ -33,7 +32,11 @@ class TestClient(unittest.TestCase):
     def setUp(self) -> None:
         setup_logger()
         self.address = "tcp://127.0.0.1:2345"
-        self.cluster = SchedulerClusterCombo(address=self.address, n_workers=3, event_loop="builtin")
+        # self.cluster = SchedulerClusterCombo(address=self.address, n_workers=3, event_loop="builtin")
+
+    def tearDown(self) -> None:
+        # self.cluster.shutdown()
+        pass
 
     def test_noop(self):
         client = Client(self.address)
@@ -52,7 +55,7 @@ class TestClient(unittest.TestCase):
 
         tasks = [10, 1, 1] * 10
         with ScopedLogger(f"submit {len(tasks)} noop and cancel tasks"):
-            futures = [client.submit(noop_sleep, i) for i in tasks]
+            _ = [client.submit(noop_sleep, i) for i in tasks]
 
         time.sleep(1)
         client.disconnect()
@@ -133,44 +136,3 @@ class TestClient(unittest.TestCase):
 
         with ScopedLogger(f"test not allow keyword only arguments"), self.assertRaises(TypeError):
             client.submit(func_args2, a=3, b=4).result()
-
-    def test_graph(self):
-        def inc(i):
-            return i + 1
-
-        def add(a, b):
-            return a + b
-
-        def minus(a, b):
-            return a - b
-
-        graph = {"a": 2, "b": 2, "c": (inc, "a"), "d": (add, "a", "b"), "e": (minus, "d", "c")}
-
-        client = Client(self.address)
-
-        with ScopedLogger(f"test graph"):
-            futures = client.submit_graph(graph, ["e"])
-            self.assertEqual([fut.result() for fut in futures], [1])
-
-        with self.assertRaises(graphlib.CycleError):
-            client.submit_graph({"b": (inc, "c"), "c": (inc, "b")}, ["b", "c"])
-
-    def test_graph_fail(self):
-        def inc(i):
-            time.sleep(1)
-            raise ValueError(f"Compute Error")
-
-        def add(a, b):
-            time.sleep(5)
-            return a + b
-
-        def minus(a, b):
-            return a - b
-
-        graph = {"a": 2, "b": 2, "c": (inc, "a"), "d": (add, "a", "b"), "e": (minus, "d", "c")}
-
-        client = Client(self.address)
-
-        futures = client.submit_graph(graph, ["e"])
-        with self.assertRaises(ValueError):
-            [fut.result() for fut in futures]

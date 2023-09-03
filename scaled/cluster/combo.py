@@ -17,7 +17,7 @@ from scaled.io.config import (
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.serializer.mixins import Serializer
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.cluster.cluster import ClusterProcess
+from scaled.cluster.cluster import Cluster
 
 
 class SchedulerClusterCombo:
@@ -38,7 +38,7 @@ class SchedulerClusterCombo:
         per_worker_queue_size: int = DEFAULT_PER_WORKER_QUEUE_SIZE,
         serializer: Serializer = DefaultSerializer(),
     ):
-        self._cluster = ClusterProcess(
+        self._cluster = Cluster(
             address=ZMQConfig.from_string(address),
             n_workers=n_workers,
             heartbeat_interval_seconds=heartbeat_interval_seconds,

@@ -19,7 +19,6 @@ class SyncConnector(threading.Thread):
     def __init__(
         self,
         stop_event: threading.Event,
-        prefix: str,
         context: zmq.Context,
         socket_type: int,
         bind_or_connect: Literal["bind", "connect"],
@@ -29,14 +28,11 @@ class SyncConnector(threading.Thread):
         daemonic: bool,
     ):
         threading.Thread.__init__(self)
-        self._prefix = prefix
         self._address = address
 
         self._context = context
         self._socket = self._context.socket(socket_type)
-        self._identity: bytes = (
-            f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
-        )
+        self._identity: bytes = f"{os.getpid()}|{socket.gethostname().split('.')[0]}|{uuid.uuid4()}".encode()
 
         # set socket option
         self._socket.setsockopt(zmq.IDENTITY, self._identity)
@@ -79,10 +75,11 @@ class SyncConnector(threading.Thread):
 
         self.close()
 
-    def send(self, message_type: MessageType, message: MessageVariant):
-        self._send_queue.put((message_type, message))
+    def send(self, message: MessageVariant):
+        self._send_queue.put(message)
 
-    def send_immediately(self, message_type: MessageType, message: MessageVariant):
+    def send_immediately(self, message: MessageVariant):
+        message_type = PROTOCOL.inverse[type(message)]
         self._socket.send_multipart([message_type.value, *message.serialize()], copy=False)
 
     def monitor(self):
@@ -91,7 +88,8 @@ class SyncConnector(threading.Thread):
 
     def __routine_send(self):
         while not self._send_queue.empty():
-            message_type, message = self._send_queue.get()
+            message = self._send_queue.get()
+            message_type = PROTOCOL.inverse[type(message)]
             self._socket.send_multipart([message_type.value, *message.serialize()])
 
     def __routine_polling(self):
@@ -119,7 +117,7 @@ class SyncConnector(threading.Thread):
 
         message_type_bytes, *payload = frames
         message_type = MessageType(message_type_bytes)
-        message = PROTOCOL[message_type_bytes].deserialize(payload)
+        message = PROTOCOL[message_type].deserialize(payload)
 
         self.__count_one("received", message_type)
         self._callback(message_type, message)

@@ -59,7 +59,6 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
         self._connector = SyncConnector(
             stop_event=threading.Event(),
-            prefix="IP",
             context=zmq.Context(),
             socket_type=zmq.PAIR,
             bind_or_connect="connect",
@@ -78,7 +77,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __run_forever(self):
         try:
-            self._connector.send_immediately(MessageType.ProcessorInitialize, ProcessorInitialize())
+            self._connector.send_immediately(ProcessorInitialize())
             self._connector.run()
         except KeyboardInterrupt:
             pass
@@ -124,9 +123,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
         assert self._onhold_task is None
         self._onhold_task = task
-        self._connector.send_immediately(
-            MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Request, task.function_id, b"")
-        )
+        self._connector.send_immediately(FunctionRequest(FunctionRequestType.Request, task.function_id, b"", b""))
 
     def __process_task(self, task: Task):
         begin = time.monotonic()
@@ -136,20 +133,18 @@ class Processor(multiprocessing.get_context("spawn").Process):
             result = function(*args)
             result_bytes = self._serializer.serialize_result(result)
             self._connector.send_immediately(
-                MessageType.TaskResult,
-                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes),
+                TaskResult(task.task_id, TaskStatus.Success, time.monotonic() - begin, result_bytes)
             )
 
         except Exception as e:
             logging.exception(f"exception when processing task_id={task.task_id.hex()}:")
             self._connector.send_immediately(
-                MessageType.TaskResult,
                 TaskResult(
                     task.task_id,
                     TaskStatus.Failed,
                     time.monotonic() - begin,
                     pickle.dumps(e, protocol=pickle.HIGHEST_PROTOCOL),
-                ),
+                )
             )
 
     def __register_signal(self):

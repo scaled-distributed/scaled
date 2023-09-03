@@ -4,12 +4,13 @@ import enum
 import struct
 from typing import Dict, List, Tuple, TypeVar
 
+import bidict
+
 
 class MessageType(enum.Enum):
     Task = b"TK"
     TaskEcho = b"TE"
     TaskCancel = b"TC"
-    TaskCancelEcho = b"TX"
     TaskResult = b"TR"
 
     GraphTask = b"GT"
@@ -41,6 +42,8 @@ class MessageType(enum.Enum):
 class TaskStatus(enum.Enum):
     Success = b"S"
     Failed = b"F"
+    Canceled = b"C"
+    NotFound = b"N"
 
 
 class TaskEchoStatus(enum.Enum):
@@ -138,19 +141,6 @@ class TaskCancel(_Message):
 
 
 @dataclasses.dataclass
-class TaskCancelEcho(_Message):
-    task_id: bytes
-    status: TaskEchoStatus
-
-    def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id, self.status.value
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return TaskCancelEcho(data[0], TaskEchoStatus(data[1]))
-
-
-@dataclasses.dataclass
 class TaskResult(_Message):
     task_id: bytes
     status: TaskStatus
@@ -168,7 +158,7 @@ class TaskResult(_Message):
 @dataclasses.dataclass
 class GraphTask(_Message):
     task_id: bytes
-    functions: Dict[bytes, bytes]
+    functions: Dict[bytes, Tuple[bytes, bytes]]
     targets: List[bytes]
     graph: List[Task]
 
@@ -176,7 +166,9 @@ class GraphTask(_Message):
         function_bytes = list()
         function_bytes.append(struct.pack("I", len(self.functions)))
         function_bytes.extend(self.functions.keys())
-        function_bytes.extend(self.functions.values())
+        names, content = zip(*self.functions.values())
+        function_bytes.extend(names)
+        function_bytes.extend(content)
 
         graph_bytes = []
         for task in self.graph:
@@ -190,21 +182,28 @@ class GraphTask(_Message):
     def deserialize(data: List[bytes]):
         index = 0
         task_id = data[index]
-        index += 1
 
+        index += 1
         number_of_functions = struct.unpack("I", data[index])[0]
+
         index += 1
         keys = data[index : index + number_of_functions]
-        index += number_of_functions
-        values = data[index : index + number_of_functions]
-        index += number_of_functions
-        functions = dict(zip(keys, values))
 
+        index += number_of_functions
+        names = data[index : index + number_of_functions]
+
+        index += number_of_functions
+        content = data[index : index + number_of_functions]
+
+        functions = dict(zip(keys, zip(names, content)))
+
+        index += number_of_functions
         number_of_targets = struct.unpack("I", data[index])[0]
+
         index += 1
         targets = data[index : index + number_of_targets]
-        index += number_of_targets
 
+        index += number_of_targets
         graph = []
         while index < len(data):
             number_of_frames = struct.unpack("I", data[index])[0]
@@ -238,19 +237,6 @@ class GraphTaskCancel(_Message):
     @staticmethod
     def deserialize(data: List[bytes]):
         return GraphTaskCancel(data[0])
-
-
-@dataclasses.dataclass
-class GraphTaskCancelEcho(_Message):
-    task_id: bytes
-    status: TaskEchoStatus
-
-    def serialize(self) -> Tuple[bytes, ...]:
-        return self.task_id, self.status.value
-
-    @staticmethod
-    def deserialize(data: List[bytes]):
-        return GraphTaskCancelEcho(data[0], TaskEchoStatus(data[1]))
 
 
 @dataclasses.dataclass
@@ -316,28 +302,30 @@ class Heartbeat(_Message):
 class FunctionRequest(_Message):
     type: FunctionRequestType
     function_id: bytes
+    function_name: bytes
     content: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.type.value, self.function_id, self.content
+        return self.type.value, self.function_id, self.function_name, self.content
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return FunctionRequest(FunctionRequestType(data[0]), data[1], data[2])
+        return FunctionRequest(FunctionRequestType(data[0]), data[1], data[2], data[3])
 
 
 @dataclasses.dataclass
 class FunctionResponse(_Message):
     status: FunctionResponseType
     function_id: bytes
+    function_name: bytes
     content: bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
-        return self.status.value, self.function_id, self.content
+        return self.status.value, self.function_id, self.function_name, self.content
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return FunctionResponse(FunctionResponseType(data[0]), data[1], data[2])
+        return FunctionResponse(FunctionResponseType(data[0]), data[1], data[2], data[3])
 
 
 @dataclasses.dataclass
@@ -386,24 +374,24 @@ class SchedulerStatus(_Message):
         return SchedulerStatus(data[0])
 
 
-PROTOCOL = {
-    MessageType.Heartbeat.value: Heartbeat,
-    MessageType.Task.value: Task,
-    MessageType.TaskEcho.value: TaskEcho,
-    MessageType.TaskCancel.value: TaskCancel,
-    MessageType.TaskCancelEcho.value: TaskCancelEcho,
-    MessageType.TaskResult.value: TaskResult,
-    MessageType.GraphTask.value: GraphTask,
-    MessageType.GraphTaskEcho.value: GraphTaskEcho,
-    MessageType.GraphTaskCancel.value: GraphTaskCancel,
-    MessageType.GraphTaskCancelEcho.value: GraphTaskCancelEcho,
-    MessageType.GraphTaskResult.value: GraphTaskResult,
-    MessageType.BalanceRequest.value: BalanceRequest,
-    MessageType.BalanceResponse.value: BalanceResponse,
-    MessageType.FunctionRequest.value: FunctionRequest,
-    MessageType.FunctionResponse.value: FunctionResponse,
-    MessageType.DisconnectRequest.value: DisconnectRequest,
-    MessageType.DisconnectResponse.value: DisconnectResponse,
-    MessageType.ProcessorInitialize.value: ProcessorInitialize,
-    MessageType.SchedulerStatus.value: SchedulerStatus,
-}
+PROTOCOL = bidict.bidict(
+    {
+        MessageType.Heartbeat: Heartbeat,
+        MessageType.Task: Task,
+        MessageType.TaskEcho: TaskEcho,
+        MessageType.TaskCancel: TaskCancel,
+        MessageType.TaskResult: TaskResult,
+        MessageType.GraphTask: GraphTask,
+        MessageType.GraphTaskEcho: GraphTaskEcho,
+        MessageType.GraphTaskCancel: GraphTaskCancel,
+        MessageType.GraphTaskResult: GraphTaskResult,
+        MessageType.BalanceRequest: BalanceRequest,
+        MessageType.BalanceResponse: BalanceResponse,
+        MessageType.FunctionRequest: FunctionRequest,
+        MessageType.FunctionResponse: FunctionResponse,
+        MessageType.DisconnectRequest: DisconnectRequest,
+        MessageType.DisconnectResponse: DisconnectResponse,
+        MessageType.ProcessorInitialize: ProcessorInitialize,
+        MessageType.SchedulerStatus: SchedulerStatus,
+    }
+)

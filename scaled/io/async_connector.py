@@ -15,19 +15,17 @@ class AsyncConnector:
     def __init__(
         self,
         context: zmq.asyncio.Context,
-        prefix: str,
         socket_type: int,
         address: ZMQConfig,
         bind_or_connect: Literal["bind", "connect"],
         callback: Optional[Callable[[MessageType, MessageVariant], Awaitable[None]]],
     ):
-        self._prefix = prefix
         self._address = address
 
         self._context = context
         self._socket = self._context.socket(socket_type)
         self._identity: bytes = (
-            f"{self._prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4().bytes.hex()}".encode()
+            f"{os.getpid()}|{socket.gethostname().split('.')[0]}|{uuid.uuid4().bytes.hex()}".encode()
         )
 
         # set socket option
@@ -63,7 +61,7 @@ class AsyncConnector:
 
         message_type_bytes, *payload = frames
         message_type = MessageType(message_type_bytes)
-        message = PROTOCOL[message_type_bytes].deserialize(payload)
+        message = PROTOCOL[message_type].deserialize(payload)
 
         self.__count_one("received", message_type)
         if self._callback is None:
@@ -72,7 +70,8 @@ class AsyncConnector:
 
         await self._callback(message_type, message)
 
-    async def send(self, message_type: MessageType, data: MessageVariant):
+    async def send(self, data: MessageVariant):
+        message_type = PROTOCOL.inverse[type(data)]
         self.__count_one("sent", message_type)
         await self._socket.send_multipart([message_type.value, *data.serialize()], copy=False)
 

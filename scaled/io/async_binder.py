@@ -13,9 +13,9 @@ from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
 class AsyncBinder(Looper, Reporter):
-    def __init__(self, prefix: str, address: ZMQConfig, io_threads: int):
+    def __init__(self, address: ZMQConfig, io_threads: int):
         self._address = address
-        self._identity: bytes = f"{prefix}|{socket.gethostname().split('.')[0]}|{os.getpid()}|{uuid.uuid4()}".encode()
+        self._identity: bytes = f"{os.getpid()}|{socket.gethostname().split('.')[0]}|{uuid.uuid4()}".encode()
 
         self._context = zmq.asyncio.Context(io_threads=io_threads)
         self._socket = self._context.socket(zmq.ROUTER)
@@ -40,7 +40,8 @@ class AsyncBinder(Looper, Reporter):
         source, message_type_bytes, payload = frames[0], frames[1], frames[2:]
         message_type = MessageType(message_type_bytes)
         self.__count_one("received", message_type)
-        message = PROTOCOL[message_type_bytes].deserialize(payload)
+
+        message = PROTOCOL[message_type].deserialize(payload)
         await self._callback(source, message_type, message)
 
     async def statistics(self) -> Dict:
@@ -51,7 +52,8 @@ class AsyncBinder(Looper, Reporter):
             }
         }
 
-    async def send(self, to: bytes, message_type: MessageType, message: MessageVariant):
+    async def send(self, to: bytes, message: MessageVariant):
+        message_type = PROTOCOL.inverse[type(message)]
         self.__count_one("sent", message_type)
         await self._socket.send_multipart([to, message_type.value, *message.serialize()], copy=False)
 

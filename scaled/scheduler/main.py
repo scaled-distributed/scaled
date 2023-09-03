@@ -6,16 +6,16 @@ import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
 from scaled.io.config import CLEANUP_INTERVAL_SECONDS, STATUS_REPORT_INTERVAL_SECONDS
-from scaled.scheduler.client_manager.vanilla import VanillaClientManager
-from scaled.scheduler.function_manager.vanilla import VanillaFunctionManager
-from scaled.scheduler.graph_manager.vanilla import GraphManager
+from scaled.scheduler.client_manager import VanillaClientManager
+from scaled.scheduler.function_manager import VanillaFunctionManager
+from scaled.scheduler.graph_manager import GraphManager
 from scaled.scheduler.status_reporter import StatusReporter
 from scaled.utility.event_loop import create_async_loop_routine
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
 from scaled.io.async_binder import AsyncBinder
 from scaled.protocol.python.message import MessageType, MessageVariant
-from scaled.scheduler.task_manager.vanilla import VanillaTaskManager
-from scaled.scheduler.worker_manager.vanilla import VanillaWorkerManager
+from scaled.scheduler.task_manager import VanillaTaskManager
+from scaled.scheduler.worker_manager import VanillaWorkerManager
 
 
 class Scheduler:
@@ -36,10 +36,9 @@ class Scheduler:
         self._address_monitor = ZMQConfig(type=ZMQType.ipc, host=f"/tmp/{address.host}_{address.port}_monitor")
 
         logging.info(f"{self.__class__.__name__}: monitor address is {self._address_monitor.to_address()}")
-        self._binder = AsyncBinder(prefix="S", address=address, io_threads=io_threads)
+        self._binder = AsyncBinder(address=address, io_threads=io_threads)
         self._binder_monitor = AsyncConnector(
             context=zmq.asyncio.Context(),
-            prefix="R",
             socket_type=zmq.PUB,
             address=self._address_monitor,
             bind_or_connect="bind",
@@ -60,9 +59,11 @@ class Scheduler:
 
         # register
         self._binder.register(self.on_receive_message)
-        self._function_manager.register(self._binder)
+        self._function_manager.register(self._binder, self._worker_manager)
 
-        self._graph_manager.register(self._binder, self._function_manager, self._task_manager)
+        self._graph_manager.register(
+            self._binder, self._binder_monitor, self._client_manager, self._function_manager, self._task_manager
+        )
         self._task_manager.register(
             self._binder, self._client_manager, self._function_manager, self._worker_manager, self._graph_manager
         )
@@ -97,10 +98,6 @@ class Scheduler:
             await self._task_manager.on_task_cancel(source, message)
             return
 
-        if message_type == MessageType.TaskCancelEcho:
-            await self._worker_manager.on_task_cancel_echo(source, message)
-            return
-
         if message_type == MessageType.TaskResult:
             await self._worker_manager.on_task_done(message)
             return
@@ -124,7 +121,6 @@ class Scheduler:
                 create_async_loop_routine(self._function_manager.routine, CLEANUP_INTERVAL_SECONDS),
                 create_async_loop_routine(self._worker_manager.routine, CLEANUP_INTERVAL_SECONDS),
                 create_async_loop_routine(self._status_reporter.routine, STATUS_REPORT_INTERVAL_SECONDS),
-                return_exceptions=True,
             )
         except asyncio.CancelledError:
             pass

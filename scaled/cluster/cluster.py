@@ -1,7 +1,7 @@
 import logging
 import multiprocessing
+import os
 import signal
-import time
 from typing import List
 
 from scaled.protocol.python.serializer.mixins import Serializer
@@ -10,7 +10,7 @@ from scaled.utility.logging.utility import setup_logger
 from scaled.worker.worker import Worker
 
 
-class ClusterProcess(multiprocessing.get_context("spawn").Process):
+class Cluster(multiprocessing.get_context("spawn").Process):
     def __init__(
         self,
         address: ZMQConfig,
@@ -44,7 +44,8 @@ class ClusterProcess(multiprocessing.get_context("spawn").Process):
         assert args is not None
         logging.info(f"{self.__get_prefix()} received signal, shutting down")
         for worker in self._workers:
-            worker.terminate()
+            logging.info(f"{self.__get_prefix()}: shutting down worker[{worker.pid}]")
+            os.kill(worker.pid, signal.SIGINT)
 
     def __register_signal(self):
         signal.signal(signal.SIGINT, self.__destroy)

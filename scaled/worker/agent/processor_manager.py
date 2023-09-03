@@ -56,7 +56,6 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         self._current_task_id: Optional[bytes] = None
         self._connector: AsyncConnector = AsyncConnector(
             context=zmq.asyncio.Context(),
-            prefix="IM",
             socket_type=zmq.PAIR,
             bind_or_connect="bind",
             address=self._address,
@@ -76,15 +75,13 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
     async def on_function_request(self, request: FunctionRequest):
         if request.type == FunctionRequestType.Delete:
-            await self._connector.send(
-                MessageType.FunctionRequest, FunctionRequest(FunctionRequestType.Delete, request.function_id, b"")
-            )
+            await self._connector.send(FunctionRequest(FunctionRequestType.Delete, request.function_id, b"", b""))
             return
 
         raise TypeError(f"unknown function request type: {request.type}")
 
     async def on_function_response(self, response: FunctionResponse):
-        await self._connector.send(MessageType.FunctionResponse, response)
+        await self._connector.send(response)
 
     async def on_task(self, task: Task) -> bool:
         if not self._processor_ready:
@@ -92,7 +89,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         await self._lock.acquire()
         self._current_task_id = task.task_id
-        await self._connector.send(MessageType.Task, task)
+        await self._connector.send(task)
         return True
 
     async def on_task_result(self, task_result: TaskResult):
@@ -153,7 +150,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         if message_type == MessageType.ProcessorInitialize:
             assert self._processor_ready is False
             self._processor_ready = True
-            await self._connector.send(MessageType.ProcessorInitialize, ProcessorInitialize())
+            await self._connector.send(ProcessorInitialize())
             return
 
         if message_type == MessageType.TaskResult:
@@ -161,7 +158,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
             return
 
         if message_type == MessageType.FunctionRequest:
-            await self._connector_external.send(message_type, message)
+            await self._connector_external.send(message)
             return
 
         raise TypeError(f"Unknown {message=}")

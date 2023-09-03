@@ -2,15 +2,7 @@ import asyncio
 from typing import Dict, List, Optional
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import (
-    BalanceRequest,
-    MessageType,
-    Task,
-    TaskCancel,
-    TaskCancelEcho,
-    TaskEchoStatus,
-    TaskResult,
-)
+from scaled.protocol.python.message import BalanceRequest, Task, TaskCancel, TaskResult, TaskStatus
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
 from scaled.worker.agent.mixins import Looper, ProcessorManager, TaskManager
 
@@ -35,26 +27,20 @@ class VanillaTaskManager(Looper, TaskManager):
         await self.__processing_task()
 
     async def on_task_result(self, result: TaskResult):
-        await self._connector_external.send(MessageType.TaskResult, result)
+        await self._connector_external.send(result)
 
     async def on_cancel_task(self, task_cancel: TaskCancel):
         if task_cancel.task_id in self._queued_task_id_to_task:
             self._queued_task_id_to_task.pop(task_cancel.task_id)
             self._queued_task_ids.remove(task_cancel.task_id)
-            await self._connector_external.send(
-                MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelOK)
-            )
+            await self._connector_external.send(TaskResult(task_cancel.task_id, TaskStatus.Canceled, 0, b""))
             return
 
         if await self._processor_manager.on_cancel_task(task_cancel.task_id):
-            await self._connector_external.send(
-                MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelOK)
-            )
+            await self._connector_external.send(TaskResult(task_cancel.task_id, TaskStatus.Canceled, 0, b""))
             return
 
-        await self._connector_external.send(
-            MessageType.TaskCancelEcho, TaskCancelEcho(task_cancel.task_id, TaskEchoStatus.CancelFailed)
-        )
+        await self._connector_external.send(TaskResult(task_cancel.task_id, TaskStatus.NotFound, 0, b""))
 
     def on_balance_request(self, balance_request: BalanceRequest) -> List[bytes]:
         number_of_tasks = min(balance_request.number_of_tasks, self._queued_task_ids.qsize())

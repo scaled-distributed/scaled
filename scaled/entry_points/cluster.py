@@ -10,7 +10,7 @@ from scaled.io.config import (
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.utility.event_loop import EventLoopType, register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.cluster.cluster import ClusterProcess
+from scaled.cluster.cluster import Cluster
 
 
 def get_args():
@@ -59,7 +59,7 @@ def main():
     args = get_args()
     register_event_loop(args.event_loop)
 
-    cluster = ClusterProcess(
+    cluster = Cluster(
         address=args.address,
         n_workers=args.num_of_workers,
         heartbeat_interval_seconds=args.heartbeat_interval,

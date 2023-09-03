@@ -8,7 +8,7 @@ from concurrent.futures import Future
 from graphlib import TopologicalSorter
 from inspect import signature
 
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 
 import zmq
 
@@ -35,10 +35,7 @@ from scaled.protocol.python.message import (
     TaskResult,
     TaskStatus,
 )
-
-
-class ScaledDisconnect(Exception):
-    pass
+from scaled.utility.exceptions import ScaledDisconnect
 
 
 class Client:
@@ -49,7 +46,6 @@ class Client:
         self._stop_event = threading.Event()
         self._connector = SyncConnector(
             stop_event=self._stop_event,
-            prefix="C",
             context=zmq.Context.instance(),
             socket_type=zmq.DEALER,
             bind_or_connect="connect",
@@ -61,10 +57,10 @@ class Client:
         self._connector.start()
         logging.info(f"ScaledClient: connect to {address}")
 
-        self._function_to_function_id_cache: Dict[Callable, Tuple[bytes, bytes]] = dict()
+        self._function_to_function_id_cache: Dict[Callable, Tuple[bytes, Tuple[bytes, bytes]]] = dict()
 
         self._task_id_to_task: Dict[bytes, Task] = dict()
-        self._task_id_to_function: Dict[bytes, bytes] = dict()
+        self._task_id_to_function: Dict[bytes, Tuple[bytes, bytes]] = dict()
         self._task_id_to_future: Dict[bytes, Future] = dict()
 
         self._function_id_to_not_ready_tasks: Dict[bytes, List[Task]] = defaultdict(list)
@@ -76,7 +72,7 @@ class Client:
         self.disconnect()
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
-        function_id, function_bytes = self.__get_function_id(fn)
+        function_id, (function_name, function_bytes) = self.__get_function_id(fn)
 
         task_id = uuid.uuid1().bytes
         all_args = Client.__convert_kwargs_to_args(fn, args, kwargs)
@@ -87,7 +83,7 @@ class Client:
             [Argument(ArgumentType.Data, self._serializer.serialize_argument(data)) for data in all_args],
         )
         self._task_id_to_task[task_id] = task
-        self._task_id_to_function[task_id] = function_bytes
+        self._task_id_to_function[task_id] = (function_name, function_bytes)
 
         self.__on_buffer_task_send(task)
 
@@ -95,9 +91,16 @@ class Client:
         self._task_id_to_future[task_id] = future
         return future
 
-    def submit_graph(
-        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, Any], ...]]], keys: List[str]
-    ) -> List[Future]:
+    def map(self, fn: Callable, iterable: Iterable[Tuple[Any, ...]]) -> List[Any]:
+        if not all(isinstance(args, (tuple, list)) for args in iterable):
+            raise TypeError(f"iterable should be list of arguments(list or tuple-like) of function")
+
+        futures = [self.submit(fn, *args) for args in iterable]
+        return [fut.result() for fut in futures]
+
+    def get(
+        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, Any], ...]]], keys: List[str], block: bool = True
+    ) -> Dict[str, Union[Any, Future]]:
         """
         graph = {
             "a": 1,
@@ -112,9 +115,14 @@ class Client:
         self.__check_graph(node_name_to_data_argument, graph, keys)
 
         graph, futures = self.__construct_graph(node_name_to_data_argument, graph, keys)
-        self._connector.send(MessageType.GraphTask, graph)
+        self._connector.send(graph)
         self._graph_task_id_to_futures[graph.task_id] = futures
-        return futures
+
+        results = dict(zip(keys, futures))
+        if block:
+            results = {k: v.result() for k, v in results.items()}
+
+        return results
 
     def disconnect(self):
         self._stop_event.set()
@@ -161,10 +169,9 @@ class Client:
 
     def __on_buffer_task_send(self, task):
         if task.function_id not in self._function_id_to_not_ready_tasks:
-            function_bytes = self._task_id_to_function[task.task_id]
+            function_name, function_bytes = self._task_id_to_function[task.task_id]
             self._connector.send(
-                MessageType.FunctionRequest,
-                FunctionRequest(FunctionRequestType.Add, function_id=task.function_id, content=function_bytes),
+                FunctionRequest(FunctionRequestType.Add, task.function_id, function_name, function_bytes)
             )
 
         self._function_id_to_not_ready_tasks[task.function_id].append(task)
@@ -175,7 +182,7 @@ class Client:
             return
 
         for task in self._function_id_to_not_ready_tasks.pop(response.function_id):
-            self._connector.send(MessageType.Task, task)
+            self._connector.send(task)
 
     def __on_task_result(self, result: TaskResult):
         if result.task_id not in self._task_id_to_future:
@@ -210,27 +217,28 @@ class Client:
         if self._task_id_to_future:
             logging.info(f"canceling {len(self._task_id_to_future)} task(s)")
             for task_id, future in self._task_id_to_future.items():
-                self._connector.send_immediately(MessageType.TaskCancel, TaskCancel(task_id))
+                self._connector.send_immediately(TaskCancel(task_id))
                 future.set_exception(ScaledDisconnect(f"disconnected from {self._address}"))
 
         if self._graph_task_id_to_futures:
             logging.info(f"canceling {len(self._graph_task_id_to_futures)} graph task(s)")
             for task_id, future in self._graph_task_id_to_futures:
-                self._connector.send_immediately(MessageType.GraphTaskCancel, GraphTaskCancel(task_id))
+                self._connector.send_immediately(GraphTaskCancel(task_id))
                 future.set_exception(ScaledDisconnect(f"disconnected from {self._address}"))
 
-    def __get_function_id(self, fn: Callable) -> Tuple[bytes, bytes]:
+    def __get_function_id(self, fn: Callable) -> Tuple[bytes, Tuple[bytes, bytes]]:
         if fn in self._function_to_function_id_cache:
             return self._function_to_function_id_cache[fn]
 
-        function_id, function_bytes = self.__generate_function_id_bytes(fn)
-        self._function_to_function_id_cache[fn] = (function_id, function_bytes)
-        return function_id, function_bytes
+        function_id, (function_name, function_bytes) = self.__generate_function_id_bytes(fn)
+        self._function_to_function_id_cache[fn] = function_id, (function_name, function_bytes)
+        return function_id, (function_name, function_bytes)
 
-    def __generate_function_id_bytes(self, fn) -> Tuple[bytes, bytes]:
+    def __generate_function_id_bytes(self, fn: Callable) -> Tuple[bytes, Tuple[bytes, bytes]]:
         function_bytes = self._serializer.serialize_function(fn)
         function_id = hashlib.md5(function_bytes).digest()
-        return function_id, function_bytes
+        function_name = str(getattr(fn, "__name__", "<anonymous func>")).encode()
+        return function_id, (function_name, function_bytes)
 
     @staticmethod
     def __convert_kwargs_to_args(fn: Callable, args: Tuple[Any], kwargs: Dict[str, Any]) -> Tuple:
@@ -315,8 +323,8 @@ class Client:
             task_id = node_name_to_task_id[node_name]
 
             function, *args = node
-            function_id, function_bytes = self.__generate_function_id_bytes(function)
-            functions[function_id] = function_bytes
+            function_id, (function_name, function_bytes) = self.__get_function_id(function)
+            functions[function_id] = (function_name, function_bytes)
 
             arguments = []
             for arg in args:
