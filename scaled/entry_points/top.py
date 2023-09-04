@@ -8,7 +8,7 @@ from typing import Callable, List, Literal
 import zmq
 
 from scaled.protocol.python.message import MessageType, PROTOCOL, SchedulerStatus
-from scaled.utility.formatter import format_bytes, format_integer, format_percentage
+from scaled.utility.formatter import format_bytes, format_integer, format_microseconds, format_percentage
 from scaled.utility.zmq_config import ZMQConfig
 
 SORT_BY_OPTIONS = {
@@ -20,6 +20,7 @@ SORT_BY_OPTIONS = {
     ord("f"): "free",
     ord("w"): "sent",
     ord("d"): "queued",
+    ord("l"): "lag",
 }
 
 
@@ -151,6 +152,7 @@ def __generate_worker_manager_table(wm_data, worker_length: int, sort_by: str):
         row["agt_rss"] = format_bytes(row["agt_rss"])
         row["cpu"] = format_percentage(row["cpu"])
         row["rss"] = format_bytes(row["rss"])
+        row["lag"] = format_microseconds(row["lag"])
 
     worker_manager_table = [[f"[{v}]" if v == sort_by else v for v in wm_data[0].keys()]]
     worker_manager_table.extend([list(worker.values()) for worker in wm_data])

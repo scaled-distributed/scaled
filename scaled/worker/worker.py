@@ -12,12 +12,14 @@ from scaled.protocol.python.message import (
     DisconnectRequest,
     FunctionRequest,
     FunctionResponse,
+    HeartbeatEcho,
     MessageVariant,
     Task,
     TaskCancel,
 )
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.event_loop import create_async_loop_routine, register_event_loop
+from scaled.utility.logging.utility import setup_logger
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.agent.heartbeat import VanillaHeartbeatManager
 from scaled.worker.agent.task_manager import VanillaTaskManager
@@ -34,6 +36,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         trim_memory_threshold_bytes: int,
         serializer: FunctionSerializerType,
         function_retention_seconds: int,
+        death_timeout_seconds: int,
     ):
         multiprocessing.Process.__init__(self, name="Agent")
 
@@ -45,6 +48,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
         self._serializer = serializer
         self._function_retention_seconds = function_retention_seconds
+        self._death_timeout_seconds = death_timeout_seconds
 
         self._connector_external: Optional[AsyncConnector] = None
         self._task_manager: Optional[VanillaTaskManager] = None
@@ -60,6 +64,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self.__run_forever()
 
     def __initialize(self):
+        setup_logger()
         register_event_loop(self._event_loop)
 
         self._connector_external = AsyncConnector(
@@ -71,7 +76,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         )
 
         self._task_manager = VanillaTaskManager()
-        self._heartbeat = VanillaHeartbeatManager()
+        self._heartbeat = VanillaHeartbeatManager(death_timeout_seconds=self._death_timeout_seconds)
         self._processor_manager = VanillaProcessorManager(
             event_loop=self._event_loop,
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
@@ -92,6 +97,10 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._task = self._loop.create_task(self.__get_loops())
 
     async def __on_receive_external(self, message: MessageVariant):
+        if isinstance(message, HeartbeatEcho):
+            await self._heartbeat.on_heartbeat_echo(message)
+            return
+
         if isinstance(message, Task):
             await self._task_manager.on_task_new(message)
             return

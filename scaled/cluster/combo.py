@@ -3,6 +3,7 @@ import multiprocessing
 
 from scaled.cluster.scheduler import SchedulerProcess
 from scaled.io.config import (
+    DEFAULT_DEATH_TIMEOUT_SECONDS,
     DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_IO_THREADS,
@@ -31,6 +32,7 @@ class SchedulerClusterCombo:
         event_loop: str = "builtin",
         worker_timeout_seconds: int = DEFAULT_WORKER_TIMEOUT_SECONDS,
         function_retention_seconds: int = DEFAULT_FUNCTION_RETENTION_SECONDS,
+        death_timeout_seconds: int = DEFAULT_DEATH_TIMEOUT_SECONDS,
         load_balance_seconds: int = DEFAULT_LOAD_BALANCE_SECONDS,
         load_balance_trigger_times=DEFAULT_LOAD_BALANCE_TRIGGER_TIMES,
         garbage_collect_interval_seconds: int = DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
@@ -43,6 +45,7 @@ class SchedulerClusterCombo:
             n_workers=n_workers,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             function_retention_seconds=function_retention_seconds,
+            death_timeout_seconds=death_timeout_seconds,
             garbage_collect_interval_seconds=garbage_collect_interval_seconds,
             trim_memory_threshold_bytes=trim_memory_threshold_bytes,
             event_loop=event_loop,

@@ -23,6 +23,7 @@ class MessageType(enum.Enum):
     BalanceResponse = b"BR"
 
     Heartbeat = b"HB"
+    HeartbeatEcho = b"HE"
 
     FunctionRequest = b"FR"
     FunctionResponse = b"FA"
@@ -287,15 +288,34 @@ class Heartbeat(_Message):
     worker_cpu: float
     worker_rss: int
     queued_tasks: int
+    latency_us: int
 
     def serialize(self) -> Tuple[bytes, ...]:
         return (
-            struct.pack("fQfQI", self.agent_cpu, self.agent_rss, self.worker_cpu, self.worker_rss, self.queued_tasks),
+            struct.pack(
+                "fQfQII",
+                self.agent_cpu,
+                self.agent_rss,
+                self.worker_cpu,
+                self.worker_rss,
+                self.queued_tasks,
+                self.latency_us,
+            ),
         )
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(*struct.unpack("fQfQI", data[0]))
+        return Heartbeat(*struct.unpack("fQfQII", data[0]))
+
+
+@dataclasses.dataclass
+class HeartbeatEcho(_Message):
+    def serialize(self) -> Tuple[bytes, ...]:
+        return (b"",)
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return HeartbeatEcho()
 
 
 @dataclasses.dataclass
@@ -377,6 +397,7 @@ class SchedulerStatus(_Message):
 PROTOCOL = bidict.bidict(
     {
         MessageType.Heartbeat: Heartbeat,
+        MessageType.HeartbeatEcho: HeartbeatEcho,
         MessageType.Task: Task,
         MessageType.TaskEcho: TaskEcho,
         MessageType.TaskCancel: TaskCancel,

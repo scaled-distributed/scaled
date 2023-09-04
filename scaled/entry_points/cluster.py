@@ -1,6 +1,7 @@
 import argparse
 
 from scaled.io.config import (
+    DEFAULT_DEATH_TIMEOUT_SECONDS,
     DEFAULT_FUNCTION_RETENTION_SECONDS,
     DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
     DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
@@ -35,6 +36,13 @@ def get_args():
         help="number of seconds function cached in worker process",
     )
     parser.add_argument(
+        "--death-timeout-seconds",
+        "-dt",
+        type=int,
+        default=DEFAULT_DEATH_TIMEOUT_SECONDS,
+        help="number of seconds that worker will quit if didn't hear from scheduler",
+    )
+    parser.add_argument(
         "--garbage-collect-interval-seconds",
         "-gc",
         type=int,
@@ -64,6 +72,7 @@ def main():
         n_workers=args.num_of_workers,
         heartbeat_interval_seconds=args.heartbeat_interval,
         function_retention_seconds=args.function_retention_seconds,
+        death_timeout_seconds=args.death_timeout_seconds,
         garbage_collect_interval_seconds=args.garbage_collect_interval_seconds,
         trim_memory_threshold_bytes=args.trim_memory_threshold_bytes,
         event_loop=args.event_loop,

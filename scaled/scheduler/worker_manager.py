@@ -10,6 +10,7 @@ from scaled.protocol.python.message import (
     DisconnectRequest,
     DisconnectResponse,
     Heartbeat,
+    HeartbeatEcho,
     Task,
     TaskResult,
     TaskCancel,
@@ -88,6 +89,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             logging.info(f"worker {worker} connected")
 
         self._worker_alive_since[worker] = (time.time(), info)
+        await self._binder.send(worker, HeartbeatEcho())
 
     async def on_delete_function(self, function_id: bytes):
         for worker in self._allocator.get_worker_ids():
@@ -113,6 +115,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
                     "rss": info.worker_rss,
                     **worker_to_task_numbers[worker],
                     "queued": info.queued_tasks,
+                    "lag": info.latency_us,
                 }
                 for worker, (last, info) in self._worker_alive_since.items()
             ]

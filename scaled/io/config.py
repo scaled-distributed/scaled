@@ -46,6 +46,9 @@ DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 2
 # number of seconds the function cache kept in worker's memory
 DEFAULT_FUNCTION_RETENTION_SECONDS = 3600
 
+# number of seconds worker will quit if didn't hear from scheduler
+DEFAULT_DEATH_TIMEOUT_SECONDS = 10
+
 # number of seconds worker doing garbage collection
 DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS = 30
 

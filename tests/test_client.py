@@ -99,7 +99,7 @@ class TestClient(unittest.TestCase):
         client = Client(self.address)
 
         tasks = [i for i in range(100)]
-        with ScopedLogger(f"submit {len(tasks)} 100 tasks, raise 1 of the tasks"):
+        with ScopedLogger(f"submit {len(tasks)} tasks, raise 1 of the tasks"):
             futures = [client.submit(raise_exception, i) for i in tasks]
 
         with self.assertRaises(ValueError), ScopedLogger(f"gather {len(futures)} results"):

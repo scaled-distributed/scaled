@@ -4,6 +4,7 @@ from scaled.protocol.python.message import (
     BalanceRequest,
     FunctionRequest,
     FunctionResponse,
+    HeartbeatEcho,
     Task,
     TaskCancel,
     TaskResult,
@@ -19,6 +20,10 @@ class Looper(metaclass=abc.ABCMeta):
 class HeartbeatManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def set_processor_pid(self, process_id: int):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_heartbeat_echo(self, heartbeat: HeartbeatEcho):
         raise NotImplementedError()
 
 
