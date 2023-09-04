@@ -57,9 +57,9 @@ class VanillaTaskManager(Looper, TaskManager):
         return self._queued_task_ids.qsize()
 
     async def __processing_task(self):
-        task = self._queued_task_id_to_task.pop(await self._queued_task_ids.get())
+        task_id = await self._queued_task_ids.get()
+        task = self._queued_task_id_to_task.pop(task_id)
         if await self._processor_manager.on_task(task):
-            await asyncio.sleep(0)
             return
 
         await self._queued_task_ids.put(task.task_id)

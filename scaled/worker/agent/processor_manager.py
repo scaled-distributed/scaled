@@ -92,6 +92,10 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         return True
 
     async def on_task_result(self, task_result: TaskResult):
+        if not self._processor_ready:
+            # received queued result sent before processor get killed, ignore
+            return
+
         if task_result.task_id != self._current_task_id:
             raise ValueError(
                 f"get cancel on task={task_result.task_id.hex()}, but current running task"
@@ -126,6 +130,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         logging.info(f"Worker[{os.getpid()}]: stop Processor[{self._processor.pid}]")
         os.kill(self._processor.pid, signal.SIGTERM)
         self._processor_ready = False
+        self._current_task_id = None
 
     def __start_new_processor(self):
         self._processor = Processor(
