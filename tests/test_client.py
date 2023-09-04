@@ -4,8 +4,7 @@ import time
 
 import unittest
 
-from scaled.client import Client
-from scaled.cluster.combo import SchedulerClusterCombo
+from scaled import Client, SchedulerClusterCombo
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
@@ -32,10 +31,10 @@ class TestClient(unittest.TestCase):
     def setUp(self) -> None:
         setup_logger()
         self.address = "tcp://127.0.0.1:2345"
-        # self.cluster = SchedulerClusterCombo(address=self.address, n_workers=3, event_loop="builtin")
+        self.cluster = SchedulerClusterCombo(address=self.address, n_workers=3, event_loop="builtin")
 
     def tearDown(self) -> None:
-        # self.cluster.shutdown()
+        self.cluster.shutdown()
         pass
 
     def test_map(self):

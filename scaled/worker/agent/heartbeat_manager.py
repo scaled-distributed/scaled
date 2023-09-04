@@ -35,7 +35,7 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
             # not handling echo if we didn't send out heartbeat
             return
 
-        self._latency_us = (time.time_ns() - self._start_timestamp_ns) // 1_000
+        self._latency_us = ((time.time_ns() - self._start_timestamp_ns) / 2) // 1_000
         self._start_timestamp_ns = 0
         self._timeout_manager.update_last_seen_time()
 

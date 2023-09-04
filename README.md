@@ -25,8 +25,8 @@ The use experience is very close to dask
 ```python
 import random
 
-from scaled.client import Client
-from scaled.cluster.combo import SchedulerClusterCombo
+from scaled import Client
+from scaled import SchedulerClusterCombo
 
 
 def calculate(sec: int):
@@ -91,7 +91,7 @@ for detail options of above 2 program, please use argument `-h` to check out all
 Then you can write simply write client code as:
 
 ```python
-from scaled.client import Client
+from scaled import Client
 
 
 def foobar(foo: int):
@@ -154,7 +154,7 @@ pex scaled -c scaled_top -o scaled_top
 Scaled also supports submit graph task, for example:
 
 ```python
-from scaled.client import Client
+from scaled import Client
 
 
 def inc(i):
@@ -187,29 +187,28 @@ $ scaled_top ipc:///tmp/0.0.0.0_8516_monitor
 Which will something similar to top command, but it's for getting status of the scaled system:
 ```bash
 scheduler       | task_manager        |     scheduler_sent        | scheduler_received
-      cpu  0.0% |   unassigned      0 | DisconnectResponse     10 |          Heartbeat 263,493
-      rss 45.5m |      running      0 |   FunctionResponse    169 |  DisconnectRequest      10
-                |      success 40,278 |           TaskEcho 40,352 |    FunctionRequest     145
-                |       failed     10 |               Task 40,352 |               Task  40,332
-                |     canceled     64 |         TaskResult 40,336 |         TaskResult  40,352
-                |    not_found      0 |    FunctionRequest    280 |         TaskCancel     210
-                                      |         TaskCancel     64 |          GraphTask       8
-                                      |    GraphTaskResult      8 |
------------------------------------------------------------------------------------------------
-Shortcuts: worker[n] agt_cpu[C] agt_rss[M] cpu[c] rss[m] free[f] sent[w] queued[d]
+      cpu  0.0% |   unassigned      0 |      HeartbeatEcho  1,593 |          Heartbeat  1,593
+      rss 35.4m |      running      0 |   FunctionResponse     12 |    FunctionRequest     12
+                |      success 10,000 |           TaskEcho 10,000 |               Task 10,000
+                |       failed      0 |               Task 10,000 |         TaskResult 10,000
+                |     canceled      0 |         TaskResult 10,000 |  DisconnectRequest     13
+                |    not_found      0 | DisconnectResponse     13 |
+----------------------------------------------------------------------------------------------
+Shortcuts: worker[n] agt_cpu[C] agt_rss[M] cpu[c] rss[m] free[f] sent[w] queued[d] lag[l]
 
 Total 10 worker(s)
-                   worker agt_cpu agt_rss [cpu]   rss free sent queued |    client_manager
-177861|desk-manjaro|1bd0+    0.0%   33.3m  0.0% 33.2m 1000    0      0 |
-177859|desk-manjaro|bc79+    0.0%   31.4m  0.0% 32.2m 1000    0      0 | func_to_num_tasks
-177867|desk-manjaro|1104+    0.0%   31.5m  0.0% 32.2m 1000    0      0 |
-177863|desk-manjaro|a6d1+    0.0%   34.9m  0.0% 31.2m 1000    0      0 |
-177865|desk-manjaro|0c92+    0.0%   35.3m  0.0% 32.4m 1000    0      0 |
-177858|desk-manjaro|8ddd+    0.0%   32.8m  0.0% 30.9m 1000    0      0 |
-177866|desk-manjaro|d3ae+    0.0%   35.2m  0.0% 33.2m 1000    0      0 |
-177860|desk-manjaro|6ecc+    0.0%   33.5m  0.0% 30.8m 1000    0      0 |
-177864|desk-manjaro|b4ce+    0.0%   33.4m  0.0% 31.2m 1000    0      0 |
-177862|desk-manjaro|7e15+    0.0%   35.3m  0.0% 31.2m 1000    0      0 |
+                   worker agt_cpu agt_rss [cpu]   rss free sent queued   lag |    client_manager
+281379|desk-manjaro|e852+    0.0%   30.1m  0.5% 29.8m 1000    0      0 0.1ms |
+281386|desk-manjaro|f6fc+    0.0%   32.1m  0.5% 30.1m 1000    0      0 0.1ms | func_to_num_tasks
+281383|desk-manjaro|692a+    0.0%   30.1m  0.0% 29.9m 1000    0      0 0.2ms |
+281381|desk-manjaro|f415+    0.0%   30.0m  0.0% 30.0m 1000    0      0 0.1ms |
+281382|desk-manjaro|2d87+    0.0%   30.0m  0.0% 29.9m 1000    0      0 0.2ms |
+281387|desk-manjaro|9831+    0.0%   30.1m  0.0% 30.0m 1000    0      0 0.2ms |
+281380|desk-manjaro|9f8f+    0.0%   30.0m  0.0% 29.9m 1000    0      0 0.2ms |
+281378|desk-manjaro|1f49+    0.0%   30.0m  0.0% 29.8m 1000    0      0 0.1ms |
+281384|desk-manjaro|17b8+    0.0%   30.1m  0.0% 32.0m 1000    0      0 0.1ms |
+281385|desk-manjaro|5270+    0.0%   30.0m  0.0% 30.2m 1000    0      0 0.2ms |
+
 ```
 
 - scheduler section is showing how much resources scheduler used
@@ -224,3 +223,4 @@ Total 10 worker(s)
   - free means number of free task slots for this worker
   - sent means how many tasks scheduler sent to the worker
   - queued means how many tasks worker received and queued
+  - lag means the latency between worker and scheduler (round trip divided by 2), ms means microsecond
