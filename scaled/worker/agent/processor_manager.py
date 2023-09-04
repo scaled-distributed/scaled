@@ -97,10 +97,8 @@ class VanillaProcessorManager(Looper, ProcessorManager):
             return
 
         if task_result.task_id != self._current_task_id:
-            raise ValueError(
-                f"get cancel on task={task_result.task_id.hex()}, but current running task"
-                f"={self._current_task_id.hex()}"
-            )
+            # received queued result sent before processor get killed, ignore
+            return
 
         self._current_task_id = None
         self._lock.release()

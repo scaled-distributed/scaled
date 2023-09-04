@@ -96,7 +96,9 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             await self._binder.send(worker, FunctionRequest(FunctionRequestType.Delete, function_id, b"", b""))
 
     async def on_disconnect(self, source: bytes, request: DisconnectRequest):
-        await self.__disconnect_worker(request.worker)
+        if not await self.__disconnect_worker(request.worker):
+            return
+
         await self._binder.send(source, DisconnectResponse(request.worker))
 
     async def routine(self):
@@ -160,13 +162,18 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         for task_id in task_ids:
             await self._task_manager.on_task_reroute(task_id)
 
-    async def __disconnect_worker(self, worker: bytes):
+    async def __disconnect_worker(self, worker: bytes) -> bool:
+        """return True if disconnect worker success"""
+        if worker not in self._worker_alive_since:
+            return False
+
         logging.info(f"worker {worker} disconnected")
         self._worker_alive_since.pop(worker)
 
         task_ids = self._allocator.remove_worker(worker)
         if not task_ids:
-            return
+            return True
 
         logging.info(f"rerouting {len(task_ids)} tasks")
         await self.__reroute_tasks(task_ids)
+        return True
