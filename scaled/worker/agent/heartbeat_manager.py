@@ -1,29 +1,31 @@
 import time
-from asyncio import CancelledError
 from typing import Optional
 
 import psutil
 
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import Heartbeat, HeartbeatEcho
-from scaled.worker.agent.mixins import Looper, HeartbeatManager, TaskManager
+from scaled.worker.agent.mixins import Looper, HeartbeatManager, TaskManager, TimeoutManager
 
 
 class VanillaHeartbeatManager(Looper, HeartbeatManager):
-    def __init__(self, death_timeout_seconds: int):
-        self._death_timeout_seconds = death_timeout_seconds
+    def __init__(self):
         self._agent_process = psutil.Process()
         self._worker_process: Optional[psutil.Process] = None
 
         self._connector_external: Optional[AsyncConnector] = None
         self._worker_task_manager: Optional[TaskManager] = None
+        self._timeout_manager: Optional[TimeoutManager] = None
 
         self._start_timestamp_ns = 0
         self._latency_us = 0
 
-    def register(self, connector_external: AsyncConnector, worker_task_manager: TaskManager):
+    def register(
+        self, connector_external: AsyncConnector, worker_task_manager: TaskManager, timeout_manager: TimeoutManager
+    ):
         self._connector_external = connector_external
         self._worker_task_manager = worker_task_manager
+        self._timeout_manager = timeout_manager
 
     def set_processor_pid(self, process_id: int):
         self._worker_process = psutil.Process(process_id)
@@ -34,10 +36,8 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
             return
 
         self._latency_us = (time.time_ns() - self._start_timestamp_ns) // 1_000
-        if self._latency_us > (self._death_timeout_seconds * 1_000_000):
-            raise CancelledError(f"death_timeout_seconds={self._death_timeout_seconds} reached")
-
         self._start_timestamp_ns = 0
+        self._timeout_manager.update_last_seen_time()
 
     async def routine(self):
         if self._worker_process is None:

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import multiprocessing
 import signal
 from typing import Optional
@@ -21,9 +22,10 @@ from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.event_loop import create_async_loop_routine, register_event_loop
 from scaled.utility.logging.utility import setup_logger
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.worker.agent.heartbeat import VanillaHeartbeatManager
+from scaled.worker.agent.heartbeat_manager import VanillaHeartbeatManager
 from scaled.worker.agent.task_manager import VanillaTaskManager
 from scaled.worker.agent.processor_manager import VanillaProcessorManager
+from scaled.worker.agent.timeout_manager import VanillaTimeoutManager
 
 
 class Worker(multiprocessing.get_context("spawn").Process):
@@ -64,7 +66,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self.__run_forever()
 
     def __initialize(self):
-        setup_logger()
+        # setup_logger()
         register_event_loop(self._event_loop)
 
         self._connector_external = AsyncConnector(
@@ -75,8 +77,9 @@ class Worker(multiprocessing.get_context("spawn").Process):
             callback=self.__on_receive_external,
         )
 
+        self._heartbeat = VanillaHeartbeatManager()
+        self._timeout_manager = VanillaTimeoutManager(death_timeout_seconds=self._death_timeout_seconds)
         self._task_manager = VanillaTaskManager()
-        self._heartbeat = VanillaHeartbeatManager(death_timeout_seconds=self._death_timeout_seconds)
         self._processor_manager = VanillaProcessorManager(
             event_loop=self._event_loop,
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
@@ -87,7 +90,11 @@ class Worker(multiprocessing.get_context("spawn").Process):
 
         # register
         self._task_manager.register(connector=self._connector_external, processor_manager=self._processor_manager)
-        self._heartbeat.register(connector_external=self._connector_external, worker_task_manager=self._task_manager)
+        self._heartbeat.register(
+            connector_external=self._connector_external,
+            worker_task_manager=self._task_manager,
+            timeout_manager=self._timeout_manager,
+        )
         self._processor_manager.register(
             heartbeat=self._heartbeat, task_manager=self._task_manager, connector_external=self._connector_external
         )
@@ -128,19 +135,21 @@ class Worker(multiprocessing.get_context("spawn").Process):
         try:
             await asyncio.gather(
                 create_async_loop_routine(self._connector_external.routine, 0),
-                create_async_loop_routine(self._task_manager.routine, 0),
                 create_async_loop_routine(self._heartbeat.routine, self._heartbeat_interval_seconds),
+                create_async_loop_routine(self._timeout_manager.routine, 1),
+                create_async_loop_routine(self._task_manager.routine, 0),
                 create_async_loop_routine(self._processor_manager.routine, 0),
             )
         except asyncio.CancelledError:
             pass
-        except KeyboardInterrupt:
-            pass
+        except TimeoutError as e:
+            logging.info(f"Worker[{self.pid}]: {str(e)}")
 
         await self._connector_external.send(DisconnectRequest(self._connector_external.identity))
 
         self._connector_external.destroy()
         self._processor_manager.destroy()
+        logging.info(f"Worker[{self.pid}]: quited")
 
     def __run_forever(self):
         self._loop.run_until_complete(self._task)

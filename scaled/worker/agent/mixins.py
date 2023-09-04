@@ -27,6 +27,12 @@ class HeartbeatManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
+class TimeoutManager(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def update_last_seen_time(self):
+        raise NotImplementedError()
+
+
 class TaskManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def on_task_new(self, task: Task):

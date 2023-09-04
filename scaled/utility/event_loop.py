@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import logging
+from asyncio import CancelledError
 from typing import Awaitable, Callable
 
 
@@ -36,11 +37,8 @@ def create_async_loop_routine(routine: Callable[[], Awaitable], seconds: int):
             while True:
                 await routine()
                 await asyncio.sleep(seconds)
-        except asyncio.CancelledError:
-            pass
-        except KeyboardInterrupt:
-            pass
-
-        logging.info(f"{routine.__self__.__class__.__name__}: exited")
+        except asyncio.CancelledError as e:
+            logging.info(f"{routine.__self__.__class__.__name__}: exited")
+            raise e
 
     return loop()
