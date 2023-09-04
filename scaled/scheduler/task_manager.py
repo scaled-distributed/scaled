@@ -2,7 +2,8 @@ import logging
 from typing import Dict, Optional, Set
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import Task, TaskCancel, TaskEcho, TaskEchoStatus, TaskResult, TaskStatus
+from scaled.io.async_connector import AsyncConnector
+from scaled.protocol.python.message import Task, TaskCancel, TaskEcho, TaskEchoStatus, TaskResult, TaskStatus, TaskState
 from scaled.scheduler.graph_manager import GraphManager
 from scaled.scheduler.mixins import ClientManager, FunctionManager, Looper, Reporter, TaskManager, WorkerManager
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
@@ -12,6 +13,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
     def __init__(self, max_number_of_tasks_waiting: int):
         self._max_number_of_tasks_waiting = max_number_of_tasks_waiting
         self._binder: Optional[AsyncBinder] = None
+        self._binder_monitor: Optional[AsyncConnector] = None
 
         self._client_manager: Optional[ClientManager] = None
         self._function_manager: Optional[FunctionManager] = None
@@ -31,12 +33,14 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
     def register(
         self,
         binder: AsyncBinder,
+        binder_monitor: AsyncConnector,
         client_manager: ClientManager,
         function_manager: FunctionManager,
         worker_manager: WorkerManager,
         graph_manager: GraphManager,
     ):
         self._binder = binder
+        self._binder_monitor = binder_monitor
 
         self._client_manager = client_manager
         self._function_manager = function_manager
@@ -51,6 +55,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
             return
 
         self._running.add(task_id)
+        await self.__send_monitor(task_id, TaskStatus.Running)
 
     async def statistics(self) -> Dict:
         return {
@@ -82,16 +87,18 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
 
         self._task_id_to_task[task.task_id] = task
         await self._unassigned.put(task.task_id)
+        await self.__send_monitor(task.task_id, TaskStatus.Inactive)
 
     async def on_task_reroute(self, task_id: bytes):
         assert self._client_manager.get_client_id(task_id) is not None
 
         self._running.remove(task_id)
         await self._unassigned.put(task_id)
+        await self.__send_monitor(task_id, TaskStatus.Inactive)
 
     async def on_task_cancel(self, client: bytes, task_cancel: TaskCancel):
         if task_cancel.task_id in self._unassigned:
-            self._unassigned.remove(task_cancel.task_id)
+            await self.on_task_done(TaskResult(task_cancel.task_id, TaskStatus.Canceled, 0, b""))
             return
 
         if task_cancel.task_id not in self._running:
@@ -99,6 +106,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
             return
 
         await self._worker_manager.on_task_cancel(client, task_cancel)
+        await self.__send_monitor(task_cancel.task_id, TaskStatus.Canceling)
 
     async def on_task_done(self, result: TaskResult):
         if result.status == TaskStatus.Success:
@@ -115,6 +123,8 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
         elif result.task_id in self._running:
             self._running.remove(result.task_id)
 
+        await self.__send_monitor(result.task_id, result.status)
+
         self._task_id_to_task.pop(result.task_id)
         await self._function_manager.on_task_done_function(result.task_id)
         client = await self._client_manager.on_task_done(result.task_id)
@@ -123,3 +133,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
             return
 
         await self._binder.send(client, result)
+
+    async def __send_monitor(self, task_id: bytes, status: TaskStatus):
+        function_name = self._function_manager.get_function_name(self._task_id_to_task[task_id].function_id)
+        await self._binder_monitor.send(TaskState(task_id, function_name, status))

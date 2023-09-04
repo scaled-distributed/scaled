@@ -33,3 +33,10 @@ def format_microseconds(number: int):
 
         too_big_sign = "+" if unit == "s" and number > TIME_MODULUS else ""
         return f"{int(number)}{too_big_sign}{unit}"
+
+
+def format_seconds(number: int):
+    if number > 60:
+        return "60+s"
+
+    return f"{number}s"

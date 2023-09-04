@@ -38,6 +38,15 @@ class TestClient(unittest.TestCase):
         # self.cluster.shutdown()
         pass
 
+    def test_map(self):
+        client = Client(self.address)
+
+        tasks = [random.randint(0, 100) for _ in range(10000)]
+        with ScopedLogger(f"submit {len(tasks)} noop tasks"):
+            results = client.map(noop, [(i,) for i in tasks])
+
+        self.assertEqual(results, tasks)
+
     def test_noop(self):
         client = Client(self.address)
 

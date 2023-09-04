@@ -76,7 +76,12 @@ class Scheduler:
             self._binder, self._binder_monitor, self._client_manager, self._function_manager, self._task_manager
         )
         self._task_manager.register(
-            self._binder, self._client_manager, self._function_manager, self._worker_manager, self._graph_manager
+            self._binder,
+            self._binder_monitor,
+            self._client_manager,
+            self._function_manager,
+            self._worker_manager,
+            self._graph_manager,
         )
         self._worker_manager.register(self._binder, self._task_manager)
 

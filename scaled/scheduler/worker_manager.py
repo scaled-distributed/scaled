@@ -111,13 +111,14 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             "worker_manager": [
                 {
                     "worker": worker.decode(),
-                    "agt_cpu": round(info.agent_cpu, 2),
+                    "agt_cpu": info.agent_cpu,
                     "agt_rss": info.agent_rss,
-                    "cpu": round(info.worker_cpu, 2),
+                    "cpu": info.worker_cpu,
                     "rss": info.worker_rss,
                     **worker_to_task_numbers[worker],
                     "queued": info.queued_tasks,
                     "lag": info.latency_us,
+                    "last": int(time.time() - last),
                 }
                 for worker, (last, info) in self._worker_alive_since.items()
             ]

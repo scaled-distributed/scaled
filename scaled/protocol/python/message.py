@@ -28,12 +28,13 @@ class MessageType(enum.Enum):
     FunctionRequest = b"FR"
     FunctionResponse = b"FA"
 
-    SchedulerStatus = b"MS"
-
     DisconnectRequest = b"DR"
     DisconnectResponse = b"DP"
 
     ProcessorInitialize = b"PI"
+
+    SchedulerState = b"SS"
+    TaskState = b"TS"
 
     @staticmethod
     def allowed_values():
@@ -41,6 +42,9 @@ class MessageType(enum.Enum):
 
 
 class TaskStatus(enum.Enum):
+    Inactive = b"I"
+    Running = b"R"
+    Canceling = b"X"
     Success = b"S"
     Failed = b"F"
     Canceled = b"C"
@@ -290,13 +294,15 @@ class Heartbeat(_Message):
     queued_tasks: int
     latency_us: int
 
+    FORMAT = "HQHQHI"
+
     def serialize(self) -> Tuple[bytes, ...]:
         return (
             struct.pack(
-                "fQfQII",
-                self.agent_cpu,
+                Heartbeat.FORMAT,
+                int(self.agent_cpu * 1000),
                 self.agent_rss,
-                self.worker_cpu,
+                int(self.worker_cpu * 1000),
                 self.worker_rss,
                 self.queued_tasks,
                 self.latency_us,
@@ -305,7 +311,12 @@ class Heartbeat(_Message):
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return Heartbeat(*struct.unpack("fQfQII", data[0]))
+        agent_cpu, agent_rss, worker_cpu, worker_rss, queued_tasks, latency_us = struct.unpack(
+            Heartbeat.FORMAT, data[0]
+        )
+        return Heartbeat(
+            float(agent_cpu / 1000), agent_rss, float(worker_cpu / 1000), worker_rss, queued_tasks, latency_us
+        )
 
 
 @dataclasses.dataclass
@@ -383,7 +394,7 @@ class ProcessorInitialize(_Message):
 
 
 @dataclasses.dataclass
-class SchedulerStatus(_Message):
+class SchedulerState(_Message):
     data: bytes  # json content represent in bytes
 
     def serialize(self) -> Tuple[bytes, ...]:
@@ -391,7 +402,21 @@ class SchedulerStatus(_Message):
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return SchedulerStatus(data[0])
+        return SchedulerState(data[0])
+
+
+@dataclasses.dataclass
+class TaskState(_Message):
+    task_id: bytes
+    function_name: bytes
+    status: TaskStatus
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.task_id, self.function_name, self.status.value
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return TaskState(data[0], data[1], TaskStatus(data[2]))
 
 
 PROTOCOL = bidict.bidict(
@@ -413,6 +438,7 @@ PROTOCOL = bidict.bidict(
         MessageType.DisconnectRequest: DisconnectRequest,
         MessageType.DisconnectResponse: DisconnectResponse,
         MessageType.ProcessorInitialize: ProcessorInitialize,
-        MessageType.SchedulerStatus: SchedulerStatus,
+        MessageType.SchedulerState: SchedulerState,
+        MessageType.TaskState: TaskState,
     }
 )

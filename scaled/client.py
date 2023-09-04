@@ -95,7 +95,15 @@ class Client:
             raise TypeError(f"iterable should be list of arguments(list or tuple-like) of function")
 
         futures = [self.submit(fn, *args) for args in iterable]
-        return [fut.result() for fut in futures]
+
+        try:
+            results = [fut.result() for fut in futures]
+        except Exception as e:
+            self.disconnect()
+            self._connector.join()
+            raise e
+
+        return results
 
     def get(
         self, graph: Dict[str, Union[Any, Tuple[Union[Callable, Any], ...]]], keys: List[str], block: bool = True
@@ -117,9 +125,17 @@ class Client:
         self._connector.send(graph)
         self._graph_task_id_to_futures[graph.task_id] = futures
 
-        results = dict(zip(keys, futures))
-        if block:
-            results = {k: v.result() for k, v in results.items()}
+        futures = dict(zip(keys, futures))
+        if not block:
+            # just return futures
+            return futures
+
+        try:
+            results = {k: v.result() for k, v in futures.items()}
+        except Exception as e:
+            self.disconnect()
+            self._connector.join()
+            raise e
 
         return results
 

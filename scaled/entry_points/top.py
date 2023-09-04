@@ -7,8 +7,14 @@ from typing import Callable, List, Literal
 
 import zmq
 
-from scaled.protocol.python.message import MessageType, PROTOCOL, SchedulerStatus
-from scaled.utility.formatter import format_bytes, format_integer, format_microseconds, format_percentage
+from scaled.protocol.python.message import MessageType, PROTOCOL, SchedulerState
+from scaled.utility.formatter import (
+    format_bytes,
+    format_integer,
+    format_microseconds,
+    format_percentage,
+    format_seconds,
+)
 from scaled.utility.zmq_config import ZMQConfig
 
 SORT_BY_OPTIONS = {
@@ -55,7 +61,7 @@ def poke(screen):
         pass
 
 
-def subscribe_status(address: ZMQConfig, callback: Callable[[SchedulerStatus], None], timeout: int):
+def subscribe_status(address: ZMQConfig, callback: Callable[[SchedulerState], None], timeout: int):
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
     socket.setsockopt(zmq.RCVTIMEO, timeout * 1000)
@@ -75,14 +81,14 @@ def subscribe_status(address: ZMQConfig, callback: Callable[[SchedulerStatus], N
         message_type = MessageType(message_type_bytes)
         message = PROTOCOL[message_type].deserialize(payload)
 
-        if message_type != message_type.SchedulerStatus:
-            raise ValueError(f"unknown message type: {message_type}")
+        if message_type != message_type.SchedulerState:
+            continue
 
-        assert isinstance(message, SchedulerStatus)
+        assert isinstance(message, SchedulerState)
         callback(message)
 
 
-def show_status(status: SchedulerStatus, screen, config):
+def show_status(status: SchedulerState, screen, config):
     data = json.loads(status.data)
 
     option = screen.getch()
@@ -152,7 +158,10 @@ def __generate_worker_manager_table(wm_data, worker_length: int, sort_by: str):
         row["agt_rss"] = format_bytes(row["agt_rss"])
         row["cpu"] = format_percentage(row["cpu"])
         row["rss"] = format_bytes(row["rss"])
-        row["lag"] = format_microseconds(row["lag"])
+
+        last = row.pop("last")
+        last = f"({format_seconds(last)}) " if last > 5 else ""
+        row["lag"] = last + format_microseconds(row["lag"])
 
     worker_manager_table = [[f"[{v}]" if v == sort_by else v for v in wm_data[0].keys()]]
     worker_manager_table.extend([list(worker.values()) for worker in wm_data])
