@@ -19,6 +19,8 @@ from scaled.protocol.python.message import (
     Task,
     TaskResult,
     TaskStatus,
+    TaskEcho,
+    TaskEchoStatus,
 )
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.zmq_config import ZMQConfig
@@ -46,7 +48,6 @@ class Processor(multiprocessing.get_context("spawn").Process):
         self._serializer = serializer
 
         self._cache_cleaner: Optional[CacheCleaner] = None
-        self._onhold_task: Optional[Task] = None
         self._initialized: bool = False
 
     def run(self) -> None:
@@ -112,9 +113,6 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __on_receive_function_response(self, response: FunctionResponse):
         self._cache_cleaner.add_function(response.function_id, self._serializer.deserialize_function(response.content))
-        task = self._onhold_task
-        self._onhold_task = None
-        self.__process_task(task)
 
     def __on_received_task(self, task: Task):
         function = self._cache_cleaner.get_function(task.function_id)
@@ -122,8 +120,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
             self.__process_task(task)
             return
 
-        assert self._onhold_task is None
-        self._onhold_task = task
+        self._connector.send_immediately(TaskEcho(task.task_id, TaskEchoStatus.FunctionNotExists))
         self._connector.send_immediately(FunctionRequest(FunctionRequestType.Request, task.function_id, b"", b""))
 
     def __process_task(self, task: Task):

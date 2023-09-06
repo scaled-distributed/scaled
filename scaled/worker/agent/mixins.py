@@ -8,6 +8,7 @@ from scaled.protocol.python.message import (
     Task,
     TaskCancel,
     TaskResult,
+    TaskEcho,
 )
 
 
@@ -69,7 +70,15 @@ class ProcessorManager(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def on_task_result(self, task_id: bytes):
+    async def on_internal_task_echo(self, task_echo: TaskEcho):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def on_internal_task_result(self, task_id: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def on_internal_function_request(self, request: FunctionRequest):
         raise NotImplementedError()
 
     @abc.abstractmethod

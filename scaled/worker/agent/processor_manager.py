@@ -19,6 +19,8 @@ from scaled.protocol.python.message import (
     ProcessorInitialize,
     Task,
     TaskResult,
+    TaskEcho,
+    TaskEchoStatus,
 )
 from scaled.protocol.python.serializer.mixins import FunctionSerializerType
 from scaled.utility.zmq_config import ZMQConfig, ZMQType
@@ -52,7 +54,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         self._processor: Optional[Processor] = None
 
-        self._current_task_id: Optional[bytes] = None
+        self._current_task: Optional[Task] = None
         self._connector: AsyncConnector = AsyncConnector(
             context=zmq.asyncio.Context(),
             socket_type=zmq.PAIR,
@@ -81,32 +83,43 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
     async def on_function_response(self, response: FunctionResponse):
         await self._connector.send(response)
+        await self._connector.send(self._current_task)
 
     async def on_task(self, task: Task) -> bool:
         if not self._processor_ready:
             return False
 
         await self._lock.acquire()
-        self._current_task_id = task.task_id
+        self._current_task = task
         await self._connector.send(task)
         return True
 
-    async def on_task_result(self, task_result: TaskResult):
+    async def on_internal_task_echo(self, task_echo: TaskEcho):
+        if task_echo.task_id != self._current_task.task_id:
+            return
+
+        assert self._current_task.task_id == task_echo.task_id
+        assert task_echo.status == TaskEchoStatus.FunctionNotExists
+
+    async def on_internal_task_result(self, task_result: TaskResult):
         if not self._processor_ready:
             # received queued result sent before processor get killed, ignore
             return
 
-        if task_result.task_id != self._current_task_id:
+        if task_result.task_id != self._current_task.task_id:
             # received queued result sent before processor get killed, ignore
             return
 
-        self._current_task_id = None
+        self._current_task = None
         self._lock.release()
 
         await self._task_manager.on_task_result(task_result)
 
+    async def on_internal_function_request(self, request: FunctionRequest):
+        await self._connector_external.send(request)
+
     async def on_cancel_task(self, task_id: bytes) -> bool:
-        if task_id == self._current_task_id:
+        if task_id == self._current_task.task_id:
             self.restart_processor()
             return True
 
@@ -128,7 +141,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         logging.info(f"Worker[{os.getpid()}]: stop Processor[{self._processor.pid}]")
         os.kill(self._processor.pid, signal.SIGTERM)
         self._processor_ready = False
-        self._current_task_id = None
+        self._current_task = None
 
     def __start_new_processor(self):
         self._processor = Processor(
@@ -141,7 +154,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         )
         self._processor.start()
         self._heartbeat.set_processor_pid(self._processor.pid)
-        self._current_task_id = None
+        self._current_task = None
 
         if self._lock.locked():
             self._lock.release()
@@ -155,12 +168,16 @@ class VanillaProcessorManager(Looper, ProcessorManager):
             await self._connector.send(ProcessorInitialize())
             return
 
+        if isinstance(message, TaskEcho):
+            await self.on_internal_task_echo(message)
+            return
+
         if isinstance(message, TaskResult):
-            await self.on_task_result(message)
+            await self.on_internal_task_result(message)
             return
 
         if isinstance(message, FunctionRequest):
-            await self._connector_external.send(message)
+            await self.on_internal_function_request(message)
             return
 
         raise TypeError(f"Unknown {message=}")

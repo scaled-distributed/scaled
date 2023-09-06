@@ -2,7 +2,7 @@ import abc
 import dataclasses
 import enum
 import struct
-from typing import Dict, List, Tuple, TypeVar
+from typing import Dict, List, Tuple, TypeVar, Set
 
 import bidict
 
@@ -35,6 +35,7 @@ class MessageType(enum.Enum):
 
     SchedulerState = b"SS"
     TaskState = b"TS"
+    GraphTaskState = b"GS"
 
     @staticmethod
     def allowed_values():
@@ -58,6 +59,11 @@ class TaskEchoStatus(enum.Enum):
     Duplicated = b"DC"
     NoWorker = b"NW"
     FunctionNotExists = b"FN"
+
+
+class NodeTaskType(enum.Enum):
+    Normal = b"N"
+    Target = b"T"
 
 
 class FunctionRequestType(enum.Enum):
@@ -419,6 +425,21 @@ class TaskState(_Message):
         return TaskState(data[0], data[1], TaskStatus(data[2]))
 
 
+@dataclasses.dataclass
+class GraphTaskState(_Message):
+    graph_task_id: bytes
+    task_id: bytes
+    node_task_type: NodeTaskType
+    parent_task_ids: Set[bytes]
+
+    def serialize(self) -> Tuple[bytes, ...]:
+        return self.graph_task_id, self.task_id, self.node_task_type.value, *self.parent_task_ids
+
+    @staticmethod
+    def deserialize(data: List[bytes]):
+        return GraphTaskState(data[0], data[1], NodeTaskType(data[2]), set(data[3:]))
+
+
 PROTOCOL = bidict.bidict(
     {
         MessageType.Heartbeat: Heartbeat,
@@ -440,5 +461,6 @@ PROTOCOL = bidict.bidict(
         MessageType.ProcessorInitialize: ProcessorInitialize,
         MessageType.SchedulerState: SchedulerState,
         MessageType.TaskState: TaskState,
+        MessageType.GraphTaskState: GraphTaskState,
     }
 )

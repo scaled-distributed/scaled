@@ -18,6 +18,8 @@ from scaled.protocol.python.message import (
     TaskCancel,
     TaskResult,
     TaskStatus,
+    GraphTaskState,
+    NodeTaskType,
 )
 from scaled.scheduler.mixins import ClientManager, FunctionManager, GraphTaskManager, Looper, Reporter, TaskManager
 from scaled.utility.key_value_set import KeyValueDictSet
@@ -149,6 +151,15 @@ class GraphManager(GraphTaskManager, Looper, Reporter):
 
             graph[task.task_id] = required_task_ids
             task_ids.add(task.task_id)
+
+            await self._binder_monitor.send(
+                GraphTaskState(
+                    graph_task.task_id,
+                    task.task_id,
+                    NodeTaskType.Target if task.task_id in graph_task.targets else NodeTaskType.Normal,
+                    required_task_ids,
+                )
+            )
 
         sorter = TopologicalSorter(graph)
         sorter.prepare()
