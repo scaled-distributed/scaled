@@ -95,6 +95,9 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         return True
 
     async def on_internal_task_echo(self, task_echo: TaskEcho):
+        if self._current_task is None:
+            return
+
         if task_echo.task_id != self._current_task.task_id:
             return
 
