@@ -1,15 +1,12 @@
 import abc
 
-from scaled.protocol.python.message import (
-    BalanceRequest,
-    FunctionRequest,
-    FunctionResponse,
-    HeartbeatEcho,
-    Task,
-    TaskCancel,
-    TaskResult,
-    TaskEcho,
-)
+from scaled.protocol.python.message import BalanceRequest
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import FunctionResponse
+from scaled.protocol.python.message import HeartbeatEcho
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.message import TaskResult
 
 
 class Looper(metaclass=abc.ABCMeta):
@@ -67,18 +64,6 @@ class ProcessorManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def on_task(self, task: Task) -> bool:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def on_internal_task_echo(self, task_echo: TaskEcho):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def on_internal_task_result(self, task_id: bytes):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    async def on_internal_function_request(self, request: FunctionRequest):
         raise NotImplementedError()
 
     @abc.abstractmethod

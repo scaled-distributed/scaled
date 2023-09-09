@@ -1,7 +1,7 @@
 import random
 
-from scaled import Client, SchedulerClusterCombo
-
+from scaled import Client
+from scaled import SchedulerClusterCombo
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 

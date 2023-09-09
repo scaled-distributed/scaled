@@ -1,6 +1,7 @@
 import time
 
-from scaled.worker.agent.mixins import TimeoutManager, Looper
+from scaled.worker.agent.mixins import Looper
+from scaled.worker.agent.mixins import TimeoutManager
 
 
 class VanillaTimeoutManager(Looper, TimeoutManager):
@@ -15,4 +16,4 @@ class VanillaTimeoutManager(Looper, TimeoutManager):
         if (time.time() - self._last_seen_time) < self._death_timeout_seconds:
             return
 
-        raise TimeoutError(f"timeout when connect to scheduler, quiting")
+        raise TimeoutError("timeout when connect to scheduler, quiting")

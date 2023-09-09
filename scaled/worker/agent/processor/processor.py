@@ -1,7 +1,6 @@
 import logging
 import multiprocessing
 import pickle
-import signal
 import threading
 import time
 from typing import Optional
@@ -10,24 +9,21 @@ import tblib.pickling_support
 import zmq
 
 from scaled.io.sync_connector import SyncConnector
-from scaled.protocol.python.message import (
-    FunctionRequest,
-    FunctionRequestType,
-    FunctionResponse,
-    MessageVariant,
-    ProcessorInitialize,
-    Task,
-    TaskResult,
-    TaskStatus,
-    TaskEcho,
-    TaskEchoStatus,
-)
-from scaled.protocol.python.serializer.mixins import FunctionSerializerType
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import FunctionRequestType
+from scaled.protocol.python.message import FunctionResponse
+from scaled.protocol.python.message import MessageVariant
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskResult
+from scaled.protocol.python.message import TaskStatus
+from scaled.protocol.python.serializer.mixins import Serializer
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.agent.processor.cache_cleaner import CacheCleaner
 
 
-class Processor(multiprocessing.get_context("spawn").Process):
+class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
+    SENTINEL = TaskResult(b"", TaskStatus.Success, 0, b"")
+
     def __init__(
         self,
         event_loop: str,
@@ -35,7 +31,7 @@ class Processor(multiprocessing.get_context("spawn").Process):
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
         function_retention_seconds: int,
-        serializer: FunctionSerializerType,
+        serializer: Serializer,
     ):
         multiprocessing.Process.__init__(self, name="Processor")
 
@@ -48,7 +44,8 @@ class Processor(multiprocessing.get_context("spawn").Process):
         self._serializer = serializer
 
         self._cache_cleaner: Optional[CacheCleaner] = None
-        self._initialized: bool = False
+
+        self._current_task: Optional[Task] = None
 
     def run(self) -> None:
         self.__initialize()
@@ -77,29 +74,22 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __run_forever(self):
         try:
-            self._connector.send_immediately(ProcessorInitialize())
+            self._connector.send_immediately(Processor.SENTINEL)
             self._connector.run()
         except KeyboardInterrupt:
             pass
 
     def __on_connector_receive(self, message: MessageVariant):
-        if isinstance(message, ProcessorInitialize):
-            if not self._initialized:
-                self._initialized = True
-            else:
-                raise ValueError(f"received multiple initialize message")
-            return
-
-        if isinstance(message, FunctionResponse):
-            self.__on_receive_function_response(message)
-            return
-
         if isinstance(message, FunctionRequest):
             self.__on_receive_function_request(message)
             return
 
         if isinstance(message, Task):
             self.__on_received_task(message)
+            return
+
+        if isinstance(message, FunctionResponse):
+            self.__on_receive_function_response(message)
             return
 
         logging.error(f"unknown {message=}")
@@ -113,15 +103,17 @@ class Processor(multiprocessing.get_context("spawn").Process):
 
     def __on_receive_function_response(self, response: FunctionResponse):
         self._cache_cleaner.add_function(response.function_id, self._serializer.deserialize_function(response.content))
+        task = self._current_task
+        self._current_task = None
+        self.__process_task(task)
 
     def __on_received_task(self, task: Task):
-        function = self._cache_cleaner.get_function(task.function_id)
-        if function is not None:
+        if self._cache_cleaner.get_function(task.function_id) is not None:
             self.__process_task(task)
             return
 
-        self._connector.send_immediately(TaskEcho(task.task_id, TaskEchoStatus.FunctionNotExists))
         self._connector.send_immediately(FunctionRequest(FunctionRequestType.Request, task.function_id, b"", b""))
+        self._current_task = task
 
     def __process_task(self, task: Task):
         begin = time.monotonic()
@@ -144,9 +136,3 @@ class Processor(multiprocessing.get_context("spawn").Process):
                     pickle.dumps(e, protocol=pickle.HIGHEST_PROTOCOL),
                 )
             )
-
-    def __register_signal(self):
-        signal.signal(signal.SIGINT, self.__destroy)
-
-    def __destroy(self):
-        self._connector.close()

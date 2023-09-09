@@ -4,29 +4,29 @@ import logging
 
 import zmq.asyncio
 
+from scaled.io.async_binder import AsyncBinder
 from scaled.io.async_connector import AsyncConnector
-from scaled.io.config import CLEANUP_INTERVAL_SECONDS, STATUS_REPORT_INTERVAL_SECONDS
+from scaled.io.config import CLEANUP_INTERVAL_SECONDS
+from scaled.io.config import STATUS_REPORT_INTERVAL_SECONDS
+from scaled.protocol.python.message import BalanceResponse
+from scaled.protocol.python.message import DisconnectRequest
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import GraphTask
+from scaled.protocol.python.message import GraphTaskCancel
+from scaled.protocol.python.message import Heartbeat
+from scaled.protocol.python.message import MessageVariant
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.message import TaskResult
 from scaled.scheduler.client_manager import VanillaClientManager
 from scaled.scheduler.function_manager import VanillaFunctionManager
 from scaled.scheduler.graph_manager import GraphManager
 from scaled.scheduler.status_reporter import StatusReporter
-from scaled.utility.event_loop import create_async_loop_routine
-from scaled.utility.zmq_config import ZMQConfig, ZMQType
-from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import (
-    BalanceResponse,
-    DisconnectRequest,
-    FunctionRequest,
-    GraphTask,
-    GraphTaskCancel,
-    Heartbeat,
-    MessageVariant,
-    Task,
-    TaskCancel,
-    TaskResult,
-)
 from scaled.scheduler.task_manager import VanillaTaskManager
 from scaled.scheduler.worker_manager import VanillaWorkerManager
+from scaled.utility.event_loop import create_async_loop_routine
+from scaled.utility.zmq_config import ZMQConfig
+from scaled.utility.zmq_config import ZMQType
 
 
 class Scheduler:

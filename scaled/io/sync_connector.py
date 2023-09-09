@@ -4,15 +4,21 @@ import os
 import socket
 import threading
 import uuid
-from queue import Queue
 from collections import defaultdict
-from typing import Callable, List, Literal, Optional
+from queue import Queue
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Literal
+from typing import Optional
 
 import zmq
 
 from scaled.io.config import POLLING_TIME_MILLISECONDS
+from scaled.protocol.python.message import MessageType
+from scaled.protocol.python.message import MessageVariant
+from scaled.protocol.python.message import PROTOCOL
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
 class SyncConnector(threading.Thread):
@@ -47,16 +53,19 @@ class SyncConnector(threading.Thread):
         elif bind_or_connect == "connect":
             self._socket.connect(self._address.to_address())
         else:
-            raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
+            raise TypeError("bind_or_connect has to be 'bind' or 'connect'")
 
         self._callback = callback
         self._exit_callback = exit_callback
         self._stop_event = stop_event
 
-        self._send_queue = Queue()
+        self._send_queue: Queue = Queue()
 
         self._statistics_mutex = threading.Lock()
-        self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
+        self._statistics: Dict[str, Dict[str, int]] = {
+            "received": defaultdict(lambda: 0),
+            "sent": defaultdict(lambda: 0),
+        }
 
     def close(self):
         self._socket.close()
@@ -112,7 +121,7 @@ class SyncConnector(threading.Thread):
             return
 
         if frames[0] not in {member.value for member in MessageType}:
-            logging.error(f"{self.__get_prefix()} received unexpected message type: {frames[0]}")
+            logging.error(f"{self.__get_prefix()} received unexpected message type: {frames[0]!r}")
             return
 
         message_type_bytes, *payload = frames

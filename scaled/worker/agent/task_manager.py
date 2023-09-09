@@ -1,16 +1,23 @@
-import asyncio
-from typing import Dict, List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import BalanceRequest, Task, TaskCancel, TaskResult, TaskStatus
+from scaled.protocol.python.message import BalanceRequest
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.message import TaskResult
+from scaled.protocol.python.message import TaskStatus
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
-from scaled.worker.agent.mixins import Looper, ProcessorManager, TaskManager
+from scaled.worker.agent.mixins import Looper
+from scaled.worker.agent.mixins import ProcessorManager
+from scaled.worker.agent.mixins import TaskManager
 
 
 class VanillaTaskManager(Looper, TaskManager):
     def __init__(self):
         self._queued_task_id_to_task: Dict[bytes, Task] = dict()
-        self._queued_task_ids = IndexedQueue()
+        self._queued_task_ids: IndexedQueue[bytes] = IndexedQueue()
 
         self._connector_external: Optional[AsyncConnector] = None
         self._processor_manager: Optional[ProcessorManager] = None

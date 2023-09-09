@@ -1,24 +1,21 @@
 import logging
-import multiprocessing
 
+from scaled.cluster.cluster import Cluster
 from scaled.cluster.scheduler import SchedulerProcess
-from scaled.io.config import (
-    DEFAULT_DEATH_TIMEOUT_SECONDS,
-    DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
-    DEFAULT_FUNCTION_RETENTION_SECONDS,
-    DEFAULT_IO_THREADS,
-    DEFAULT_LOAD_BALANCE_SECONDS,
-    DEFAULT_LOAD_BALANCE_TRIGGER_TIMES,
-    DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
-    DEFAULT_WORKER_TIMEOUT_SECONDS,
-    DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
-    DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
-    DEFAULT_PER_WORKER_QUEUE_SIZE,
-)
+from scaled.io.config import DEFAULT_DEATH_TIMEOUT_SECONDS
+from scaled.io.config import DEFAULT_FUNCTION_RETENTION_SECONDS
+from scaled.io.config import DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS
+from scaled.io.config import DEFAULT_HEARTBEAT_INTERVAL_SECONDS
+from scaled.io.config import DEFAULT_IO_THREADS
+from scaled.io.config import DEFAULT_LOAD_BALANCE_SECONDS
+from scaled.io.config import DEFAULT_LOAD_BALANCE_TRIGGER_TIMES
+from scaled.io.config import DEFAULT_MAX_NUMBER_OF_TASKS_WAITING
+from scaled.io.config import DEFAULT_PER_WORKER_QUEUE_SIZE
+from scaled.io.config import DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES
+from scaled.io.config import DEFAULT_WORKER_TIMEOUT_SECONDS
 from scaled.protocol.python.serializer.default import DefaultSerializer
 from scaled.protocol.python.serializer.mixins import Serializer
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.cluster.cluster import Cluster
 
 
 class SchedulerClusterCombo:

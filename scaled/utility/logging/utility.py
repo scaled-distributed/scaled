@@ -1,9 +1,8 @@
 import dataclasses
-import logging
-import logging.config
-import typing
-import os
 import enum
+import logging.config
+import os
+import typing
 
 
 class LogType(enum.Enum):
@@ -57,10 +56,7 @@ def __generate_log_config() -> typing.Dict:
         "formatters": {
             "standard": {
                 "format": "[{levelname}]{asctime}: {message}".format(
-                    levelname=__format("levelname"),
-                    asctime=__format("asctime"),
-                    module=__format("module"),
-                    message=__format("message"),
+                    levelname=__format("levelname"), asctime=__format("asctime"), message=__format("message")
                 ),
                 "datefmt": "%Y-%m-%d %H:%M:%S%z",
             },

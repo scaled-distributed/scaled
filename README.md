@@ -1,13 +1,13 @@
 # Scaled
-This project is aiming the target that provides very light, efficient, reliable way for distribute computing 
-framework, like dask and ray, it uses centralized scheduler (like dask, unlike ray) and language agnostic protocol 
+This project is aiming the target that provides very light, efficient, reliable way for distribute computing
+framework, like dask and ray, it uses centralized scheduler (like dask, unlike ray) and language agnostic protocol
 between client and scheduler, or between scheduler and worker.
 
 # Introduction
 The goal for this project should be as simple as possible
 - It built on top of zmq
 - it has ready python version of Client, Scheduler, Worker
-- I will provide golang or Rust version of Scheduler, the goal for the Scheduler should be completely computer language 
+- I will provide golang or Rust version of Scheduler, the goal for the Scheduler should be completely computer language
   agnostic, which means they follow the same protocol
 - Scheduler might support function based computing tree in the future
 
@@ -107,7 +107,7 @@ print(future.result())
 ## Scheduler
 
 As scaled_scheduler only need communicate with client and worker with protocol, so scaled_scheduler can be packaged and
-distributed independently, unless protocol changes. It can be used for scheduling tasks that by other language 
+distributed independently, unless protocol changes. It can be used for scheduling tasks that by other language
 implementations of client/worker too.
 
 Assume there is implementation of scaled protocol written in C++, has client and worker side, it can use python version
@@ -168,7 +168,7 @@ def minus(a, b):
 
 graph = {
     "a": 2,
-    "b": 2, 
+    "b": 2,
     "c": (inc, "a"),  # c = a + 1 = 2 + 1 = 3
     "d": (add, "a", "b"),  # d = a + b = 2 + 2 = 4
     "e": (minus, "d", "c")  # e = d - c = 4 - 3 = 1
@@ -216,7 +216,7 @@ Total 10 worker(s)
 - scheduler_sent section shows count for each type of messages scheduler sent
 - scheduler_received section shows count for each type of messages scheduler received
 - function_id_to_tasks section shows task count for each function used
-- worker section shows worker details, you can use shortcuts to sort by columns, the char * on column header show which 
+- worker section shows worker details, you can use shortcuts to sort by columns, the char * on column header show which
   column is sorted right now
   - agt_cpu/agt_rss means cpu/memory usage of worker agent
   - cpu/rss means cpu/memory usage of worker

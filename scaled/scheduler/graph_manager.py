@@ -2,26 +2,32 @@ import dataclasses
 import enum
 from asyncio import Queue
 from graphlib import TopologicalSorter
-from typing import Dict, List, Optional, Set
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Set
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import (
-    Argument,
-    ArgumentType,
-    FunctionRequest,
-    FunctionRequestType,
-    GraphTask,
-    GraphTaskCancel,
-    GraphTaskResult,
-    Task,
-    TaskCancel,
-    TaskResult,
-    TaskStatus,
-    GraphTaskState,
-    NodeTaskType,
-)
-from scaled.scheduler.mixins import ClientManager, FunctionManager, GraphTaskManager, Looper, Reporter, TaskManager
+from scaled.protocol.python.message import Argument
+from scaled.protocol.python.message import ArgumentType
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import FunctionRequestType
+from scaled.protocol.python.message import GraphTask
+from scaled.protocol.python.message import GraphTaskCancel
+from scaled.protocol.python.message import GraphTaskResult
+from scaled.protocol.python.message import GraphTaskState
+from scaled.protocol.python.message import NodeTaskType
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.message import TaskResult
+from scaled.protocol.python.message import TaskStatus
+from scaled.scheduler.mixins import ClientManager
+from scaled.scheduler.mixins import FunctionManager
+from scaled.scheduler.mixins import GraphTaskManager
+from scaled.scheduler.mixins import Looper
+from scaled.scheduler.mixins import Reporter
+from scaled.scheduler.mixins import TaskManager
 from scaled.utility.key_value_set import KeyValueDictSet
 
 
@@ -136,9 +142,9 @@ class GraphManager(GraphTaskManager, Looper, Reporter):
 
         await self._client_manager.on_task_new(client, graph_task.task_id)
 
-        task_ids = set()
-        tasks = dict()
-        dependencies = KeyValueDictSet()
+        task_ids: Set[bytes] = set()
+        tasks: Dict[bytes, _TaskInfo] = dict()
+        dependencies: KeyValueDictSet[bytes, bytes] = KeyValueDictSet()
         for task in graph_task.graph:
             await self._function_manager.on_task_use_function(task.task_id, task.function_id)
 

@@ -2,7 +2,8 @@ import graphlib
 import time
 import unittest
 
-from scaled import Client, SchedulerClusterCombo
+from scaled import Client
+from scaled import SchedulerClusterCombo
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
@@ -31,7 +32,7 @@ class TestGraph(unittest.TestCase):
 
         client = Client(self.address)
 
-        with ScopedLogger(f"test graph"):
+        with ScopedLogger("test graph"):
             results = client.get(graph, ["e"])
             self.assertEqual(results, {"e": 1})
 
@@ -41,7 +42,7 @@ class TestGraph(unittest.TestCase):
     def test_graph_fail(self):
         def inc(_):
             time.sleep(1)
-            raise ValueError(f"Compute Error")
+            raise ValueError("Compute Error")
 
         def add(a, b):
             time.sleep(5)

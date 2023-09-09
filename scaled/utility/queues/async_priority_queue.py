@@ -1,6 +1,8 @@
 import heapq
 from asyncio import Queue
-from typing import Dict, List, Union
+from typing import Dict
+from typing import List
+from typing import Union
 
 
 class PriorityQueue(Queue):
@@ -16,13 +18,13 @@ class PriorityQueue(Queue):
         self._queue: List[List[Union[int, bytes]]] = []
         self._locator: Dict[bytes, List[Union[int, bytes]]] = {}
 
-    def _put(self, item):
+    def _put(self, item: List[Union[int, bytes]]):
         heapq.heappush(self._queue, item)
-        self._locator[item[1]] = item
+        self._locator[item[1]] = item  # type: ignore
 
     def _get(self):
         priority, item = heapq.heappop(self._queue)
-        self._locator.pop(item)
+        self._locator.pop(item)  # type: ignore
         return priority, item
 
     def remove(self, data):
@@ -32,7 +34,7 @@ class PriorityQueue(Queue):
         entry = self._locator.pop(data)
         i = self._queue.index(entry)
         entry[0] = -1
-        heapq._siftdown(self._queue, 0, i)  # noqa
+        heapq._siftdown(self._queue, 0, i)  # type: ignore # noqa
         assert heapq.heappop(self._queue) == entry
 
     def decrease_priority(self, item):
@@ -40,8 +42,8 @@ class PriorityQueue(Queue):
         # entry will never get removed, so we used heapq internal function _siftdown to maintain min heap invariant
         entry = self._locator[item]
         i = self._queue.index(entry)
-        entry[0] -= 1
-        heapq._siftdown(self._queue, 0, i)  # noqa
+        entry[0] -= 1  # type: ignore
+        heapq._siftdown(self._queue, 0, i)  # type: ignore # noqa
 
     def max_priority(self):
         priority, item = heapq.heappop(self._queue)

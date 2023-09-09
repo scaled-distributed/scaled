@@ -1,8 +1,9 @@
 import random
 
+from dask.distributed import Client as DaskClient
+
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
-from dask.distributed import Client as DaskClient
 
 
 def sleep_print(sec: int):

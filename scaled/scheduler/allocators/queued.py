@@ -1,5 +1,8 @@
 import math
-from typing import Dict, List, Optional, Set
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Set
 
 from scaled.scheduler.allocators.mixins import TaskAllocator
 from scaled.utility.queues.async_priority_queue import PriorityQueue
@@ -36,7 +39,7 @@ class QueuedAllocator(TaskAllocator):
         return set(self._workers_to_task_ids.keys())
 
     def balance(self) -> Dict[bytes, int]:
-        balance_result = dict()
+        balance_result: Dict[bytes, int] = dict()
 
         worker_task_count = {worker: len(tasks) for worker, tasks in self._workers_to_task_ids.items()}
         any_worker_has_task = any(worker_task_count.values())

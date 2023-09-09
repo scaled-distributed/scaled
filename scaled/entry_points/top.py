@@ -3,18 +3,20 @@ import curses
 import functools
 import json
 import logging
-from typing import Callable, List, Literal
+from typing import Callable
+from typing import List
+from typing import Literal
 
 import zmq
 
-from scaled.protocol.python.message import MessageType, PROTOCOL, SchedulerState
-from scaled.utility.formatter import (
-    format_bytes,
-    format_integer,
-    format_microseconds,
-    format_percentage,
-    format_seconds,
-)
+from scaled.protocol.python.message import MessageType
+from scaled.protocol.python.message import PROTOCOL
+from scaled.protocol.python.message import SchedulerState
+from scaled.utility.formatter import format_bytes
+from scaled.utility.formatter import format_integer
+from scaled.utility.formatter import format_microseconds
+from scaled.utility.formatter import format_percentage
+from scaled.utility.formatter import format_seconds
 from scaled.utility.zmq_config import ZMQConfig
 
 SORT_BY_OPTIONS = {

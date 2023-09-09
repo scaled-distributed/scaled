@@ -1,11 +1,24 @@
 import logging
-from typing import Dict, Optional, Set
+from typing import Dict
+from typing import Optional
+from typing import Set
 
 from scaled.io.async_binder import AsyncBinder
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import Task, TaskCancel, TaskEcho, TaskEchoStatus, TaskResult, TaskStatus, TaskState
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.message import TaskEcho
+from scaled.protocol.python.message import TaskEchoStatus
+from scaled.protocol.python.message import TaskResult
+from scaled.protocol.python.message import TaskState
+from scaled.protocol.python.message import TaskStatus
 from scaled.scheduler.graph_manager import GraphManager
-from scaled.scheduler.mixins import ClientManager, FunctionManager, Looper, Reporter, TaskManager, WorkerManager
+from scaled.scheduler.mixins import ClientManager
+from scaled.scheduler.mixins import FunctionManager
+from scaled.scheduler.mixins import Looper
+from scaled.scheduler.mixins import Reporter
+from scaled.scheduler.mixins import TaskManager
+from scaled.scheduler.mixins import WorkerManager
 from scaled.utility.queues.async_indexed_queue import IndexedQueue
 
 

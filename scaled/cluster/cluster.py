@@ -5,12 +5,12 @@ import signal
 from typing import List
 
 from scaled.protocol.python.serializer.mixins import Serializer
-from scaled.utility.zmq_config import ZMQConfig
 from scaled.utility.logging.utility import setup_logger
+from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.worker import Worker
 
 
-class Cluster(multiprocessing.get_context("spawn").Process):
+class Cluster(multiprocessing.get_context("spawn").Process):  # type: ignore
     def __init__(
         self,
         address: ZMQConfig,

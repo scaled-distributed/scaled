@@ -1,11 +1,18 @@
 import dataclasses
 import logging
 import time
-from typing import Dict, Optional
+from typing import Dict
+from typing import Optional
 
 from scaled.io.async_binder import AsyncBinder
-from scaled.protocol.python.message import FunctionRequest, FunctionRequestType, FunctionResponse, FunctionResponseType
-from scaled.scheduler.mixins import FunctionManager, Looper, Reporter, WorkerManager
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import FunctionRequestType
+from scaled.protocol.python.message import FunctionResponse
+from scaled.protocol.python.message import FunctionResponseType
+from scaled.scheduler.mixins import FunctionManager
+from scaled.scheduler.mixins import Looper
+from scaled.scheduler.mixins import Reporter
+from scaled.scheduler.mixins import WorkerManager
 from scaled.utility.formatter import format_bytes
 from scaled.utility.one_to_many_dict import OneToManyDict
 
@@ -76,7 +83,7 @@ class VanillaFunctionManager(FunctionManager, Looper, Reporter):
             func_info = self._function_id_to_func_info.pop(function_id)
             logging.info(
                 f"remove function cache function_id={function_id.hex()}, "
-                f"func_name={func_info.function_name}, "
+                f"func_name={func_info.function_name!r}, "
                 f"size={format_bytes(len(func_info.content))}"
             )
             await self._worker_manager.on_delete_function(function_id)
@@ -117,7 +124,7 @@ class VanillaFunctionManager(FunctionManager, Looper, Reporter):
 
         logging.info(
             f"add function cache function_id={function_id.hex()}, "
-            f"func_name={function_name}, "
+            f"func_name={function_name!r}, "
             f"size={format_bytes(len(function))}"
         )
         self._function_id_to_func_info[function_id] = _FuncInfo(function_name, function, time.time())

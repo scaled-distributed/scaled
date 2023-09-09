@@ -1,6 +1,10 @@
-from typing import Dict, Optional, Set
+from typing import Dict
+from typing import Optional
+from typing import Set
 
-from scaled.scheduler.mixins import ClientManager, Looper, Reporter
+from scaled.scheduler.mixins import ClientManager
+from scaled.scheduler.mixins import Looper
+from scaled.scheduler.mixins import Reporter
 from scaled.utility.one_to_many_dict import OneToManyDict
 
 

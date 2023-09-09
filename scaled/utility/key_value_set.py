@@ -1,4 +1,7 @@
-from typing import Dict, Generic, Set, TypeVar
+from typing import Dict
+from typing import Generic
+from typing import Set
+from typing import TypeVar
 
 KeyT = TypeVar("KeyT")
 ValueT = TypeVar("ValueT")

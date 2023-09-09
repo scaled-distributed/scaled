@@ -1,4 +1,7 @@
-from typing import Dict, Generic, Set, TypeVar
+from typing import Dict
+from typing import Generic
+from typing import Set
+from typing import TypeVar
 
 KeyT = TypeVar("KeyT")
 ValueT = TypeVar("ValueT")
@@ -23,7 +26,7 @@ class OneToManyDict(Generic[KeyT, ValueT]):
 
     def add(self, key: KeyT, value: ValueT):
         if value in self._value_to_key and self._value_to_key[value] != key:
-            raise ValueError(f"value has to be unique in OneToManyDict")
+            raise ValueError("value has to be unique in OneToManyDict")
 
         self._value_to_key[value] = key
 

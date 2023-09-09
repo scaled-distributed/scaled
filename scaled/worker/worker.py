@@ -7,28 +7,28 @@ from typing import Optional
 import zmq.asyncio
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import (
-    BalanceRequest,
-    BalanceResponse,
-    DisconnectRequest,
-    FunctionRequest,
-    FunctionResponse,
-    HeartbeatEcho,
-    MessageVariant,
-    Task,
-    TaskCancel,
-)
-from scaled.protocol.python.serializer.mixins import FunctionSerializerType
-from scaled.utility.event_loop import create_async_loop_routine, register_event_loop
-from scaled.utility.logging.utility import setup_logger
+from scaled.protocol.python.message import BalanceRequest
+from scaled.protocol.python.message import BalanceResponse
+from scaled.protocol.python.message import DisconnectRequest
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import FunctionResponse
+from scaled.protocol.python.message import HeartbeatEcho
+from scaled.protocol.python.message import MessageVariant
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.serializer.mixins import Serializer
+from scaled.utility.event_loop import create_async_loop_routine
+from scaled.utility.event_loop import register_event_loop
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.worker.agent.heartbeat_manager import VanillaHeartbeatManager
-from scaled.worker.agent.task_manager import VanillaTaskManager
 from scaled.worker.agent.processor_manager import VanillaProcessorManager
+from scaled.worker.agent.task_manager import VanillaTaskManager
 from scaled.worker.agent.timeout_manager import VanillaTimeoutManager
 
+# from scaled.utility.logging.utility import setup_logger
 
-class Worker(multiprocessing.get_context("spawn").Process):
+
+class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
     def __init__(
         self,
         event_loop: str,
@@ -36,7 +36,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         heartbeat_interval_seconds: int,
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
-        serializer: FunctionSerializerType,
+        serializer: Serializer,
         function_retention_seconds: int,
         death_timeout_seconds: int,
     ):
@@ -98,6 +98,7 @@ class Worker(multiprocessing.get_context("spawn").Process):
         self._processor_manager.register(
             heartbeat=self._heartbeat, task_manager=self._task_manager, connector_external=self._connector_external
         )
+        self._processor_manager.initialize()
 
         self._loop = asyncio.get_event_loop()
         self.__register_signal()

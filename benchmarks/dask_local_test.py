@@ -1,6 +1,7 @@
 import random
 
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client
+from dask.distributed import LocalCluster
 
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger

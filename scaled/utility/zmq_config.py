@@ -1,7 +1,6 @@
+import dataclasses
 import enum
 from typing import Optional
-
-import dataclasses
 
 
 class ZMQType(enum.Enum):
@@ -49,21 +48,21 @@ class ZMQConfig:
     @staticmethod
     def from_string(string: str) -> "ZMQConfig":
         if "://" not in string:
-            raise ValueError(f"valid ZMQ config should be like tcp://127.0.0.1:12345")
+            raise ValueError("valid ZMQ config should be like tcp://127.0.0.1:12345")
 
-        socket_type, host_port = string.split("://", 1)
-        if socket_type not in ZMQType.allowed_types():
+        socket_type_str, host_port = string.split("://", 1)
+        if socket_type_str not in ZMQType.allowed_types():
             raise ValueError(f"supported ZMQ types are: {ZMQType.allowed_types()}")
 
-        socket_type = ZMQType(socket_type)
+        socket_type = ZMQType(socket_type_str)
         if socket_type in {ZMQType.inproc, ZMQType.ipc}:
             host = host_port
             port = None
         else:
-            host, port = host_port.split(":")
+            host, port_str = host_port.split(":")
             try:
-                port = int(port)
+                port = int(port_str)
             except ValueError:
-                raise ValueError(f"cannot convert '{port}' to port number")
+                raise ValueError(f"cannot convert '{port_str}' to port number")
 
         return ZMQConfig(ZMQType(socket_type), host, port)

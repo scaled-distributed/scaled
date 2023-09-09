@@ -2,9 +2,14 @@ import abc
 import dataclasses
 import enum
 import struct
-from typing import Dict, List, Tuple, TypeVar, Set
+from typing import Dict
+from typing import List
+from typing import Set
+from typing import Tuple
+from typing import Type
+from typing import TypeVar
 
-import bidict
+from bidict import bidict
 
 
 class MessageType(enum.Enum):
@@ -31,7 +36,7 @@ class MessageType(enum.Enum):
     DisconnectRequest = b"DR"
     DisconnectResponse = b"DP"
 
-    ProcessorInitialize = b"PI"
+    WorkerTaskRequest = b"PI"
 
     SchedulerState = b"SS"
     TaskState = b"TS"
@@ -118,7 +123,7 @@ class Task(_Message):
     function_id: bytes
     function_args: List[Argument]
 
-    def serialize(self) -> Tuple[bytes, bytes, bytes]:
+    def serialize(self) -> Tuple[bytes, ...]:
         return self.task_id, self.function_id, *[d for arg in self.function_args for d in arg.serialize()]
 
     @staticmethod
@@ -390,13 +395,13 @@ class DisconnectResponse(_Message):
 
 
 @dataclasses.dataclass
-class ProcessorInitialize(_Message):
+class WorkerTaskRequest(_Message):
     def serialize(self) -> Tuple[bytes, ...]:
         return (b"",)
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        return ProcessorInitialize()
+        return WorkerTaskRequest()
 
 
 @dataclasses.dataclass
@@ -440,7 +445,7 @@ class GraphTaskState(_Message):
         return GraphTaskState(data[0], data[1], NodeTaskType(data[2]), set(data[3:]))
 
 
-PROTOCOL = bidict.bidict(
+PROTOCOL: bidict[MessageType, Type[_Message]] = bidict(
     {
         MessageType.Heartbeat: Heartbeat,
         MessageType.HeartbeatEcho: HeartbeatEcho,
@@ -458,7 +463,7 @@ PROTOCOL = bidict.bidict(
         MessageType.FunctionResponse: FunctionResponse,
         MessageType.DisconnectRequest: DisconnectRequest,
         MessageType.DisconnectResponse: DisconnectResponse,
-        MessageType.ProcessorInitialize: ProcessorInitialize,
+        MessageType.WorkerTaskRequest: WorkerTaskRequest,
         MessageType.SchedulerState: SchedulerState,
         MessageType.TaskState: TaskState,
         MessageType.GraphTaskState: GraphTaskState,

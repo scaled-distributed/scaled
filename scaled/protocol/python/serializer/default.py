@@ -1,5 +1,6 @@
 import pickle
-from typing import Any, Callable
+from typing import Any
+from typing import Callable
 
 import cloudpickle
 

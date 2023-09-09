@@ -3,12 +3,20 @@ import os
 import socket
 import uuid
 from collections import defaultdict
-from typing import Awaitable, Callable, List, Literal, Optional
+from typing import Any
+from typing import Callable
+from typing import Coroutine
+from typing import Dict
+from typing import List
+from typing import Literal
+from typing import Optional
 
 import zmq.asyncio
 
+from scaled.protocol.python.message import MessageType
+from scaled.protocol.python.message import MessageVariant
+from scaled.protocol.python.message import PROTOCOL
 from scaled.utility.zmq_config import ZMQConfig
-from scaled.protocol.python.message import MessageType, MessageVariant, PROTOCOL
 
 
 class AsyncConnector:
@@ -18,7 +26,7 @@ class AsyncConnector:
         socket_type: int,
         address: ZMQConfig,
         bind_or_connect: Literal["bind", "connect"],
-        callback: Optional[Callable[[MessageType, MessageVariant], Awaitable[None]]],
+        callback: Optional[Callable[[MessageVariant], Coroutine[Any, Any, Any]]],
     ):
         self._address = address
 
@@ -38,11 +46,14 @@ class AsyncConnector:
         elif bind_or_connect == "connect":
             self._socket.connect(self._address.to_address())
         else:
-            raise TypeError(f"bind_or_connect has to be 'bind' or 'connect'")
+            raise TypeError("bind_or_connect has to be 'bind' or 'connect'")
 
-        self._callback: Optional[Callable[[MessageVariant], Awaitable[None]]] = callback
+        self._callback: Optional[Callable[[MessageVariant], Coroutine[Any, Any, Any]]] = callback
 
-        self._statistics = {"received": defaultdict(lambda: 0), "sent": defaultdict(lambda: 0)}
+        self._statistics: Dict[str, Dict[str, int]] = {
+            "received": defaultdict(lambda: 0),
+            "sent": defaultdict(lambda: 0),
+        }
 
     def __del__(self):
         self.destroy()
@@ -87,7 +98,7 @@ class AsyncConnector:
             return False
 
         if frames[0] not in {member.value for member in MessageType}:
-            logging.error(f"{self.__get_prefix()} received unexpected message type: {frames[0]}")
+            logging.error(f"{self.__get_prefix()} received unexpected message type: {frames[0]!r}")
             return False
 
         return True

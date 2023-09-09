@@ -3,19 +3,18 @@ import asyncio
 import functools
 import signal
 
-from scaled.io.config import (
-    DEFAULT_IO_THREADS,
-    DEFAULT_FUNCTION_RETENTION_SECONDS,
-    DEFAULT_LOAD_BALANCE_SECONDS,
-    DEFAULT_LOAD_BALANCE_TRIGGER_TIMES,
-    DEFAULT_MAX_NUMBER_OF_TASKS_WAITING,
-    DEFAULT_PER_WORKER_QUEUE_SIZE,
-    DEFAULT_WORKER_TIMEOUT_SECONDS,
-)
+from scaled.io.config import DEFAULT_FUNCTION_RETENTION_SECONDS
+from scaled.io.config import DEFAULT_IO_THREADS
+from scaled.io.config import DEFAULT_LOAD_BALANCE_SECONDS
+from scaled.io.config import DEFAULT_LOAD_BALANCE_TRIGGER_TIMES
+from scaled.io.config import DEFAULT_MAX_NUMBER_OF_TASKS_WAITING
+from scaled.io.config import DEFAULT_PER_WORKER_QUEUE_SIZE
+from scaled.io.config import DEFAULT_WORKER_TIMEOUT_SECONDS
 from scaled.scheduler.main import scheduler_main
-from scaled.utility.event_loop import EventLoopType, register_event_loop
-from scaled.utility.zmq_config import ZMQConfig
+from scaled.utility.event_loop import EventLoopType
+from scaled.utility.event_loop import register_event_loop
 from scaled.utility.logging.utility import setup_logger
+from scaled.utility.zmq_config import ZMQConfig
 
 
 def get_args():

@@ -1,5 +1,6 @@
 import abc
-from typing import Any, Callable, TypeVar
+from typing import Any
+from typing import Callable
 
 
 class Serializer(metaclass=abc.ABCMeta):
@@ -32,6 +33,3 @@ class Serializer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def deserialize_result(payload: bytes) -> Any:
         raise NotImplementedError()
-
-
-FunctionSerializerType = TypeVar("FunctionSerializerType", bound=Serializer)

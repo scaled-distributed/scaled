@@ -4,8 +4,12 @@ from typing import Optional
 import psutil
 
 from scaled.io.async_connector import AsyncConnector
-from scaled.protocol.python.message import Heartbeat, HeartbeatEcho
-from scaled.worker.agent.mixins import Looper, HeartbeatManager, TaskManager, TimeoutManager
+from scaled.protocol.python.message import Heartbeat
+from scaled.protocol.python.message import HeartbeatEcho
+from scaled.worker.agent.mixins import HeartbeatManager
+from scaled.worker.agent.mixins import Looper
+from scaled.worker.agent.mixins import TaskManager
+from scaled.worker.agent.mixins import TimeoutManager
 
 
 class VanillaHeartbeatManager(Looper, HeartbeatManager):

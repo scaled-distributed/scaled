@@ -6,7 +6,8 @@ import psutil
 
 from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import SchedulerState
-from scaled.scheduler.mixins import Looper, Reporter
+from scaled.scheduler.mixins import Looper
+from scaled.scheduler.mixins import Reporter
 
 
 class StatusReporter(Looper):

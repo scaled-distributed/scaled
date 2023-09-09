@@ -1,10 +1,10 @@
 import functools
 import random
 import time
-
 import unittest
 
-from scaled import Client, SchedulerClusterCombo
+from scaled import Client
+from scaled import SchedulerClusterCombo
 from scaled.utility.logging.scoped_logger import ScopedLogger
 from scaled.utility.logging.utility import setup_logger
 
@@ -24,7 +24,7 @@ def heavy_function(sec: int, payload: bytes):
 
 def raise_exception(foo: int):
     if foo == 11:
-        raise ValueError(f"foo cannot be 100")
+        raise ValueError("sample foo cannot be 100")
 
 
 class TestClient(unittest.TestCase):
@@ -107,7 +107,7 @@ class TestClient(unittest.TestCase):
         client = Client(self.address)
 
         tasks = [i for i in range(100)]
-        with ScopedLogger(f"submit {len(tasks)} tasks, raise 1 of the tasks"):
+        with ScopedLogger(f"submit {len(tasks)} raise exception tasks, raise 1 of the tasks"):
             futures = [client.submit(raise_exception, i) for i in tasks]
 
         with self.assertRaises(ValueError), ScopedLogger(f"gather {len(futures)} results"):
@@ -124,23 +124,23 @@ class TestClient(unittest.TestCase):
 
         client = Client(self.address)
 
-        with ScopedLogger(f"test mix of positional and keyword arguments and with some arguments default value"):
+        with ScopedLogger("test mix of positional and keyword arguments and with some arguments default value"):
             self.assertEqual(client.submit(func_args, 1, c=4, b=2).result(), (1, 2, 4, 0))
 
-        with ScopedLogger(f"test all keyword arguments"):
+        with ScopedLogger("test all keyword arguments"):
             self.assertEqual(client.submit(func_args, d=5, b=3, c=1, a=4).result(), (4, 3, 1, 5))
 
-        with ScopedLogger(f"test mix of positional and keyword arguments with override default value"):
+        with ScopedLogger("test mix of positional and keyword arguments with override default value"):
             self.assertEqual(client.submit(func_args, 1, c=4, b=2, d=6).result(), (1, 2, 4, 6))
 
-        with ScopedLogger(f"test partial function"):
+        with ScopedLogger("test partial function"):
             self.assertEqual(client.submit(functools.partial(func_args, 5, 6), 1, 2).result(), (5, 6, 1, 2))
 
-        with ScopedLogger(f"test insufficient arguments"), self.assertRaises(TypeError):
+        with ScopedLogger("test insufficient arguments"), self.assertRaises(TypeError):
             client.submit(func_args, 1)
 
-        with ScopedLogger(f"test not allow keyword only arguments even assigned"), self.assertRaises(TypeError):
+        with ScopedLogger("test not allow keyword only arguments even assigned"), self.assertRaises(TypeError):
             client.submit(func_args2, 1, c=4, b=2, d=6).result()
 
-        with ScopedLogger(f"test not allow keyword only arguments"), self.assertRaises(TypeError):
+        with ScopedLogger("test not allow keyword only arguments"), self.assertRaises(TypeError):
             client.submit(func_args2, a=3, b=4).result()

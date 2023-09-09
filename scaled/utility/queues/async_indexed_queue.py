@@ -1,9 +1,17 @@
 import dataclasses
-from asyncio import Queue, QueueEmpty
-from typing import Any, Dict, Hashable, Optional
+from asyncio import Queue
+from asyncio import QueueEmpty
+from typing import Any
+from typing import Dict
+from typing import Generic
+from typing import Hashable
+from typing import Optional
+from typing import TypeVar
+
+T = TypeVar("T")
 
 
-class IndexedQueue(Queue):
+class IndexedQueue(Queue, Generic[T]):
     """This should have same set of features as asyncio.Queue, with additional methods like remove
     - it behaves like regular async queue, except:
       - all the items pushed to queue should be hashable
@@ -11,22 +19,22 @@ class IndexedQueue(Queue):
     - IndexedQueue.put(), IndexedQueue.get(), IndexedQueue.remove() should all take O(1) time complexity
     """
 
-    def __contains__(self, item):
+    def __contains__(self, item: T):
         return item in self._queue
 
     def __len__(self):
         return self._queue.__len__()
 
-    def _init(self, maxsize):
+    def _init(self, maxsize: int):
         self._queue = _IndexedDoubleLinkedQueue()
 
-    def _put(self, item: Hashable):
+    def _put(self, item: T):
         self._queue.put(item)
 
-    def _get(self):
+    def _get(self) -> T:
         return self._queue.get()
 
-    def remove(self, item: Hashable):
+    def remove(self, item: T):
         """remove the item in the queue in O(1) time complexity"""
         self._queue.remove(item)
 

@@ -1,17 +1,16 @@
 import argparse
 
-from scaled.io.config import (
-    DEFAULT_DEATH_TIMEOUT_SECONDS,
-    DEFAULT_FUNCTION_RETENTION_SECONDS,
-    DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
-    DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
-    DEFAULT_NUMBER_OF_WORKER,
-    DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,
-)
-from scaled.protocol.python.serializer.default import DefaultSerializer
-from scaled.utility.event_loop import EventLoopType, register_event_loop
-from scaled.utility.zmq_config import ZMQConfig
 from scaled.cluster.cluster import Cluster
+from scaled.io.config import DEFAULT_DEATH_TIMEOUT_SECONDS
+from scaled.io.config import DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS
+from scaled.io.config import DEFAULT_HEARTBEAT_INTERVAL_SECONDS
+from scaled.io.config import DEFAULT_NUMBER_OF_WORKER
+from scaled.io.config import DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES
+from scaled.io.config import DEFAULT_WORKER_FUNCTION_RETENTION_SECONDS
+from scaled.protocol.python.serializer.default import DefaultSerializer
+from scaled.utility.event_loop import EventLoopType
+from scaled.utility.event_loop import register_event_loop
+from scaled.utility.zmq_config import ZMQConfig
 
 
 def get_args():
@@ -32,7 +31,7 @@ def get_args():
         "--function-retention-seconds",
         "-ft",
         type=int,
-        default=DEFAULT_FUNCTION_RETENTION_SECONDS,
+        default=DEFAULT_WORKER_FUNCTION_RETENTION_SECONDS,
         help="number of seconds function cached in worker process",
     )
     parser.add_argument(

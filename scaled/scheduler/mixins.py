@@ -1,17 +1,17 @@
 import abc
-from typing import Dict, Optional, Set
+from typing import Dict
+from typing import Optional
+from typing import Set
 
-from scaled.protocol.python.message import (
-    BalanceResponse,
-    DisconnectRequest,
-    FunctionRequest,
-    GraphTask,
-    GraphTaskCancel,
-    Heartbeat,
-    Task,
-    TaskCancel,
-    TaskResult,
-)
+from scaled.protocol.python.message import BalanceResponse
+from scaled.protocol.python.message import DisconnectRequest
+from scaled.protocol.python.message import FunctionRequest
+from scaled.protocol.python.message import GraphTask
+from scaled.protocol.python.message import GraphTaskCancel
+from scaled.protocol.python.message import Heartbeat
+from scaled.protocol.python.message import Task
+from scaled.protocol.python.message import TaskCancel
+from scaled.protocol.python.message import TaskResult
 
 
 class Looper(metaclass=abc.ABCMeta):

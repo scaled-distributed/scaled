@@ -4,6 +4,9 @@ import os
 # SYSTEM OPTIONS
 POLLING_TIME_MILLISECONDS = 50
 
+# clean up routine interval seconds
+CLEANUP_INTERVAL_SECONDS = 1
+
 # ==========================
 # SCHEDULER SPECIFIC OPTIONS
 
@@ -18,10 +21,7 @@ DEFAULT_MAX_NUMBER_OF_TASKS_WAITING = -1
 # tasks for this worker
 DEFAULT_WORKER_TIMEOUT_SECONDS = 60
 
-# function clean up time interval
-CLEANUP_INTERVAL_SECONDS = 1
-
-# status report interval, used by poke or scaled monitor
+# status report interval, used by scaled top or customized monitor
 STATUS_REPORT_INTERVAL_SECONDS = 1
 
 # number of seconds for load balance, if value is 0 means disable load balance
@@ -34,23 +34,29 @@ DEFAULT_LOAD_BALANCE_TRIGGER_TIMES = 2
 # number of tasks can be queued to each worker on scheduler side
 DEFAULT_PER_WORKER_QUEUE_SIZE = 1000
 
+# number of seconds the function cache will be kept in scheduler's memory, please note if this retention time is up,
+# it will issue signal to delete outdated function cache in all connected worker, which means if below worker option
+# DEFAULT_WORKER_FUNCTION_RETENTION_SECONDS is set higher than this option, it might not take effect
+DEFAULT_FUNCTION_RETENTION_SECONDS = 20
+
 # =======================
 # WORKER SPECIFIC OPTIONS
 
 # number of workers, echo worker use 1 process
-DEFAULT_NUMBER_OF_WORKER = os.cpu_count() - 1
+DEFAULT_NUMBER_OF_WORKER = int(os.cpu_count()) - 1  # type: ignore
 
 # number of seconds that worker agent send heartbeat to scheduler
 DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 2
 
-# number of seconds the function cache kept in worker's memory
-DEFAULT_FUNCTION_RETENTION_SECONDS = 3600
-
-# number of seconds worker will quit if didn't hear from scheduler
+# number of seconds worker(s) will quit if didn't hear from scheduler
 DEFAULT_DEATH_TIMEOUT_SECONDS = 10
 
 # number of seconds worker doing garbage collection
 DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS = 30
 
 # number of bytes threshold for worker process that trigger deep garbage collection
-DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES = 1024 * 1024 * 1024
+DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES = 1024 * 1024 * 1024  # 1GiB
+
+# number of seconds the function cache will be kept in worker's memory, but please note worker can still delete the
+# function cache when receive the signal from scheduler
+DEFAULT_WORKER_FUNCTION_RETENTION_SECONDS = 20
