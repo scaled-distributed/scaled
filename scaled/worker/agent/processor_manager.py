@@ -13,10 +13,12 @@ from scaled.io.async_connector import AsyncConnector
 from scaled.protocol.python.message import FunctionRequest
 from scaled.protocol.python.message import FunctionRequestType
 from scaled.protocol.python.message import FunctionResponse
+from scaled.protocol.python.message import FunctionResponseType
 from scaled.protocol.python.message import MessageVariant
 from scaled.protocol.python.message import Task
 from scaled.protocol.python.message import TaskResult
 from scaled.protocol.python.serializer.mixins import Serializer
+from scaled.utility.logging.utility import setup_logger
 from scaled.utility.zmq_config import ZMQConfig
 from scaled.utility.zmq_config import ZMQType
 from scaled.worker.agent.mixins import HeartbeatManager
@@ -58,7 +60,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         self._processor_holder: _ProcessorHolder = _ProcessorHolder(None, None, asyncio.Event(), asyncio.Lock())
 
-        self._connector: AsyncConnector = AsyncConnector(
+        self._connector_internal: AsyncConnector = AsyncConnector(
             context=zmq.asyncio.Context(),
             socket_type=zmq.PAIR,
             bind_or_connect="bind",
@@ -72,14 +74,17 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         self._connector_external = connector_external
 
     def initialize(self):
+        setup_logger()
         self.__start_new_processor()
 
     async def routine(self):
-        await self._connector.routine()
+        await self._connector_internal.routine()
 
     async def on_function_request(self, request: FunctionRequest):
         if request.type == FunctionRequestType.Delete:
-            await self._connector.send(FunctionRequest(FunctionRequestType.Delete, request.function_id, b"", b""))
+            await self._connector_internal.send(
+                FunctionRequest(FunctionRequestType.Delete, request.function_id, b"", b"")
+            )
             return
 
         raise TypeError(f"unknown function request type: {request.type}")
@@ -90,7 +95,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         await self._processor_holder.initialized.wait()
         assert self._processor_holder.task is None
         self._processor_holder.task = task
-        await self._connector.send(self._processor_holder.task)
+        await self._connector_internal.send(self._processor_holder.task)
         return True
 
     async def on_function_response(self, response: FunctionResponse):
@@ -100,7 +105,11 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         if self._processor_holder.task.function_id != response.function_id:
             return
 
-        await self._connector.send(response)
+        if response.status == FunctionResponseType.NotExists:
+            logging.info(f"cannot get function for task={self._processor_holder.task.task_id.hex()}, must be canceled")
+            return
+
+        await self._connector_internal.send(response)
 
     async def on_cancel_task(self, task_id: bytes) -> bool:
         if not self._processor_holder.initialized.is_set():
@@ -112,13 +121,22 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         self.restart_processor()
         return True
 
+    def initialized(self) -> bool:
+        return self._processor_holder.initialized.is_set()
+
+    def current_task(self) -> bytes:
+        return self._processor_holder.task.task_id if self._processor_holder.task else b""
+
+    def task_lock(self) -> bool:
+        return self._processor_holder.task_wait_lock.locked()
+
     def restart_processor(self):
         self.__kill()
         self.__start_new_processor()
 
     def destroy(self):
         self.__kill()
-        self._connector.destroy()
+        self._connector_internal.destroy()
         os.remove(self._address_path)
 
     def __kill(self):
@@ -170,7 +188,7 @@ class VanillaProcessorManager(Looper, ProcessorManager):
 
         self._processor_holder.initialized.set()
         if self._processor_holder.task is not None:
-            await self._connector.send(self._processor_holder.task)
+            await self._connector_internal.send(self._processor_holder.task)
 
     async def __on_receive_internal(self, message: MessageVariant):
         if isinstance(message, FunctionRequest):
@@ -193,4 +211,5 @@ class VanillaProcessorManager(Looper, ProcessorManager):
         if self._processor_holder.task.function_id != request.function_id:
             return
 
+        assert request.type == FunctionRequestType.Request
         await self._connector_external.send(request)

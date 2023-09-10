@@ -304,8 +304,11 @@ class Heartbeat(_Message):
     worker_rss: int
     queued_tasks: int
     latency_us: int
+    initialized: bool
+    has_task: bool
+    task_lock: bool
 
-    FORMAT = "HQHQHI"
+    FORMAT = "HQHQHI???"
 
     def serialize(self) -> Tuple[bytes, ...]:
         return (
@@ -317,16 +320,35 @@ class Heartbeat(_Message):
                 self.worker_rss,
                 self.queued_tasks,
                 self.latency_us,
+                self.initialized,
+                self.has_task,
+                self.task_lock,
             ),
         )
 
     @staticmethod
     def deserialize(data: List[bytes]):
-        agent_cpu, agent_rss, worker_cpu, worker_rss, queued_tasks, latency_us = struct.unpack(
-            Heartbeat.FORMAT, data[0]
-        )
+        (
+            agent_cpu,
+            agent_rss,
+            worker_cpu,
+            worker_rss,
+            queued_tasks,
+            latency_us,
+            initialized,
+            has_task,
+            task_lock,
+        ) = struct.unpack(Heartbeat.FORMAT, data[0])
         return Heartbeat(
-            float(agent_cpu / 1000), agent_rss, float(worker_cpu / 1000), worker_rss, queued_tasks, latency_us
+            float(agent_cpu / 1000),
+            agent_rss,
+            float(worker_cpu / 1000),
+            worker_rss,
+            queued_tasks,
+            latency_us,
+            initialized,
+            has_task,
+            task_lock,
         )
 
 

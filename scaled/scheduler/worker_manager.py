@@ -123,6 +123,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
                     "queued": info.queued_tasks,
                     "lag": info.latency_us,
                     "last": int(time.time() - last),
+                    "ITL": f"{int(info.initialized)}{int(info.has_task)}{int(info.task_lock)}",
                 }
                 for worker, (last, info) in self._worker_alive_since.items()
             ]

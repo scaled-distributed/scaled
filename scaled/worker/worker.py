@@ -94,6 +94,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
             connector_external=self._connector_external,
             worker_task_manager=self._task_manager,
             timeout_manager=self._timeout_manager,
+            processor_manager=self._processor_manager,
         )
         self._processor_manager.register(
             heartbeat=self._heartbeat, task_manager=self._task_manager, connector_external=self._connector_external

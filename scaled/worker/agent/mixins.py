@@ -77,3 +77,15 @@ class ProcessorManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def destroy(self):
         raise NotImplementedError()
+
+    @abc.abstractmethod
+    def initialized(self) -> bool:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def current_task(self) -> bytes:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def task_lock(self) -> bool:
+        raise NotImplementedError()

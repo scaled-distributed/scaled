@@ -8,6 +8,7 @@ from scaled.protocol.python.message import Heartbeat
 from scaled.protocol.python.message import HeartbeatEcho
 from scaled.worker.agent.mixins import HeartbeatManager
 from scaled.worker.agent.mixins import Looper
+from scaled.worker.agent.mixins import ProcessorManager
 from scaled.worker.agent.mixins import TaskManager
 from scaled.worker.agent.mixins import TimeoutManager
 
@@ -20,16 +21,22 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
         self._connector_external: Optional[AsyncConnector] = None
         self._worker_task_manager: Optional[TaskManager] = None
         self._timeout_manager: Optional[TimeoutManager] = None
+        self._processor_manager: Optional[ProcessorManager] = None
 
         self._start_timestamp_ns = 0
         self._latency_us = 0
 
     def register(
-        self, connector_external: AsyncConnector, worker_task_manager: TaskManager, timeout_manager: TimeoutManager
+        self,
+        connector_external: AsyncConnector,
+        worker_task_manager: TaskManager,
+        timeout_manager: TimeoutManager,
+        processor_manager: ProcessorManager,
     ):
         self._connector_external = connector_external
         self._worker_task_manager = worker_task_manager
         self._timeout_manager = timeout_manager
+        self._processor_manager = processor_manager
 
     def set_processor_pid(self, process_id: int):
         self._worker_process = psutil.Process(process_id)
@@ -59,6 +66,9 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
                 self._worker_process.memory_info().rss,
                 self._worker_task_manager.get_queued_size(),
                 self._latency_us,
+                self._processor_manager.initialized(),
+                True if self._processor_manager.current_task() else False,
+                self._processor_manager.task_lock(),
             )
         )
         self._start_timestamp_ns = time.time_ns()
