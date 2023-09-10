@@ -119,6 +119,8 @@ class VanillaProcessorManager(Looper, ProcessorManager):
             return False
 
         self.restart_processor()
+        self._processor_holder.task = None
+        self._processor_holder.task_wait_lock.release()
         return True
 
     def initialized(self) -> bool:
