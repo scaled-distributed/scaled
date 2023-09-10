@@ -27,7 +27,7 @@ packages = ["scaled"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = "requirements.txt"}
-version = {attr = "scaled.__version__"}
+version = {attr = "scaled.about.__version__"}
 
 [metadata]
 long_description = { file = "README.md" }
